@@ -1,0 +1,23 @@
+# --- Arduino / arduino-cli build artifacts ---
+build/
+*.hex
+*.bin
+*.elf
+*.eep
+*.lst
+*.map
+*.o
+*.d
+*.a
+# arduino-cli cache / compiled sketch output
+*.with_bootloader.*
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
