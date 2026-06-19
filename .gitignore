@@ -21,3 +21,9 @@ build/
 # --- OS junk ---
 .DS_Store
 Thumbs.db
+
+# --- Python analysis env / generated figures ---
+.venv/
+__pycache__/
+*.pyc
+analysis/figures/

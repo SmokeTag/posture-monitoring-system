@@ -1,0 +1,5 @@
+# Analysis / plotting dependencies for the IMU posture capture.
+# Install into a venv:  python3 -m venv .venv && .venv/bin/pip install -r analysis/requirements.txt
+numpy>=2.0
+pandas>=2.2
+matplotlib>=3.8
