@@ -39,10 +39,10 @@
  * Send a digit '0'..'9' to stamp `tag` and label postures/trials in ONE
  * continuous capture. Meanings:
  *   0 = upright   1 = forward slouch   2 = lean L   3 = lean R   4 = head-down
- *   5 = reclined / laid-back (hips forward, torso leaning back on the chair)
+ *   5 = laid-back (hips forward, torso leaning back on the chair)
  *   9 = JUNK / MOVING  (reserved — see below)
  * Pitch convention (this mounting): upright ~45 deg; leaning FORWARD lowers
- * pitch, leaning BACK raises it (reclined = the highest pitch).
+ * pitch, leaning BACK raises it (laid-back = the highest pitch).
  * (For the re-don experiment, reuse 0 and re-send 'c' before each trial.)
  * `cal` is 1 once calibrated; when not calibrated, dpitch/droll equal pitch/roll.
  *

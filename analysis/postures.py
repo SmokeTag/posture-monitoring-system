@@ -32,14 +32,14 @@ DOCUMENTED_TAGS = {0, 1, 2, 3, 4, 5, 9}
 JUNK_TAG = 9  # "moving / transition" — dropped from steady-posture analysis
 
 # Pitch convention for this mounting: upright ~45 deg; leaning FORWARD lowers
-# pitch (slouch ~20, head-down ~27), leaning BACK raises it (reclined ~64).
+# pitch (slouch ~20, head-down ~27), leaning BACK raises it (laid-back ~64).
 TAG_LABELS = {
     0: "Upright",
     1: "Forward slouch",
     2: "Lean left",
     3: "Lean right",
     4: "Head-down",
-    5: "Reclined (laid-back)",   # hips forward, torso back — highest pitch
+    5: "Laid-back",   # hips forward, torso back — highest pitch
     9: "Transition / moving",
 }
 

@@ -20,7 +20,7 @@ the checks with `.venv/bin/python analysis/validate_postures.py`.
 | Structure | **5 full rounds** of the posture sequence `0→1→2→3→4→5`, transitions tagged `9` between every hold |
 | Holds | 31 steady segments, all ≥ 9.1 s (29/31 ≥ 10 s) |
 | Calibration | **7 re-don calibration events** (1 initial + 6 re-mounts) — the OE1 experiment |
-| Tags present | 0 upright, 1 fwd-slouch, 2 lean-L, 3 lean-R, 4 head-down, **5 reclined/laid-back**, 9 transition  (counts: 1427/1222/1111/1435/1390/1286/10066) |
+| Tags present | 0 upright, 1 fwd-slouch, 2 lean-L, 3 lean-R, 4 head-down, **5 laid-back**, 9 transition  (counts: 1427/1222/1111/1435/1390/1286/10066) |
 
 ## Checks
 
@@ -70,7 +70,7 @@ anyway, so **no posture data is lost**.
 
 ### 5. Protocol & posture content — PASS (+1 WARN)
 
-**`tag 5` = "reclined / laid-back"** (resolved). 1 286 rows (7.2 %), one tight
+**`tag 5` = "laid-back"** (resolved). 1 286 rows (7.2 %), one tight
 hold per round in all 5 rounds (within-hold std pitch ±0.43° / roll ±0.81°) — a
 deliberate, repeated pose: hips slid forward, torso leaning **back** against the
 chair, so it has the **highest pitch of any tag (63.8°)** (this mounting reads
@@ -113,7 +113,7 @@ the OE2/OE4 feasibility result. See `figures/02_separation.png` and
 
 ## Action items
 
-1. ~~Define `tag 5`~~ **done** — "reclined / laid-back", added to the tag map
+1. ~~Define `tag 5`~~ **done** — "laid-back", added to the tag map
    (firmware, plan doc, `postures.py`).
 2. Treat **1 ↔ 4 (slouch ↔ head-down)** as a hard pair for the IMU channel; lean
    on chair pressure (FSRs) to separate them — motivates the sensor fusion.

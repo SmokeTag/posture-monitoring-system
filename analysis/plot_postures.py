@@ -62,10 +62,10 @@ def fig_timeline(df, cals_gaps):
     for hi, li in zip(h, l):
         if li not in seen:
             seen.add(li); hh.append(hi); ll.append(li)
-    a1.legend(hh, ll, ncol=6, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, 1.18))
+    a1.legend(hh, ll, ncol=6, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, 1.10))
     a2.set_xlabel("time [s]")
     a1.set_title("IMU posture capture — full timeline "
-                 "(shaded = held posture, dashed = calibration press)", pad=28)
+                 "(shaded = held posture, dashed = calibration press)", pad=34)
     fig.tight_layout()
     return fig
 

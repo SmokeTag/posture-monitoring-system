@@ -31,7 +31,7 @@ posture-separation result (OE2/OE4) and the calibration-drift result (OE1).
 | `2` | lean left |
 | `3` | lean right |
 | `4` | head-down (look down at lap/phone) |
-| `5` | reclined / laid-back (slide hips forward, lean torso back on the chair) |
+| `5` | laid-back (slide hips forward, lean torso back on the chair) |
 | `9` | **transition / moving** — press during EVERY move; dropped in analysis |
 
 Pitch reads ~45° upright; forward postures read lower, reclining reads higher.
@@ -74,7 +74,7 @@ Hold each posture still for **~10 s**, press `9` while moving between them:
 
 ```
 0 (upright, 10s) → 9 → 1 (slouch) → 9 → 2 (lean L) → 9 → 3 (lean R)
-                 → 9 → 4 (head-down) → 9 → 5 (reclined) → 9
+                 → 9 → 4 (head-down) → 9 → 5 (laid-back) → 9
 ```
 
 You time it yourself — there is no per-tag timer; the tag just holds until you

@@ -24,7 +24,7 @@ chronologically); override with `--csv data/<file>.csv`.
 [`../analysis/postures.py`](../analysis/postures.py) for full column docs.
 
 Tag map: `0` upright · `1` forward slouch · `2` lean left · `3` lean right ·
-`4` head-down · `5` reclined/laid-back · `9` transition/moving (dropped in
+`4` head-down · `5` laid-back · `9` transition/moving (dropped in
 analysis). `#`-prefixed lines are comments (calibration events, tag stamps).
 
 ## Run registry
