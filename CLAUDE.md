@@ -115,7 +115,10 @@ decision logic elsewhere later if needed.
     stamp the `tag` column to label postures/trials in one capture. Prose lines
     are `#`-prefixed so the stream parses directly (`read_csv(comment='#')`).
 - `firmware/uno_fsr_test/` — Arduino Uno single-FSR402 test. Reads a voltage
-  divider and prints raw ADC + **computed FSR resistance (ohms)**.
+  divider (R_FIXED 3.3k) and prints raw ADC + **computed FSR resistance (ohms)**.
+  **CSV mode** (`'l'` toggle) logs `t_ms,load_kg,raw,ohms`; type the bathroom-scale
+  reading (kg) to stamp `load_kg` → the R-vs-load curve. Plot + saturation knee:
+  `analysis/plot_fsr_curve.py`. Procedure: `docs/protocolo-caracterizacao-fsr.md`.
 - `firmware/uno_fsr6_test/` — Arduino Uno 6-channel FSR402 array on A0–A5 (no
   mux; Uno has exactly 6 analog inputs). Logs CSV `t_ms,tag,r0..r5` (ohms, -1 =
   open) for the seat weight-distribution map. Each channel needs its own FSR +
@@ -143,7 +146,7 @@ rounds + 7 re-don calibrations in
 0 FAIL (`analysis/VALIDATION.md`). Postures separate in pitch/roll (OE2/OE4);
 re-don drifts upright 7.7° pitch / ~21° roll (OE1); proposed alert angle ≈10°.
 Caveats: **slouch(1)↔head-down(4) need the chair FSRs to separate** (and this
-run's postures were pronounced → optimistic margin); tag `5`=reclined/laid-back.
+run's postures were pronounced → optimistic margin); tag `5`=laid-back.
 Repeat with neck mount + other subjects: `docs/protocolo-captura-imu.md`.
 
 **Analysis tooling:** `analysis/` (Python venv at `.venv`) — `validate_postures.py`,

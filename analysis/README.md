@@ -52,10 +52,16 @@ Re-runnable on any future capture. Full write-up of the current file:
   `parse_calibration_comments`), plus the tag map / colours. Import it from your
   own notebooks.
 - `validate_postures.py` — the validator (above).
-- `plot_postures.py` — the figures (above).
+- `plot_postures.py` — the IMU figures (above).
+- `plot_fsr_curve.py` — **FSR402 R-vs-load curve** + saturation knee (Campaign B).
+  Input: a `data/*fsr*.csv` from `firmware/uno_fsr_test` (press `l`, type each
+  scale reading in kg). Procedure: `../docs/protocolo-caracterizacao-fsr.md`.
+  ```bash
+  .venv/bin/python analysis/plot_fsr_curve.py        # newest data/*fsr*.csv
+  ```
 
 ### Tag map
 
 `0`=upright, `1`=forward slouch, `2`=lean left, `3`=lean right, `4`=head-down,
-`5`=reclined / laid-back (hips forward, torso back — highest pitch),
+`5`=laid-back (hips forward, torso back — highest pitch),
 `9`=transition/moving (**dropped** from steady analysis).

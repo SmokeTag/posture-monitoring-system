@@ -81,7 +81,7 @@ log CSV:
   per-user "upright" reference.
 
 **Tag map (`tag` column):** `0`=upright, `1`=forward slouch, `2`=lean L,
-`3`=lean R, `4`=head-down, `5`=reclined/laid-back (hips forward, torso back),
+`3`=lean R, `4`=head-down, `5`=laid-back (hips forward, torso back),
 **`9`=junk/moving (reserved)**. Logging is continuous
 once CSV is on; the tag holds until you change it, and you time each posture
 (~10 s) yourself — there is no per-tag timer.
@@ -92,7 +92,7 @@ once CSV is on; the tag holds until you change it, and you time each posture
    the accelerometer reads motion + gravity so the tilt math is briefly wrong.
    Then ~10 s steady per posture:
    `0` upright → `9` → `1` slouch → `9` → `2` lean L → `9` → `3` lean R → `9` →
-   `4` head-down → `9` → `5` reclined. → plot shows clear angular separation =
+   `4` head-down → `9` → `5` laid-back. → plot shows clear angular separation =
    detection works.
 2. **Re-don experiment (the strong result):** remove and re-attach the sensor
    4–5×, re-send `c` and recapture *upright* each time (`9` between). The
@@ -112,8 +112,11 @@ first ~0.5–1 s after each tag change before averaging each steady segment.
 **Goal:** map resistance vs. load, find saturation, confirm "relative pressure /
 contact, not calibrated force" framing, pick the divider resistor.
 
-**Firmware:** `uno_fsr_test` already prints raw ADC + resistance (ohms). Add a
-6-channel variant reading A0–A5 for the weight map.
+**Firmware:** `uno_fsr_test` prints raw ADC + resistance (ohms) and now has a
+**CSV/load-stamp mode** (`'l'`; type the scale reading in kg) for the R-vs-load
+curve. The 6-channel weight-map variant is `uno_fsr6_test` (A0–A5).
+**Step-by-step procedure:** [`protocolo-caracterizacao-fsr.md`](protocolo-caracterizacao-fsr.md).
+Analysis: `analysis/plot_fsr_curve.py` (curve + saturation knee).
 
 **Protocol:**
 1. **R-vs-load curve:** FSR on a hard surface, press through a rigid flat puck
