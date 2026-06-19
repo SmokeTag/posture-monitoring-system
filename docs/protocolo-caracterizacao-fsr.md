@@ -5,6 +5,9 @@
 > resistance against applied force, find the **saturation knee**, and confirm the
 > "treat FSRs as *relative* pressure/contact, not calibrated force" framing.
 > ~15–20 min.
+>
+> **Only have a ≤2 kg precision scale?** Use the light-contact variant:
+> [`protocolo-fsr-balanca-precisao.md`](protocolo-fsr-balanca-precisao.md).
 
 ## What it produces
 
@@ -15,8 +18,9 @@ force sweep, → an R-vs-load curve with the saturation point marked
 ## You need
 
 - **Arduino Uno** (+ USB cable).
-- **1 × FSR402**, a **fixed resistor** for the divider (start **3.3 kΩ**, the
-  firmware default — note whichever you use), breadboard + jumpers.
+- **1 × FSR402**, a **fixed resistor** for the divider (a nominally **3.3 kΩ**
+  resistor — measure its true value with a multimeter and put that in `R_FIXED`;
+  note whichever you use), breadboard + jumpers.
 - A **bathroom scale**.
 - A **rigid flat puck** — a coin, bottle cap, or small hard disc ~the size of the
   FSR's 12.7 mm pad — to press force evenly onto the sensing area.

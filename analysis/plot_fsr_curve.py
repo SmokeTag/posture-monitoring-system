@@ -65,6 +65,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--csv", default=str(default_csv()))
     ap.add_argument("--rfixed", type=float, default=3300.0, help="divider resistor used (ohms), for the title")
+    ap.add_argument("--units", choices=["kg", "g"], default="kg",
+                    help="units the load column is stamped in (the precision-balance protocol uses grams)")
     args = ap.parse_args()
 
     path = Path(args.csv)
@@ -75,6 +77,8 @@ def main() -> int:
         return 2
 
     df = load(path)
+    if args.units == "g":  # protocol stamps grams into the load_kg column; normalize to kg
+        df["load_kg"] = df["load_kg"] / 1000.0
     levels = per_level(df)
     n_open = int((df["ohms"] <= 0).sum())
     knee, floor = find_knee(levels)

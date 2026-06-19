@@ -37,9 +37,10 @@
  *   - On a XIAO nRF52840, power the divider from 3.3V and set BOTH voltage
  *     constants to 3.3 (and never exceed 3.3 V on an input pin). The printed
  *     resistance is still directly comparable across boards.
- *   - Tune R_FIXED: 3.3k here. Lower it if it saturates too early under sitting
- *     loads; raise it for more sensitivity to light contact. Record which value
- *     you used (it scales the resistance you can resolve).
+ *   - R_FIXED here = 2833 ohms (a nominally-3.3k resistor, MEASURED). Use the
+ *     measured value, not the nominal. Lower it (~1k) if it saturates too early
+ *     under heavy/seated loads; raise it for more sensitivity to light contact.
+ *     Record which value you used (it scales the resistance you can resolve).
  *
  * Build+upload / monitor (arduino-cli, Uno on /dev/ttyACM0):
  *   arduino-cli compile --upload -p /dev/ttyACM0 \
@@ -51,7 +52,7 @@
 const int   FSR_PIN     = A0;
 const float V_REF_ADC   = 5.0;       // ADC reference (Uno default = 5V)
 const float V_DIVIDER   = 5.0;       // supply feeding the divider
-const float R_FIXED     = 3300.0;    // fixed resistor, ohms
+const float R_FIXED     = 2833.0;    // fixed resistor, ohms (measured w/ multimeter; nominal 3.3k)
 const int   ADC_MAX     = 1023;      // 10-bit ADC on the Uno
 
 const int SAMPLE_MS_LIVE = 200;      // human-readable mode (5 Hz)
