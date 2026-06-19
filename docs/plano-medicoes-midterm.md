@@ -81,7 +81,8 @@ log CSV:
   per-user "upright" reference.
 
 **Tag map (`tag` column):** `0`=upright, `1`=forward slouch, `2`=lean L,
-`3`=lean R, `4`=head-down, **`9`=junk/moving (reserved)**. Logging is continuous
+`3`=lean R, `4`=head-down, `5`=reclined/laid-back (hips forward, torso back),
+**`9`=junk/moving (reserved)**. Logging is continuous
 once CSV is on; the tag holds until you change it, and you time each posture
 (~10 s) yourself — there is no per-tag timer.
 
@@ -91,7 +92,8 @@ once CSV is on; the tag holds until you change it, and you time each posture
    the accelerometer reads motion + gravity so the tilt math is briefly wrong.
    Then ~10 s steady per posture:
    `0` upright → `9` → `1` slouch → `9` → `2` lean L → `9` → `3` lean R → `9` →
-   `4` head-down. → plot shows clear angular separation = detection works.
+   `4` head-down → `9` → `5` reclined. → plot shows clear angular separation =
+   detection works.
 2. **Re-don experiment (the strong result):** remove and re-attach the sensor
    4–5×, re-send `c` and recapture *upright* each time (`9` between). The
    "upright" pitch/roll drifts several degrees from mounting offset alone →
@@ -157,9 +159,11 @@ independent, so Uno data transfers directly to the 3.3 V XIAO later.
 ## Tracking checklist
 - [x] `xiao_imu_test`: add CSV pitch/roll logging (`l` toggle, `0`–`9` tags) — compiles
 - [x] Uno: 6-channel FSR sketch (A0–A5) → `firmware/uno_fsr6_test` — compiles
-- [ ] Capture 5 postures (IMU)
-- [ ] Re-don drift experiment (IMU)
+- [x] Capture postures (IMU) — **6 postures × 5 rounds**, run 1 (André, no neck mount);
+      `data/2026-06-19_andre_no-neck-mount_own-chair.csv`. Procedure: `protocolo-captura-imu.md`
+- [x] Re-don drift experiment (IMU) — 7 re-dons; upright drifts 7.7° pitch / ~21° roll (OE1)
 - [ ] FSR R-vs-load sweep + saturation knee
 - [ ] 6-channel weight map
-- [ ] Reduce data → plots
+- [x] Reduce data → plots — `analysis/` (validator + 6 figures); validated 15 PASS/3 WARN/0 FAIL
+- [ ] Re-capture with subtler postures + neck mount + other subjects (true separation margin)
 - [ ] Write partial-report sections

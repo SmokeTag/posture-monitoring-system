@@ -134,13 +134,24 @@ decision logic elsewhere later if needed.
      the Uno.
 
 ## Status
-IMU bring-up DONE — XIAO Sense confirmed, IMU streaming. Next: FSR402
-characterization on the Arduino Uno.
+IMU bring-up DONE. **Campaign A (IMU posture) CAPTURED + VALIDATED** — next:
+Campaign B (FSR402 characterization on the Uno).
+
+**Campaign A results (run 1, André, no neck mount, own chair):** 6 postures × 5
+rounds + 7 re-don calibrations in
+`data/2026-06-19_andre_no-neck-mount_own-chair.csv`. Validated 15 PASS / 3 WARN /
+0 FAIL (`analysis/VALIDATION.md`). Postures separate in pitch/roll (OE2/OE4);
+re-don drifts upright 7.7° pitch / ~21° roll (OE1); proposed alert angle ≈10°.
+Caveats: **slouch(1)↔head-down(4) need the chair FSRs to separate** (and this
+run's postures were pronounced → optimistic margin); tag `5`=reclined/laid-back.
+Repeat with neck mount + other subjects: `docs/protocolo-captura-imu.md`.
+
+**Analysis tooling:** `analysis/` (Python venv at `.venv`) — `validate_postures.py`,
+`plot_postures.py`, shared `postures.py`. See `analysis/README.md`.
 
 **Active midterm plan (deadline ≈ 2026-06-20):** bench-characterize each sensing
 channel independently with on-hand hardware (no 2nd XIAO / mux / battery / chair
 yet) for a written partial report. Two campaigns — (A) IMU upper-back posture +
-re-don/calibration experiment, (B) FSR402 load characterization + 6-channel
+re-don/calibration experiment ✅, (B) FSR402 load characterization + 6-channel
 weight map on the Uno (no mux). Full plan, TCC-objective mapping, and tracking
-checklist: `docs/plano-medicoes-midterm.md`. Critical path = CSV pitch/roll
-logging in `xiao_imu_test` + a 6-channel FSR sketch for the Uno.
+checklist: `docs/plano-medicoes-midterm.md`.
