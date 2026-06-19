@@ -109,8 +109,17 @@ decision logic elsewhere later if needed.
     zero-rate bias (gY ≈ -3°/s) — calibrate it out if integrating gyro to angle.
   - Toolchain (Arch): needs `adafruit-nrfutil` (AUR `python-adafruit-nrfutil`)
     to compile/upload; user must be in the `uucp` group for `/dev/ttyACM0`.
+  - Computes pitch/roll from accel + per-user upright calibration (serial `'c'`).
+    **CSV logging mode** (`'l'` toggle) streams
+    `t_ms,tag,cal,pitch,roll,dpitch,droll,ax,ay,az,gx,gy,gz`; digits `'0'`–`'9'`
+    stamp the `tag` column to label postures/trials in one capture. Prose lines
+    are `#`-prefixed so the stream parses directly (`read_csv(comment='#')`).
 - `firmware/uno_fsr_test/` — Arduino Uno single-FSR402 test. Reads a voltage
   divider and prints raw ADC + **computed FSR resistance (ohms)**.
+- `firmware/uno_fsr6_test/` — Arduino Uno 6-channel FSR402 array on A0–A5 (no
+  mux; Uno has exactly 6 analog inputs). Logs CSV `t_ms,tag,r0..r5` (ohms, -1 =
+  open) for the seat weight-distribution map. Each channel needs its own FSR +
+  fixed resistor; `'0'`–`'9'` tags empty/seated/leaning trials.
 
 ## Testing / bring-up plan
 1. **IMU bring-up** on the XIAO Sense (confirm board works + IMU reads).

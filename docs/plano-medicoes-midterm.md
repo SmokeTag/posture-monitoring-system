@@ -144,8 +144,8 @@ independent, so Uno data transfers directly to the 3.3 V XIAO later.
 ---
 
 ## Tracking checklist
-- [ ] `xiao_imu_test`: add CSV pitch/roll logging
-- [ ] Uno: 6-channel FSR sketch (A0–A5)
+- [x] `xiao_imu_test`: add CSV pitch/roll logging (`l` toggle, `0`–`9` tags) — compiles
+- [x] Uno: 6-channel FSR sketch (A0–A5) → `firmware/uno_fsr6_test` — compiles
 - [ ] Capture 5 postures (IMU)
 - [ ] Re-don drift experiment (IMU)
 - [ ] FSR R-vs-load sweep + saturation knee
