@@ -10,6 +10,15 @@ The system fuses two sources of information:
 2. **The orientation/curvature of the upper back** (worn sensor), to catch
    slouching and spine curvature that the chair alone cannot see.
 
+## Git / commits (working agreement)
+**Claude owns the commits for this repo.** When André asks to commit (or signals
+he doesn't want to think about it), Claude stages and writes the commit itself —
+clear message, logical grouping, no further prompting. Defaults:
+- Commit straight to `main` (matches this repo's solo history) unless told otherwise.
+- Group by intent (tooling vs data vs docs) rather than one giant commit.
+- Never commit data that's botched/void — flag it and leave it out (see the FSR3
+  VOID note in `data/README.md` for an example).
+
 ## Hardware
 
 ### Chair unit (sensing the contact surface)
