@@ -127,3 +127,11 @@ decision logic elsewhere later if needed.
 ## Status
 IMU bring-up DONE — XIAO Sense confirmed, IMU streaming. Next: FSR402
 characterization on the Arduino Uno.
+
+**Active midterm plan (deadline ≈ 2026-06-20):** bench-characterize each sensing
+channel independently with on-hand hardware (no 2nd XIAO / mux / battery / chair
+yet) for a written partial report. Two campaigns — (A) IMU upper-back posture +
+re-don/calibration experiment, (B) FSR402 load characterization + 6-channel
+weight map on the Uno (no mux). Full plan, TCC-objective mapping, and tracking
+checklist: `docs/plano-medicoes-midterm.md`. Critical path = CSV pitch/roll
+logging in `xiao_imu_test` + a 6-channel FSR sketch for the Uno.
