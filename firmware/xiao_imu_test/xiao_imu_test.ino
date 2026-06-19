@@ -30,17 +30,38 @@
  *
  * Every prose/diagnostic line is prefixed with '#', so a captured file is
  * directly parseable (pandas: read_csv(comment='#'); the header is the first
- * non-# line). Send a digit '0'..'9' to stamp the `tag` column — use it to
- * label postures/trials in ONE continuous capture (e.g. 0=upright, 1=forward
- * slouch, 2=lean L, 3=lean R, 4=head-down; or a re-don trial index). `cal` is
- * 1 once calibrated. When not calibrated, dpitch/droll equal pitch/roll.
+ * non-# line).
+ *
+ * Logging is CONTINUOUS at 20 Hz once CSV mode is on — it never stops on its
+ * own, and the `tag` column simply holds the last digit pressed until you
+ * change it. You time each posture yourself (~10 s); there is no per-tag timer.
+ *
+ * Send a digit '0'..'9' to stamp `tag` and label postures/trials in ONE
+ * continuous capture. Suggested meanings:
+ *   0 = upright   1 = forward slouch   2 = lean L   3 = lean R   4 = head-down
+ *   9 = JUNK / MOVING  (reserved — see below)
+ * (For the re-don experiment, reuse 0 and re-send 'c' before each trial.)
+ * `cal` is 1 once calibrated; when not calibrated, dpitch/droll equal pitch/roll.
+ *
+ * EXCLUDE TRANSITIONS — tag 9. Moving between postures contaminates data two
+ * ways: (1) the angle sweeps through intermediate values that belong to no
+ * posture, and (2) the pitch/roll math assumes the accelerometer sees only
+ * gravity, but while moving it also picks up the motion's own acceleration, so
+ * those samples are briefly wrong. Convention: press 9 during every transition
+ * and DROP all tag==9 rows in analysis; what remains is clean steady segments.
+ * Tag 9 is timing-forgiving — roughly covering each move is enough. (Optional
+ * safety margin: also drop the first ~0.5-1 s after each tag change before
+ * averaging, in case a key was pressed a hair before you fully settled.)
  *
  * Capture workflow (see also docs/plano-medicoes-midterm.md):
  *   arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee postures.csv
- *   # then type (each line is sent on Enter): l  -> start CSV
- *   #                                         c  -> calibrate while sitting upright
- *   #                                         0  -> tag upright, hold ~10s, then
- *   #                                         1  -> tag slouch, hold ~10s, ...
+ *   # type (each line sends on Enter):
+ *   #   l                -> start CSV
+ *   #   c                -> calibrate while sitting upright
+ *   #   0 (hold ~10s)    -> upright
+ *   #   9                -> move
+ *   #   1 (settle ~10s)  -> forward slouch
+ *   #   9 -> 2 lean L -> 9 -> 3 lean R -> 9 -> 4 head-down   (9 on every move)
  *
  * Setup (Arduino IDE):
  *   1. Boards Manager: install "Seeed nRF52 Boards".

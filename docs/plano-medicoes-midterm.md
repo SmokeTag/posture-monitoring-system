@@ -80,14 +80,25 @@ log CSV:
 - The existing serial `'c'` calibrate stub captures the current pitch/roll as the
   per-user "upright" reference.
 
+**Tag map (`tag` column):** `0`=upright, `1`=forward slouch, `2`=lean L,
+`3`=lean R, `4`=head-down, **`9`=junk/moving (reserved)**. Logging is continuous
+once CSV is on; the tag holds until you change it, and you time each posture
+(~10 s) yourself — there is no per-tag timer.
+
 **Protocol:**
-1. ~10 s steady capture per posture: **upright**, **forward slouch**, **lateral
-   lean L**, **lateral lean R**, **head-down "phone"** posture.
-   → plot shows clear angular separation = detection works.
+1. Press **`9` during every transition** between postures — moving contaminates
+   the data twice: the angle sweeps through in-between values, and while moving
+   the accelerometer reads motion + gravity so the tilt math is briefly wrong.
+   Then ~10 s steady per posture:
+   `0` upright → `9` → `1` slouch → `9` → `2` lean L → `9` → `3` lean R → `9` →
+   `4` head-down. → plot shows clear angular separation = detection works.
 2. **Re-don experiment (the strong result):** remove and re-attach the sensor
-   4–5×, recapture *upright* each time. The "upright" pitch/roll drifts several
-   degrees from mounting offset alone → proves a fixed threshold misfires →
-   validates calibration (OE1).
+   4–5×, re-send `c` and recapture *upright* each time (`9` between). The
+   "upright" pitch/roll drifts several degrees from mounting offset alone →
+   proves a fixed threshold misfires → validates calibration (OE1).
+
+**Analysis:** drop all `tag == 9` rows (transitions); optionally also drop the
+first ~0.5–1 s after each tag change before averaging each steady segment.
 
 **Deliverables:** pitch/roll-per-posture plot; a deviation metric from reference
 (e.g. `sqrt(Δpitch² + Δroll²)`) and a proposed alert angle; re-don drift table.
