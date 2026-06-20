@@ -59,8 +59,9 @@ $\sim$8{,}0\degree{} (pitch) e $\sim$21{,}6\degree{} (roll), justificando a
 calibração por usuário (OE1); o sensor separa 5 de 6 posturas, falhando apenas no
 par curvar-para-frente {\itshape vs.} cabeça-baixa (distância de centroides
 6{,}9\degree{} contra $\geq$21{,}7\degree{} nos demais pares) --- o que motiva
-diretamente a fusão com os FSR. No canal FSR, a resposta satura e deve ser tratada
-como \emph{pressão relativa}, não força calibrada; a variação por montagem
+diretamente a fusão com os FSR. No canal FSR, a resposta achata-se em cargas mais
+altas e tem baixa resolução no regime sentado, devendo ser tratada como
+\emph{pressão relativa}, não força calibrada; a variação por montagem
 (transiente de assentamento, 3--11$\times$) domina a variação entre peças
 (10--46\,\%, conforme a carga). Os resultados são descritivos, de \textbf{viabilidade por
 canal} (1 sujeito, 3 sensores, posturas pronunciadas); integração, fusão e
@@ -331,8 +332,8 @@ analisada.
 Processamento em Python/pandas (\texttt{analysis/}, ambiente \texttt{.venv}),
 determinístico e re-executável: carregadores robustos a artefatos de serial,
 medianas por nível de carga (com fusão do \emph{jitter} de digitação), separação
-sobe/desce, e ajustes de lei de potência e de condutância. Cada figura deste
-relatório é regenerável pelo script citado em sua legenda.
+sobe/desce, e ajustes de lei de potência e de condutância. Cada figura é
+regenerável pelos scripts de análise versionados em \texttt{analysis/}.
 
 % =====================================================================
 \section{Resultados Parciais}
@@ -356,7 +357,7 @@ forma confiável --- motivação concreta para a fusão de sensores.
   sobreposto.}
   \label{fig:sep}
   \includegraphics[width=0.9\linewidth]{02_separation.png}
-  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Deriva por remontagem (OE1).}
@@ -375,7 +376,7 @@ calibração documentada no repositório.
   fundamenta a calibração por usuário (OE1).}
   \label{fig:redon}
   \includegraphics[width=0.85\linewidth]{04_redon_drift.png}
-  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Limiar de alerta proposto ($\approx$10\degree{}).}
@@ -394,7 +395,7 @@ naturais e em mais sujeitos, não de uma figura de desempenho validada.
   proposto de $\sim$10\degree{}.}
   \label{fig:alert}
   \includegraphics[width=0.85\linewidth]{06_alert_threshold.png}
-  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \noindent A saúde do sensor foi confirmada: $|g| = 0{,}993 \pm 0{,}004$\,g em
@@ -403,20 +404,21 @@ repouso, com toda excursão fora de faixa coincidindo com amostras de transiçã
 
 \subsection{Canal FSR (Campanha B)}
 
-\paragraph{Curva resistência {\itshape vs.} carga e saturação.}
-A resistência cai de $\sim$4134\,\ohm{} (toque leve) para $\sim$180\,\ohm{}, com o
-\emph{joelho} de saturação por volta de $\sim$1{,}2\,kg (Figura~\ref{fig:curve}).
-\textbf{Ressalva importante:} esse ``piso'' de 158--180\,\ohm{} é a resistência
-\emph{no topo da escala (2\,kg)} --- um \textbf{limite superior} do piso real, não a
-assíntota, pois um adulto sentado carrega muito além de 2\,kg. Portanto, a leitura
-deve ser tratada como \textbf{pressão relativa / contato}, não força calibrada.
+\paragraph{Curva resistência {\itshape vs.} carga.}
+A resistência cai de $\sim$4134\,\ohm{} (toque leve) para $\sim$180\,\ohm{} no topo
+da escala (2\,kg), concentrando a maior parte da queda abaixo de $\sim$1{,}2\,kg; a
+partir daí a curva achata-se e a sensibilidade torna-se baixa (Figura~\ref{fig:curve}).
+\textbf{Ressalva importante:} esses 158--180\,\ohm{} são a resistência medida
+\emph{no topo da escala de 2\,kg}, e não um piso real --- a curva ainda decresce nesse
+limite e um adulto sentado carrega muito além de 2\,kg. Portanto, a leitura deve ser
+tratada como \textbf{pressão relativa / contato}, não força calibrada.
 
 \begin{figure}[H]
   \centering
-  \caption{R {\itshape vs.} carga (FSR1) com o joelho de saturação.}
+  \caption{R {\itshape vs.} carga (FSR1): a maior parte da queda ocorre abaixo de $\sim$1{,}2\,kg.}
   \label{fig:curve}
   \includegraphics[width=0.85\linewidth]{fsr_curve.png}
-  \fonte{\texttt{analysis/plot\_fsr\_curve.py -\/-units g}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Modelo de resposta e resolução.}
@@ -433,7 +435,7 @@ $\sim$3{,}1\,\ohm{}/contagem no piso ($\approx$1{,}7\,\% por contagem) ---
   \caption{Ajuste lei de potência, linearidade da condutância e resolução do ADC.}
   \label{fig:model}
   \includegraphics[width=0.9\linewidth]{fsr_model.png}
-  \fonte{\texttt{analysis/plot\_fsr\_model.py}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Histerese.}
@@ -448,7 +450,7 @@ toque leve.
   \caption{Laço de histerese (carga {\itshape vs.} descarga) por nível.}
   \label{fig:hyst}
   \includegraphics[width=0.85\linewidth]{fsr_hysteresis.png}
-  \fonte{\texttt{analysis/plot\_fsr\_hysteresis.py}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Creep (deriva sob carga constante).}
@@ -463,7 +465,7 @@ relativo, não calibrado, e para a recalibração periódica.
   11\,min).}
   \label{fig:creep}
   \includegraphics[width=0.85\linewidth]{fsr_creep.png}
-  \fonte{\texttt{analysis/plot\_fsr\_creep.py -\/-units g}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \paragraph{Variação entre peças {\itshape vs.} montagem (o resultado forte).}
@@ -490,7 +492,7 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
     2000  & 180 & 164 & 173 & 10\,\% \\
     \bottomrule
   \end{tabular}
-  \fonte{\texttt{analysis/plot\_fsr\_parttopart.py -\/-both}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{table}
 
 \begin{figure}[H]
@@ -500,7 +502,7 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
   $\triangledown$) excedem em muito a variação real entre peças.}
   \label{fig:p2p}
   \includegraphics[width=\linewidth]{fsr_parttopart.png}
-  \fonte{\texttt{analysis/plot\_fsr\_parttopart.py -\/-both}}
+  \fonte{Elaborado pelo autor (2026)}
 \end{figure}
 
 \noindent\textbf{Leitura honesta deste resultado.} O fator 3--11$\times$ é um

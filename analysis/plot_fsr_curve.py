@@ -117,7 +117,7 @@ def main() -> int:
             ax.axhline(floor, color="grey", ls=":", lw=1, label=floor_lbl)
         if logy:
             ax.set_yscale("log")
-            ax.set_title("log scale (saturation = flattening)")
+            ax.set_title("log scale (curve flattens at higher load)")
         else:
             ax.set_title("linear scale")
         ax.set_xlabel("applied load [kg]")
@@ -128,7 +128,8 @@ def main() -> int:
         sec = ax.secondary_xaxis("top", functions=(lambda k: k * G, lambda n: n / G))
         sec.set_xlabel("applied force [N]")
     fig.suptitle(f"FSR402 resistance vs. load  (R_fixed = {args.rfixed:.0f} Ω)  — "
-                 "saturates → treat as relative pressure/contact, not calibrated force")
+                 "R flattens at higher load, low resolution when seated → "
+                 "relative pressure/contact, not calibrated force")
     fig.tight_layout()
     FIG_DIR.mkdir(exist_ok=True)
     out = FIG_DIR / "fsr_curve.png"
