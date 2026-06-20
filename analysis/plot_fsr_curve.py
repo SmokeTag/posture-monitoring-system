@@ -88,8 +88,18 @@ def main() -> int:
     if len(levels):
         print(f"  R range: {levels['median'].max():.0f} -> {levels['median'].min():.0f} ohm "
               f"(load {levels['load_kg'].min():.1f} -> {levels['load_kg'].max():.1f} kg)")
+    # The "floor" is only a true asymptote if the curve flattened BEFORE the
+    # heaviest load. If min-R sits at the heaviest level and we never passed ~2.5
+    # kg, the floor is just the cap reading — an upper bound on the real floor.
+    maxload = float(levels["load_kg"].max())
+    floor_load = float(levels.loc[levels["median"].idxmin(), "load_kg"])
+    capped = bool(abs(floor_load - maxload) < 1e-9 and maxload <= 2.5)
     if knee is not None:
         print(f"  saturation knee ~ {knee:.1f} kg; floor R ~ {floor:.0f} ohm")
+        if capped:
+            print("  CAVEAT: the 'floor' is the resistance at the HEAVIEST load reached — an upper")
+            print("  bound on the true floor, not the asymptote. A seated adult loads well past")
+            print("  this scale, so saturation is deeper. Report it as relative pressure, not force.")
 
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, 5.5))
     loaded = df[(df["ohms"] > 0) & (df["load_kg"] > 0)]
@@ -102,8 +112,9 @@ def main() -> int:
             ax.errorbar(levels["load_kg"], levels["median"], yerr=levels["std"].fillna(0),
                         fmt="none", ecolor="#d62728", alpha=0.5, capsize=3)
         if knee is not None:
-            ax.axvline(knee, color="k", ls="--", lw=1.2, label=f"saturation ~{knee:.0f} kg")
-            ax.axhline(floor, color="grey", ls=":", lw=1, label=f"floor ~{floor:.0f} Ω")
+            ax.axvline(knee, color="k", ls="--", lw=1.2, label=f"within 1.25× floor by ~{knee:.0f} kg")
+            floor_lbl = f"floor ~{floor:.0f} Ω" + (" (= 2 kg cap, upper bound)" if capped else "")
+            ax.axhline(floor, color="grey", ls=":", lw=1, label=floor_lbl)
         if logy:
             ax.set_yscale("log")
             ax.set_title("log scale (saturation = flattening)")

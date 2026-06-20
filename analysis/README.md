@@ -53,12 +53,27 @@ Re-runnable on any future capture. Full write-up of the current file:
   own notebooks.
 - `validate_postures.py` — the validator (above).
 - `plot_postures.py` — the IMU figures (above).
-- `plot_fsr_curve.py` — **FSR402 R-vs-load curve** + saturation knee (Campaign B).
-  Input: a `data/*fsr*.csv` from `firmware/uno_fsr_test` (press `l`, type each
-  scale reading in kg). Procedure: `../docs/protocolo-caracterizacao-fsr.md`.
-  ```bash
-  .venv/bin/python analysis/plot_fsr_curve.py        # newest data/*fsr*.csv
-  ```
+### FSR402 tooling (Campaign B)
+
+All share `fsr_lib.py` (robust loader, load-jitter canonicalization, up/down
+direction split, power-law fit, run discovery). Inputs are `data/*fsr*.csv` from
+`firmware/uno_fsr_test` (press `l`, type each scale reading; precision-balance
+runs stamp **grams**). Procedure: `../docs/protocolo-fsr-balanca-precisao.md`.
+
+| script | what it does | figure |
+|--------|--------------|--------|
+| `validate_fsr.py` | **PASS/WARN/FAIL gate** — auto-detects sweep vs creep; catches a VOID / not-pressed capture and a poorly-seated puck (up/down ratio). **Run first on every new capture.** | — |
+| `plot_fsr_curve.py` | single-sweep R-vs-load + saturation knee (now flags "floor = 2 kg-cap reading") | `fsr_curve.png` |
+| `plot_fsr_parttopart.py` | N-sensor overlay (FSR1/2/3) + part-to-part spread vs load; seating transients flagged & excluded | `fsr_parttopart.png` |
+| `plot_fsr_hysteresis.py` | loading vs unloading loop per load level | `fsr_hysteresis.png` |
+| `plot_fsr_model.py` | power-law fit + conductance-is-linear + ADC resolution | `fsr_model.png` |
+| `plot_fsr_creep.py` | resistance drift vs time under a constant dead load | `fsr_creep.png` |
+
+```bash
+.venv/bin/python analysis/validate_fsr.py --csv data/<run>.csv   # gate a capture
+.venv/bin/python analysis/plot_fsr_parttopart.py                 # FSR1/2/3 overlay
+.venv/bin/python analysis/plot_fsr_curve.py --units g            # newest sweep
+```
 
 ### Tag map
 
