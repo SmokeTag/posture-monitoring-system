@@ -138,7 +138,8 @@ def fig_redon(cals):
     pr = cals["pitch_ref"]; rr = cals["roll_ref"]
     ax.set_xlabel("re-don / calibration event #")
     ax.set_ylabel("captured 'upright' reference [deg]")
-    ax.set_title("Re-don drift of the 'upright' reference\n"
+    ax.set_title("Re-don drift of the 'upright' reference "
+                 f"(n={len(cals)} genuine re-dons)\n"
                  f"pitch spread {pr.max()-pr.min():.1f} deg, "
                  f"roll spread {rr.max()-rr.min():.1f} deg "
                  "— fixed thresholds would misfire (motivates calibration)")
@@ -220,7 +221,7 @@ def main() -> int:
         matplotlib.use("TkAgg", force=True)
 
     df = P.load(args.csv)
-    cals = P.parse_calibration_comments(args.csv)
+    cals = P.redon_upright_refs(df)
     gaps = P.calibration_events(df)
     FIG_DIR.mkdir(exist_ok=True)
 

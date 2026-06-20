@@ -172,6 +172,30 @@ def calibration_epochs(df: pd.DataFrame, tol: float = 0.05) -> list[dict]:
     return out
 
 
+def redon_upright_refs(df: pd.DataFrame) -> pd.DataFrame:
+    """Genuine re-don 'upright' references for the OE1 mounting-drift result.
+
+    Each 'c' press opens a calibration epoch (calibration_epochs); a *genuine*
+    re-don is one where an upright posture (tag==0) was actually held after the
+    press. The immediate double-presses capture only tag==9 motion and are
+    dropped. The reference is the mean absolute pitch/roll over that epoch's
+    tag==0 hold -- the exact quantity the partial report's OE1 drift
+    (8.0 deg pitch / 21.6 deg roll, n=4) is computed from (re-don figure). This
+    differs from the firmware-snapshot reference (pitch-dpitch), which over all
+    7 presses gives the looser 7.7/21.4. Returns one row per genuine epoch,
+    indexed 0..N-1 as 'event'.
+    """
+    rows = []
+    for ep in calibration_epochs(df):
+        hold = df.loc[ep["i0"]:ep["i1"]]
+        hold = hold[hold["tag"] == 0]
+        if len(hold):
+            rows.append((float(hold["pitch"].mean()),
+                         float(hold["roll"].mean()), int(len(hold))))
+    return (pd.DataFrame(rows, columns=["pitch_ref", "roll_ref", "n"])
+            .reset_index(names="event"))
+
+
 def parse_calibration_comments(path: str | Path = DEFAULT_CSV) -> pd.DataFrame:
     """Extract '# calibrated upright: pitch=.. roll=..' lines, in file order.
 
