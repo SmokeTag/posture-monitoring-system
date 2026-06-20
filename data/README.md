@@ -67,25 +67,60 @@ normalize. `#`-prefixed lines are comments (the CSV header, tag stamps).
 | B2 | `2026-06-19_fsr_andre_2833_sweep2.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | sweep2 (repeat) | grams | Clean ladder 50→2002 g, ~12.6k samples. R 4134→180 Ω. Floor agrees with B1 (173 vs 180 Ω) → good repeatability. |
 | B3 | `2026-06-19_fsr_andre_2833_creep1kg.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | creep @ 1 kg | grams | ~11 min constant 1 kg dead load. **Creep −7.4% (292→270 Ω, −0.67 %/min)**, most drift in first ~4 min. Lift-off tail at the end (still stamped 1000) excluded by the per-bin median. |
 | B4 | `2026-06-19_fsr2_andre_2833_sweep.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | sweep (up+down), **2nd FSR** | grams | 10 levels 50→2000 g. R 3034→158 Ω. Floor agrees with FSR1 (158 vs 173/180 Ω). Part-to-part vs FSR1: ~20–40 % at the light end, ~5–10 % at the floor. |
-| B5 | `2026-06-19_fsr2_andre_2833_creep1kg.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | creep @ 1 kg, **2nd FSR** | grams | **Short (~2 min, not 10)** — creep −5.1 % (253→240 Ω). Consistent with FSR1's early drift; don't compare totals to B3 (different durations). |
+| B5 | `2026-06-19_fsr2_andre_2833_creep1kg.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | creep @ 1 kg, **2nd FSR** | grams | **~12 min @ 1 kg** (7118 loaded samples; `validate_fsr` PASS). Creep **−11.5 % (253→224 Ω, −0.95 %/min)** — FSR2 drifts *more* than FSR1 (B3 −7.4 %), not less. The earlier "−5.1 % / 240 Ω" was the *2-min-bin* value mistaken for the whole run. |
+| B6 | `2026-06-19_fsr3_andre_2833_sweep.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | sweep (up+down), **3rd FSR** | grams | **Recapture of the old VOID** — now truly loaded (raw→972, floor 158 Ω). USABLE with a caveat: the light-end **up-sweep is a seating transient** (400 g up≈9 kΩ *settling* vs down 812 Ω; `validate_fsr.py` flags 600 g, up/down ×5). Trust its down-sweep / heavy end; use B7 for the clean curve. |
+| B7 | `2026-06-19_fsr3_andre_2833_sweep2.csv` | 2026-06-19 | André Thomas Monteiro | 2833 Ω (measured) | sweep2 (repeat), **3rd FSR** | grams | **CLEAN** (`validate_fsr.py`: 13 PASS / 0 WARN). Well-seated 200→2001 g, R 1164→173 Ω. Floor 173 Ω agrees with FSR1/FSR2 → the **N=3 part-to-part point**. |
 
-> **FSR3 (`2026-06-19_fsr3_andre_2833_sweep.csv`) is VOID** — a botched capture:
-> only 200/400 g were stamped and the sensor was never actually loaded (raw maxed
-> at 494 → 3034 Ω, far from the ~900/~160 Ω the others hit at 2 kg; the puck
-> wasn't transferring force to the pad). Not committed; recapture needed for a
-> true N=3 part-to-part point.
+> **(Resolved)** The earlier *"FSR3 is VOID"* note was the first botched FSR3 try
+> (puck not transferring force). FSR3 was **recaptured** into B6/B7 above; B7 is
+> clean. Run `validate_fsr.py` on any new capture before trusting it.
 
-### Cross-run findings (FSR1 + FSR2)
+### Cross-run findings (FSR1 + FSR2 + FSR3, N=3)
 
-- **Saturation:** R drops steeply then flattens toward a ~160–180 Ω floor; the
-  knee sits **above the 2 kg scale** → confirms FSRs saturate under seated loads.
-- **Repeatability (same part):** FSR1 floor 173 vs 180 Ω across two sweeps.
-- **Part-to-part (FSR1 vs FSR2):** ~20–40 % at light loads, converging to ~5–10 %
-  at the floor → supports **relative, not calibrated**.
-- **Hysteresis (up vs down):** large at light touch (FSR2: down-sweep reads up to
-  **−76 %** lower R at 50 g), **negligible (±few %) by ~1 kg**.
-- **Takeaway:** all the messiness (spread, noise, hysteresis) lives at the **light
-  end**; the heavy/operating regime is clean, repeatable, and direction-independent.
+- **Saturation / floor:** all three parts converge to a shared **~158–180 Ω
+  floor** by **~1.6–2 kg** (only FSR2 is in-band by 1.6 kg; FSR1/FSR3 reach it at
+  2 kg). **Caveat:** that floor is the resistance *at the 2 kg scale cap* and the
+  curve is still descending there (FSR1 −6 % on the last step) → it is an **upper
+  bound** on the true saturation floor, not the asymptote. A seated adult loads
+  well past 2 kg, so saturation is deeper still. Report as *relative pressure*,
+  not a calibrated floor.
+- **Part-to-part (N=3, all-samples median per level — one consistent rule):** at
+  the seated/operating end the three parts agree to **~10–22 %** (1.6 kg =
+  192/158/183 Ω → 22 %; 2 kg = 180/164/173 → 10 %); at 400 g = 453/514/502 → 13 %.
+  Intermediate 1 kg is noisier — **~46 %** (290/267/391, FSR3-driven). **Method
+  note:** the earlier "~5 % at 1 kg" used FSR3's anomalously-low *up-sweep* point
+  (283 Ω vs its 391 Ω overall) — a per-sensor cherry-pick that understated the
+  spread; quote ONE direction rule (`plot_fsr_parttopart.py --both`). Either way
+  part-to-part (≤~46 %) stays far below the **3–11× seating swing** (see next) —
+  that contrast, not the absolute spread, is the result.
+- **Seating dominates part-to-part (the strong result):** the *same* sensor reads
+  **3–11× higher** at light load when the puck has not bedded into the pad
+  (FSR3 B6: 400 g up≈9 kΩ vs down 812 Ω). Mounting/seating variation ≫ part-to-part
+  → a fixed absolute threshold is fragile, which **strongly motivates per-install /
+  per-user calibration** (OE1; reinforces `docs/decisao-calibracao-vs-limiar-absoluto.md`).
+  **Honest caveat:** this 3–11× is a *bench up-sweep transient on an unbedded rigid
+  puck* — it demonstrates install-sensitivity *in principle*; the swing on the
+  actual foam-mounted chair FSR under a human is not yet measured (→ Próximas
+  etapas). The directly-measured leg of the calibration argument is the IMU re-don
+  drift (8.0° pitch / 21.6° roll, `../analysis/VALIDATION.md`).
+- **Hysteresis (up vs down, verified):** FSR2 −76 % @50 g → −6 % @1 kg; FSR1 ~−17…
+  −33 % light → −6 % by 1.6 kg. Mean |hysteresis| ≤400 g ≈ **52 %** (FSR2) / 24 %
+  (FSR1); ≥1 kg ≈ **6 %** → direction-independent in the operating regime.
+- **Response model:** power law R = a·F^b fits R²≈0.95–0.97, but **conductance
+  G = 1/R is ~linear in force** (R²≈0.95) vs R-vs-F linear (R²≈0.43) → G is the
+  natural variable for a relative-pressure map.
+- **Resolution:** operating-band sensitivity ≈ **10 Ω / 100 g**; the 10-bit ADC
+  resolves ~3 Ω/count at the floor ≈ **1.7 %/count** → only a handful of
+  distinguishable pressure bands when seated → coarse relative contact, not force.
+- **Takeaway:** all the messiness (spread, noise, hysteresis, seating) lives at the
+  **light end**; the seated/operating regime is clean and direction-independent but
+  **low-resolution** → use FSRs for **relative pressure / contact**, not force.
 
-Plots: `../analysis/plot_fsr_curve.py --units g` (sweep, `figures/fsr_curve.png`)
-and `../analysis/plot_fsr_creep.py --units g` (creep, `figures/fsr_creep.png`).
+Tooling (all share `../analysis/fsr_lib.py`; run from repo root):
+- `validate_fsr.py --csv data/<run>.csv` — PASS/WARN/FAIL gate (catches VOID /
+  seating); auto-detects sweep vs creep. **Run this first on every new capture.**
+- `plot_fsr_curve.py --units g` — single-sweep R-vs-load + knee (`figures/fsr_curve.png`).
+- `plot_fsr_parttopart.py` — N-sensor overlay + spread, seating-suspect flagged (`figures/fsr_parttopart.png`).
+- `plot_fsr_hysteresis.py` — up/down loop per load (`figures/fsr_hysteresis.png`).
+- `plot_fsr_model.py` — power-law + conductance fit + resolution (`figures/fsr_model.png`).
+- `plot_fsr_creep.py --units g` — creep R-vs-time (`figures/fsr_creep.png`).
