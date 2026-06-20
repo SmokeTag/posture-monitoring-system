@@ -19,7 +19,7 @@ the checks with `.venv/bin/python analysis/validate_postures.py`.
 | Sample rate | median dt = 54 ms (~18.5 Hz); 99.96 % of intervals in [45, 65] ms |
 | Structure | **5 full rounds** of the posture sequence `0→1→2→3→4→5`, transitions tagged `9` between every hold |
 | Holds | 31 steady segments, all ≥ 9.1 s (29/31 ≥ 10 s) |
-| Calibration | **7 re-don calibration events** (1 initial + 6 re-mounts) — the OE1 experiment |
+| Calibration | **7 calibration presses**, of which **4 are genuine re-don epochs** with a held upright (the other 3 were immediate double-presses that captured only `tag==9` junk) — the OE1 experiment (honest **n = 4** re-dons) |
 | Tags present | 0 upright, 1 fwd-slouch, 2 lean-L, 3 lean-R, 4 head-down, **5 laid-back**, 9 transition  (counts: 1427/1222/1111/1435/1390/1286/10066) |
 
 ## Checks
@@ -96,17 +96,19 @@ the OE2/OE4 feasibility result. See `figures/02_separation.png` and
 ## Headline results for the report
 
 - **OE1 (anatomical variation / calibration justified):** re-mounting drifts the
-  captured "upright" reference by **7.7° in pitch and up to ~21° in roll** across
-  7 re-dons → a single fixed threshold would misfire → per-user calibration is
-  justified. `figures/04_redon_drift.png`.
+  captured "upright" reference by **8.0° in pitch and ~21.6° in roll** (recomputed
+  from the steady `tag==0` holds, across the **4 genuine** re-don epochs) → a single
+  fixed threshold would misfire → per-user calibration is justified.
+  `figures/04_redon_drift.png`.
 - **OE2/OE4 (sensor layer works / feasibility):** the IMU separates 5 of 6
   postures cleanly; the worn sensor measurably distinguishes upper-back posture.
   Calibrated deviation (`dpitch/droll`) is the system's decision space and is
   **more reproducible and more separable** across re-dons than absolute angles.
 - **Proposed alert angle ≈ 10°:** the deviation metric `√(Δpitch²+Δroll²)` from
-  the calibrated upright is ≤ 6.4° (p95) when sitting upright and ≥ 18.6° (p05)
-  for every held bad posture. A 10° alert threshold separates them with **0 %
-  false alarms and 100 % of these bad postures caught**. `figures/06_alert_threshold.png`.
+  the calibrated upright is ≤ 6.4° (p95) when sitting upright; the **pooled**
+  bad-posture p05 is 18.6° (the lowest *single* posture is 18.0°, tag 3 / lean-
+  right). A 10° alert threshold separates them with **0 % false alarms and 100 %
+  of these bad postures caught**. `figures/06_alert_threshold.png`.
   ⚠️ Caveat: this margin is wide *because the postures were performed pronounced*
   — expect it to shrink under naturalistic posture and across people; treat 10°
   as a starting point to re-tune, not a final value.
@@ -131,5 +133,9 @@ the OE2/OE4 feasibility result. See `figures/02_separation.png` and
 re-derivation of every material finding. One finding initially raised as
 "critical" — *that `dpitch/droll` can't be pooled across re-don epochs* — was
 **refuted** on re-derivation: calibrated deviation is empirically the *better*
-representation, and the alarming "21°" roll figure is inflated by a calibration
-that captured only `tag==9` junk (an immediate double-press). Corrected above.
+representation. A later re-check also **corrected an earlier note** here that had
+called the ~21° roll drift "inflated by junk": recomputing the drift from the
+steady `tag==0` holds only (dropping the 3 immediate-double-press epochs) gives
+**8.0° pitch / 21.6° roll** across the 4 genuine re-dons — the roll is, if
+anything, slightly *larger*, not inflated. The OE1 result stands and is reported
+above with the honest n = 4.
