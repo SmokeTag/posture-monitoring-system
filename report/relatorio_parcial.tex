@@ -27,7 +27,9 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
 
-\graphicspath{{../analysis/figures/}}
+% figures resolve both in a flat Overleaf project (report/figures/) and in the
+% repo layout (../analysis/figures/, where the analysis scripts write them).
+\graphicspath{{figures/}{../analysis/figures/}}
 \setlength{\parskip}{0.6em}
 \setlength{\parindent}{0pt}
 
