@@ -48,8 +48,17 @@ prevenção de distúrbios osteomusculares?"*
 | TCC objective (PT-BR) | Evidence this plan produces |
 |---|---|
 | **OE1** — Compreender as variações anatômicas dos usuários | **Re-don / mounting-drift experiment** (Campaign A): the "upright" IMU reading shifts with re-mounting → fixed absolute thresholds misfire → per-user calibration justified. This is the data behind `decisao-calibracao-vs-limiar-absoluto.md`. |
-| **OE2** — Desenvolvimento do sistema integrado com sensores para monitoramento postural | IMU pitch/roll + FSR characterization = the **foundational sensor layer** of the integrated system, validated channel-by-channel. |
-| **OE4** — Avaliar a eficiência do sistema proposto | Posture-separation plots + FSR saturation curve = first **feasibility / efficiency** evidence. |
+| **OE2** — Desenvolvimento do sistema integrado com sensores para monitoramento postural | IMU pitch/roll + FSR characterization = the **sensing layer characterized channel-by-channel** — *evidência para a viabilidade* de cada canal. ⚠️ This parcial does **not** yet build or validate the *integrated* system (no fusion, chair, or radio); integration is deferred (Próximas etapas). The honest integration argument is already concrete: the IMU **alone** cannot separate slouch (1) from head-down (4) (gap 6.9° vs ≥22° for every other pair) → the chair FSRs are required. |
+| **OE4** — Avaliar a eficiência do sistema proposto | Posture-separation plots + FSR saturation curve = a first **feasibility precursor** (single-channel, single-subject). A true *efficiency evaluation* of the proposed system requires the fused build and is deferred (Próximas etapas). |
+
+> **Escopo desta entrega parcial:** OE3 (implementação da comunicação com o
+> usuário) e as partes de *integração / eficiência* de OE2/OE4 são
+> **deliberadamente adiadas** para a próxima fase — esta parcial caracteriza cada
+> canal de sensoriamento **isoladamente**, em bancada. Nenhuma estatística
+> inferencial (IC / significância) é reivindicada neste N (1 sujeito, 3 sensores);
+> os resultados são de **viabilidade descritiva**, com margens de separação
+> *otimistas* (posturas pronunciadas). Limitações consolidadas na seção própria do
+> relatório (`analysis/PROJECT_REVIEW.md` e o relatório LaTeX).
 
 **Academic grounding to cite (already in the lit review §2.3–2.4):**
 - **RULA** (McAtamney & Corlett, 1993) and **ROSA** (Song & Qu, 2014) score
