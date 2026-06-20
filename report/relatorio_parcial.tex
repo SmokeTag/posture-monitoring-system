@@ -58,11 +58,11 @@ canal IMU, a remontagem do sensor desloca a referência de ``ereto'' em
 $\sim$8{,}0\degree{} (pitch) e $\sim$21{,}6\degree{} (roll), justificando a
 calibração por usuário (OE1); o sensor separa 5 de 6 posturas, falhando apenas no
 par curvar-para-frente {\itshape vs.} cabeça-baixa (distância de centroides
-6{,}9\degree{} contra $\geq$22\degree{} nos demais pares) --- o que motiva
+6{,}9\degree{} contra $\geq$21{,}7\degree{} nos demais pares) --- o que motiva
 diretamente a fusão com os FSR. No canal FSR, a resposta satura e deve ser tratada
 como \emph{pressão relativa}, não força calibrada; a variação por montagem
 (transiente de assentamento, 3--11$\times$) domina a variação entre peças
-($\leq\sim$46\,\%). Os resultados são descritivos, de \textbf{viabilidade por
+(10--46\,\%, conforme a carga). Os resultados são descritivos, de \textbf{viabilidade por
 canal} (1 sujeito, 3 sensores, posturas pronunciadas); integração, fusão e
 avaliação de eficiência ficam para as próximas etapas.
 \end{abstract}
@@ -161,7 +161,8 @@ visando à prevenção de distúrbios osteomusculares.
 caracterização de cada canal de sensoriamento em bancada. As partes de
 \emph{integração} e \emph{avaliação de eficiência} do sistema (OE2/OE4) e a
 \emph{comunicação com o usuário} (OE3) são deliberadamente adiadas para a fase
-seguinte (Seção~\ref{sec:proximas}).
+seguinte (Seção~\ref{sec:proximas}). As limitações e a validade estatística destes
+resultados estão consolidadas na Seção~\ref{sec:limitacoes}.
 
 % =====================================================================
 \section{Revisão Bibliográfica}
@@ -171,7 +172,7 @@ seguinte (Seção~\ref{sec:proximas}).
 
 A ergonomia é uma área multidisciplinar que tem como objetivo adaptar as condições
 de trabalho às características físicas, cognitivas e psicossociais dos indivíduos,
-promovendo conforto, segurança e eficiência. Segundo Iida e Buarque (2016), a
+promovendo conforto, segurança e eficiência. Segundo Iida e Guimarães (2016), a
 ergonomia busca otimizar a interação entre o ser humano e os sistemas de trabalho,
 reduzindo riscos à saúde e aumentando a produtividade.
 
@@ -236,7 +237,7 @@ partir da análise da postura adotada durante a execução de tarefas. Esse mét
 considera fatores como posição dos braços, pescoço, tronco e força aplicada.
 
 Além disso, o método ROSA (\emph{Rapid Office Strain Assessment}), apresentado por
-Song e Qu (2014), é voltado especificamente para ambientes de escritório,
+Sonne, Villalta e Andrews (2012), é voltado especificamente para ambientes de escritório,
 permitindo avaliar a ergonomia de estações de trabalho com base em critérios como
 altura da cadeira, posicionamento do monitor e uso de periféricos.
 
@@ -299,8 +300,9 @@ carga dos FSR402.
 \end{itemize}
 
 \subsection{Campanha A --- canal IMU (postura do tronco superior)}
-A inclinação é derivada do acelerômetro (sinal estático, \emph{sem deriva}, de modo
-que o giroscópio é ignorado nesta análise):
+A inclinação é derivada do acelerômetro como uma estimativa de inclinação
+\emph{estática} --- sem integração e, portanto, sem deriva temporal; o giroscópio
+(que apresenta um viés de taxa-zero constante) é dispensado nesta análise estática:
 \begin{align}
   \text{pitch} &= \operatorname{atan2}\!\big(-a_x,\; \sqrt{a_y^2 + a_z^2}\big), &
   \text{roll}  &= \operatorname{atan2}\!\big(a_y,\; a_z\big).
@@ -341,7 +343,7 @@ relatório é regenerável pelo script citado em sua legenda.
 O IMU separa de forma limpa 5 das 6 posturas no espaço (pitch, roll). A única
 exceção é o par \textbf{curvar-para-frente (1)} {\itshape vs.}
 \textbf{cabeça-baixa (4)}, cuja distância entre centroides é apenas
-$\sim$6{,}9\degree{}, contra $\geq$22\degree{} para todos os demais pares
+$\sim$6{,}9\degree{}, contra $\geq$21{,}7\degree{} para todos os demais pares
 (Figura~\ref{fig:sep}). Fisicamente esperado (ambos fletem o tronco/pescoço para a
 frente). \textbf{Conclusão:} esse par exige os FSR da cadeira para ser separado de
 forma confiável --- motivação concreta para a fusão de sensores.
@@ -354,7 +356,7 @@ forma confiável --- motivação concreta para a fusão de sensores.
   sobreposto.}
   \label{fig:sep}
   \includegraphics[width=0.9\linewidth]{02_separation.png}
-  \fonte{\texttt{analysis/plot\_postures.py}}
+  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
 \end{figure}
 
 \paragraph{Deriva por remontagem (OE1).}
@@ -373,7 +375,7 @@ calibração documentada no repositório.
   fundamenta a calibração por usuário (OE1).}
   \label{fig:redon}
   \includegraphics[width=0.85\linewidth]{04_redon_drift.png}
-  \fonte{\texttt{analysis/plot\_postures.py}}
+  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
 \end{figure}
 
 \paragraph{Limiar de alerta proposto ($\approx$10\degree{}).}
@@ -392,7 +394,7 @@ naturais e em mais sujeitos, não de uma figura de desempenho validada.
   proposto de $\sim$10\degree{}.}
   \label{fig:alert}
   \includegraphics[width=0.85\linewidth]{06_alert_threshold.png}
-  \fonte{\texttt{analysis/plot\_postures.py}}
+  \fonte{\texttt{analysis/plot\_postures.py -\/-csv data/2026-06-19\_andre\_no-neck-mount\_own-chair.csv}}
 \end{figure}
 
 \noindent A saúde do sensor foi confirmada: $|g| = 0{,}993 \pm 0{,}004$\,g em
@@ -420,7 +422,7 @@ deve ser tratada como \textbf{pressão relativa / contato}, não força calibrad
 \paragraph{Modelo de resposta e resolução.}
 A resposta ajusta-se bem a uma lei de potência $R = a\,F^{b}$ ($R^2 \approx 0{,}97$),
 mas a \textbf{condutância} $G = 1/R$ é aproximadamente \emph{linear} na força
-($R^2 \approx 0{,}95$, contra $R^2 \approx 0{,}43$ para $R$ linear em $F$) ---
+($R^2 \approx 0{,}95$, contra $R^2 \approx 0{,}42$ para $R$ linear em $F$) ---
 $G$ é a variável natural para um mapa de pressão relativa. A sensibilidade na faixa
 operacional é de $\sim$10\,\ohm{}/100\,g; com o ADC de 10\,bits, isso dá
 $\sim$3{,}1\,\ohm{}/contagem no piso ($\approx$1{,}7\,\% por contagem) ---
@@ -560,9 +562,10 @@ ser lidas como tal:
 % =====================================================================
 \section*{Referências}
 \addcontentsline{toc}{section}{Referências}
-% NOTA: entradas padrão (Iida, Dul, Grandjean, Kuorinka, McAtamney/Corlett) estão
-% completas; as demais mantêm a citação da versão entregue e precisam ter os dados
-% bibliográficos finais conferidos/completados [completar].
+% NOTA: referências completadas/conferidas nesta versão (Iida & Guimarães, Dul,
+% Grandjean, Kuorinka, McAtamney/Corlett, Sonne/Villalta/Andrews [ROSA], Okezue,
+% Mohammadian, Robertson). PENDENTE: FERREIRA et al. (BackWatch, 2023), cujos dados
+% bibliográficos ainda precisam ser confirmados [completar].
 \begin{description}[leftmargin=1.5em,style=nextline,nosep]
   \item[DUL, J.; WEERDMEESTER, B.] \emph{Ergonomia prática}. 3. ed. São Paulo:
         Edgard Blücher, 2012.
@@ -570,7 +573,7 @@ ser lidas como tal:
         tronco e cabeça, 2023. [completar dados bibliográficos]
   \item[GRANDJEAN, E.] \emph{Manual de ergonomia: adaptando o trabalho ao homem}.
         4. ed. Porto Alegre: Bookman, 1998.
-  \item[IIDA, I.; BUARQUE, L.] \emph{Ergonomia: projeto e produção}. 3. ed.
+  \item[IIDA, I.; GUIMARÃES, L. B. M.] \emph{Ergonomia: projeto e produção}. 3. ed.
         São Paulo: Edgard Blücher, 2016.
   \item[KUORINKA, I. et al.] Standardised Nordic questionnaires for the analysis of
         musculoskeletal symptoms. \emph{Applied Ergonomics}, v. 18, n. 3,
@@ -578,14 +581,19 @@ ser lidas como tal:
   \item[McATAMNEY, L.; CORLETT, E. N.] RULA: a survey method for the investigation of
         work-related upper limb disorders. \emph{Applied Ergonomics}, v. 24, n. 2,
         p. 91--99, 1993.
-  \item[MOHAMMADIAN et al.] Prevalência de distúrbios osteomusculares em
-        trabalhadores, 2025. [completar dados bibliográficos]
-  \item[OKEZUE et al.] Distúrbios osteomusculares relacionados ao trabalho em
-        trabalhadores de escritório, 2020. [completar dados bibliográficos]
-  \item[ROBERTSON et al.] Intervenções ergonômicas apoiadas por tecnologia, 2013.
-        [completar dados bibliográficos]
-  \item[SONG, S.; QU, ...] ROSA --- Rapid Office Strain Assessment, 2014.
-        [conferir atribuição/dados bibliográficos]
+  \item[MOHAMMADIAN et al.] Musculoskeletal disorders among office workers:
+        prevalence, ergonomic risk factors, and their interrelationships.
+        \emph{Scientific Reports}, v. 15, 2025. DOI: 10.1038/s41598-025-30155-6.
+  \item[OKEZUE, O. C. et al.] Work-Related Musculoskeletal Disorders among Office
+        Workers in Higher Education Institutions: A Cross-Sectional Study.
+        \emph{Ethiopian Journal of Health Sciences}, v. 30, n. 5, p. 715--724, 2020.
+  \item[ROBERTSON, M.; CIRIELLO, V.; GARABET, A.] Office ergonomics training and a
+        sit-stand workstation: effects on musculoskeletal and visual symptoms and
+        performance of office workers. \emph{Applied Ergonomics}, v. 44, n. 1,
+        p. 73--85, 2013.
+  \item[SONNE, M.; VILLALTA, D. L.; ANDREWS, D. M.] Development and evaluation of an
+        office ergonomic risk checklist: ROSA --- Rapid Office Strain Assessment.
+        \emph{Applied Ergonomics}, v. 43, n. 1, p. 98--108, 2012.
 \end{description}
 
 \end{document}
