@@ -33,6 +33,11 @@
 \setlength{\parskip}{0.6em}
 \setlength{\parindent}{0pt}
 
+% --- Legendas no padrão ABNT: "Figura N – Título" / "Tabela N – Título" ---
+\captionsetup{labelsep=endash}
+% Linha de "Fonte" (fonte menor), colocada ABAIXO da figura/tabela.
+\newcommand{\fonte}[1]{\par\vspace{2pt}{\footnotesize Fonte: #1}}
+
 \title{\textbf{Sistema Inteligente de Monitoramento Postural}\\[0.3em]
 \large Relatório Parcial}
 \author{André Thomas Monteiro}
@@ -343,12 +348,13 @@ forma confiável --- motivação concreta para a fusão de sensores.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{02_separation.png}
   \caption{Aglomerados pitch{$\times$}roll por postura --- ângulos absolutos
   (todas as rodadas) {\itshape vs.} desvio calibrado (o espaço de decisão do
   sistema). 5 de 6 posturas separam; o par 1{$\leftrightarrow$}4 permanece
-  sobreposto. \textit{Fonte:} \texttt{analysis/plot\_postures.py}.}
+  sobreposto.}
   \label{fig:sep}
+  \includegraphics[width=0.9\linewidth]{02_separation.png}
+  \fonte{\texttt{analysis/plot\_postures.py}}
 \end{figure}
 
 \paragraph{Deriva por remontagem (OE1).}
@@ -362,12 +368,12 @@ calibração documentada no repositório.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\linewidth]{04_redon_drift.png}
   \caption{Deriva da referência de ``ereto'' entre remontagens (re-don). A
   dispersão da referência ($\sim$8\degree{} pitch / $\sim$21{,}6\degree{} roll)
-  fundamenta a calibração por usuário (OE1). \textit{Fonte:}
-  \texttt{analysis/plot\_postures.py}.}
+  fundamenta a calibração por usuário (OE1).}
   \label{fig:redon}
+  \includegraphics[width=0.85\linewidth]{04_redon_drift.png}
+  \fonte{\texttt{analysis/plot\_postures.py}}
 \end{figure}
 
 \paragraph{Limiar de alerta proposto ($\approx$10\degree{}).}
@@ -382,11 +388,11 @@ naturais e em mais sujeitos, não de uma figura de desempenho validada.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\linewidth]{06_alert_threshold.png}
   \caption{Desvio em relação ao ereto calibrado por postura e o limiar de alerta
-  proposto de $\sim$10\degree{}. \textit{Fonte:}
-  \texttt{analysis/plot\_postures.py}.}
+  proposto de $\sim$10\degree{}.}
   \label{fig:alert}
+  \includegraphics[width=0.85\linewidth]{06_alert_threshold.png}
+  \fonte{\texttt{analysis/plot\_postures.py}}
 \end{figure}
 
 \noindent A saúde do sensor foi confirmada: $|g| = 0{,}993 \pm 0{,}004$\,g em
@@ -405,10 +411,10 @@ deve ser tratada como \textbf{pressão relativa / contato}, não força calibrad
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\linewidth]{fsr_curve.png}
-  \caption{R {\itshape vs.} carga (FSR1) com o joelho de saturação. \textit{Fonte:}
-  \texttt{analysis/plot\_fsr\_curve.py -\/-units g}.}
+  \caption{R {\itshape vs.} carga (FSR1) com o joelho de saturação.}
   \label{fig:curve}
+  \includegraphics[width=0.85\linewidth]{fsr_curve.png}
+  \fonte{\texttt{analysis/plot\_fsr\_curve.py -\/-units g}}
 \end{figure}
 
 \paragraph{Modelo de resposta e resolução.}
@@ -422,10 +428,10 @@ $\sim$3{,}1\,\ohm{}/contagem no piso ($\approx$1{,}7\,\% por contagem) ---
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{fsr_model.png}
-  \caption{Ajuste lei de potência, linearidade da condutância e resolução do ADC.
-  \textit{Fonte:} \texttt{analysis/plot\_fsr\_model.py}.}
+  \caption{Ajuste lei de potência, linearidade da condutância e resolução do ADC.}
   \label{fig:model}
+  \includegraphics[width=0.9\linewidth]{fsr_model.png}
+  \fonte{\texttt{analysis/plot\_fsr\_model.py}}
 \end{figure}
 
 \paragraph{Histerese.}
@@ -437,10 +443,10 @@ toque leve.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\linewidth]{fsr_hysteresis.png}
-  \caption{Laço de histerese (carga {\itshape vs.} descarga) por nível.
-  \textit{Fonte:} \texttt{analysis/plot\_fsr\_hysteresis.py}.}
+  \caption{Laço de histerese (carga {\itshape vs.} descarga) por nível.}
   \label{fig:hyst}
+  \includegraphics[width=0.85\linewidth]{fsr_hysteresis.png}
+  \fonte{\texttt{analysis/plot\_fsr\_hysteresis.py}}
 \end{figure}
 
 \paragraph{Creep (deriva sob carga constante).}
@@ -451,10 +457,11 @@ relativo, não calibrado, e para a recalibração periódica.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\linewidth]{fsr_creep.png}
   \caption{Creep: resistência {\itshape vs.} tempo sob 1\,kg (FSR1, $-$7{,}4\,\% em
-  11\,min). \textit{Fonte:} \texttt{analysis/plot\_fsr\_creep.py -\/-units g}.}
+  11\,min).}
   \label{fig:creep}
+  \includegraphics[width=0.85\linewidth]{fsr_creep.png}
+  \fonte{\texttt{analysis/plot\_fsr\_creep.py -\/-units g}}
 \end{figure}
 
 \paragraph{Variação entre peças {\itshape vs.} montagem (o resultado forte).}
@@ -468,8 +475,8 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
 
 \begin{table}[H]
   \centering
-  \caption{Variação entre peças (medianas de todas as amostras por nível;
-  \texttt{plot\_fsr\_parttopart.py -\/-both}). Espalhamento $=(\max-\min)/\min$.}
+  \caption{Variação entre peças (medianas de todas as amostras por nível).
+  Espalhamento $=(\max-\min)/\min$.}
   \label{tab:p2p}
   \begin{tabular}{rrrrr}
     \toprule
@@ -481,16 +488,17 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
     2000  & 180 & 164 & 173 & 10\,\% \\
     \bottomrule
   \end{tabular}
+  \fonte{\texttt{analysis/plot\_fsr\_parttopart.py -\/-both}}
 \end{table}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{fsr_parttopart.png}
   \caption{Sobreposição R {\itshape vs.} carga das 3 peças (esq.) e espalhamento
   {\itshape vs.} carga (dir.). Os transientes de assentamento (marcadores ocos
-  $\triangledown$) excedem em muito a variação real entre peças. \textit{Fonte:}
-  \texttt{analysis/plot\_fsr\_parttopart.py -\/-both}.}
+  $\triangledown$) excedem em muito a variação real entre peças.}
   \label{fig:p2p}
+  \includegraphics[width=\linewidth]{fsr_parttopart.png}
+  \fonte{\texttt{analysis/plot\_fsr\_parttopart.py -\/-both}}
 \end{figure}
 
 \noindent\textbf{Leitura honesta deste resultado.} O fator 3--11$\times$ é um
