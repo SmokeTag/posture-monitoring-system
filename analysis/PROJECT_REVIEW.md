@@ -50,7 +50,7 @@
 ## 4. Midterm readiness
 
 ### DONE (with backing figure/file)
-- **OE1 calibration justified:** IMU re-don drift 7.7° pitch / 21.6° roll, measured on the worn unit. `figures/04_redon_drift.png`
+- **OE1 calibration justified:** IMU re-don drift 8.0° pitch / 21.6° roll (n=4 genuine re-dons), measured on the worn unit. `figures/04_redon_drift.png`
 - **OE2 feasibility:** 5/6 postures separate cleanly; accel |g|=0.993±0.004 g. `figures/02_separation.png`
 - **10° alert threshold:** upright p95=6.4°, pooled-bad p05=18.6°, 0%/100% @10°. `figures/06_alert_threshold.png`
 - **1↔4 hard-pair (fusion motivation):** gap 6.9° vs ≥22° all other pairs. `figures/02_separation.png`

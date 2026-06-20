@@ -173,7 +173,8 @@ independent, so Uno data transfers directly to the 3.3 V XIAO later.
 - [x] Uno: 6-channel FSR sketch (A0–A5) → `firmware/uno_fsr6_test` — compiles
 - [x] Capture postures (IMU) — **6 postures × 5 rounds**, run 1 (André, no neck mount);
       `data/2026-06-19_andre_no-neck-mount_own-chair.csv`. Procedure: `protocolo-captura-imu.md`
-- [x] Re-don drift experiment (IMU) — 7 re-dons; upright drifts 7.7° pitch / ~21° roll (OE1)
+- [x] Re-don drift experiment (IMU) — 4 genuine re-dons (of 7 presses; 3 were tag==9
+      double-press junk); upright drifts 8.0° pitch / 21.6° roll (OE1)
 - [ ] FSR R-vs-load sweep + saturation knee
 - [ ] 6-channel weight map
 - [x] Reduce data → plots — `analysis/` (validator + 6 figures); validated 15 PASS/3 WARN/0 FAIL
