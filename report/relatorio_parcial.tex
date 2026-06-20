@@ -15,8 +15,8 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[brazil]{babel}
-\usepackage{lmodern}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage{mathptmx}     % Times New Roman (fonte recomendada — ABNT NBR 14724)
+\usepackage[top=3cm,bottom=2cm,left=3cm,right=2cm]{geometry} % margens ABNT NBR 14724
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
@@ -26,12 +26,15 @@
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
+\usepackage{setspace}     % entrelinhas 1,5 (ABNT NBR 14724)
+\usepackage{indentfirst}  % indenta o 1º parágrafo de cada seção (padrão PT-BR/ABNT)
 
 % figures resolve both in a flat Overleaf project (report/figures/) and in the
 % repo layout (../analysis/figures/, where the analysis scripts write them).
 \graphicspath{{figures/}{../analysis/figures/}}
-\setlength{\parskip}{0.6em}
-\setlength{\parindent}{0pt}
+\onehalfspacing                 % entrelinhas 1,5 (ABNT NBR 14724)
+\setlength{\parindent}{1.25cm}  % recuo de primeira linha (ABNT)
+\setlength{\parskip}{0pt}
 
 % --- Legendas no padrão ABNT: "Figura N – Título" / "Tabela N – Título" ---
 \captionsetup{labelsep=endash}
@@ -66,6 +69,11 @@ altas e tem baixa resolução no regime sentado, devendo ser tratada como
 (10--46\,\%, conforme a carga). Os resultados são descritivos, de \textbf{viabilidade por
 canal} (1 sujeito, 3 sensores, posturas pronunciadas); integração, fusão e
 avaliação de eficiência ficam para as próximas etapas.
+
+\vspace{0.8em}
+\noindent\textbf{Palavras-chave:} Monitoramento postural; Ergonomia; Distúrbios
+osteomusculares relacionados ao trabalho; Sensores de força resistivos (FSR);
+Unidade de medição inercial (IMU).
 \end{abstract}
 
 % =====================================================================
@@ -479,6 +487,7 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
 
 \begin{table}[H]
   \centering
+  \begin{singlespace}
   \caption{Variação entre peças (medianas de todas as amostras por nível).
   Espalhamento $=(\max-\min)/\min$.}
   \label{tab:p2p}
@@ -492,6 +501,7 @@ subida $\approx$9\,k\ohm{} contra descida 812\,\ohm{}), conforme os marcadores o
     2000  & 180 & 164 & 173 & 10\,\% \\
     \bottomrule
   \end{tabular}
+  \end{singlespace}
   \fonte{Elaborado pelo autor (2026)}
 \end{table}
 
@@ -568,34 +578,48 @@ ser lidas como tal:
 % Grandjean, Kuorinka, McAtamney/Corlett, Sonne/Villalta/Andrews [ROSA], Okezue,
 % Mohammadian, Robertson). PENDENTE: FERREIRA et al. (BackWatch, 2023), cujos dados
 % bibliográficos ainda precisam ser confirmados [completar].
-\begin{description}[leftmargin=1.5em,style=nextline,nosep]
-  \item[DUL, J.; WEERDMEESTER, B.] \emph{Ergonomia prática}. 3. ed. São Paulo:
-        Edgard Blücher, 2012.
-  \item[FERREIRA et al.] \emph{BackWatch}: sistema de monitoramento de inclinação de
-        tronco e cabeça, 2023. [completar dados bibliográficos]
-  \item[GRANDJEAN, E.] \emph{Manual de ergonomia: adaptando o trabalho ao homem}.
-        4. ed. Porto Alegre: Bookman, 1998.
-  \item[IIDA, I.; GUIMARÃES, L. B. M.] \emph{Ergonomia: projeto e produção}. 3. ed.
-        São Paulo: Edgard Blücher, 2016.
-  \item[KUORINKA, I. et al.] Standardised Nordic questionnaires for the analysis of
-        musculoskeletal symptoms. \emph{Applied Ergonomics}, v. 18, n. 3,
-        p. 233--237, 1987.
-  \item[McATAMNEY, L.; CORLETT, E. N.] RULA: a survey method for the investigation of
-        work-related upper limb disorders. \emph{Applied Ergonomics}, v. 24, n. 2,
-        p. 91--99, 1993.
-  \item[MOHAMMADIAN et al.] Musculoskeletal disorders among office workers:
-        prevalence, ergonomic risk factors, and their interrelationships.
-        \emph{Scientific Reports}, v. 15, 2025. DOI: 10.1038/s41598-025-30155-6.
-  \item[OKEZUE, O. C. et al.] Work-Related Musculoskeletal Disorders among Office
-        Workers in Higher Education Institutions: A Cross-Sectional Study.
-        \emph{Ethiopian Journal of Health Sciences}, v. 30, n. 5, p. 715--724, 2020.
-  \item[ROBERTSON, M.; CIRIELLO, V.; GARABET, A.] Office ergonomics training and a
-        sit-stand workstation: effects on musculoskeletal and visual symptoms and
-        performance of office workers. \emph{Applied Ergonomics}, v. 44, n. 1,
-        p. 73--85, 2013.
-  \item[SONNE, M.; VILLALTA, D. L.; ANDREWS, D. M.] Development and evaluation of an
-        office ergonomic risk checklist: ROSA --- Rapid Office Strain Assessment.
-        \emph{Applied Ergonomics}, v. 43, n. 1, p. 98--108, 2012.
-\end{description}
+% Referências em estilo ABNT NBR 6023: alinhadas à esquerda, espaço simples
+% dentro de cada entrada e um espaço entre elas, sobrenome do autor em caixa alta.
+\begin{singlespace}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+DUL, J.; WEERDMEESTER, B. \emph{Ergonomia prática}. 3. ed. São Paulo: Edgard
+Blücher, 2012.
+
+FERREIRA et al. \emph{BackWatch}: sistema de monitoramento de inclinação de
+tronco e cabeça. 2023. [completar dados bibliográficos].
+
+GRANDJEAN, E. \emph{Manual de ergonomia}: adaptando o trabalho ao homem. 4. ed.
+Porto Alegre: Bookman, 1998.
+
+IIDA, I.; GUIMARÃES, L. B. M. \emph{Ergonomia}: projeto e produção. 3. ed. São
+Paulo: Edgard Blücher, 2016.
+
+KUORINKA, I. et al. Standardised Nordic questionnaires for the analysis of
+musculoskeletal symptoms. \emph{Applied Ergonomics}, v. 18, n. 3, p. 233--237,
+1987.
+
+MCATAMNEY, L.; CORLETT, E. N. RULA: a survey method for the investigation of
+work-related upper limb disorders. \emph{Applied Ergonomics}, v. 24, n. 2,
+p. 91--99, 1993.
+
+MOHAMMADIAN et al. Musculoskeletal disorders among office workers: prevalence,
+ergonomic risk factors, and their interrelationships. \emph{Scientific Reports},
+v. 15, 2025. DOI: 10.1038/s41598-025-30155-6.
+
+OKEZUE, O. C. et al. Work-Related Musculoskeletal Disorders among Office Workers
+in Higher Education Institutions: A Cross-Sectional Study. \emph{Ethiopian
+Journal of Health Sciences}, v. 30, n. 5, p. 715--724, 2020.
+
+ROBERTSON, M.; CIRIELLO, V.; GARABET, A. Office ergonomics training and a
+sit-stand workstation: effects on musculoskeletal and visual symptoms and
+performance of office workers. \emph{Applied Ergonomics}, v. 44, n. 1,
+p. 73--85, 2013.
+
+SONNE, M.; VILLALTA, D. L.; ANDREWS, D. M. Development and evaluation of an
+office ergonomic risk checklist: ROSA --- Rapid Office Strain Assessment.
+\emph{Applied Ergonomics}, v. 43, n. 1, p. 98--108, 2012.
+\end{singlespace}
 
 \end{document}
