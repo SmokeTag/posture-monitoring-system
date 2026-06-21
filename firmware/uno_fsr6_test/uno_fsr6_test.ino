@@ -37,7 +37,7 @@
  * 1=seated upright, 2=leaning left, ... — so empty vs seated trials live in
  * one capture. (Just run the monitor without redirect to eyeball values.)
  *
- * Capture workflow (see docs/plano-medicoes-midterm.md):
+ * Capture workflow (see docs/protocolo-caracterizacao-fsr.md, "6-channel seat weight map"):
  *   arduino-cli monitor -p /dev/ttyUSB0 -c baudrate=115200 | tee weightmap.csv
  *   # type a digit + Enter to switch tag between empty / seated / leaning trials
  *

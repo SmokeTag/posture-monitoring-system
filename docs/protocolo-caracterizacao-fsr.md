@@ -1,7 +1,7 @@
 # Procedure — FSR402 resistance-vs-load characterization
 
-> Standalone SOP for **Campaign B** of the midterm plan
-> ([`plano-medicoes-midterm.md`](plano-medicoes-midterm.md)). Goal: map FSR
+> Standalone SOP for **Campaign B** (FSR402 characterization) of the partial
+> report ([`../report/relatorio_parcial.tex`](../report/relatorio_parcial.tex)). Goal: map FSR
 > resistance against applied force, find the **saturation knee**, and confirm the
 > "treat FSRs as *relative* pressure/contact, not calibrated force" framing.
 > ~15–20 min.

@@ -56,7 +56,7 @@
  * safety margin: also drop the first ~0.5-1 s after each tag change before
  * averaging, in case a key was pressed a hair before you fully settled.)
  *
- * Capture workflow (see also docs/plano-medicoes-midterm.md):
+ * Capture workflow (see also docs/protocolo-captura-imu.md):
  *   arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee postures.csv
  *   # type (each line sends on Enter):
  *   #   l                -> start CSV

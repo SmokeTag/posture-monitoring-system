@@ -27,7 +27,7 @@ import pandas as pd
 COLS = ["t_ms", "tag", "cal", "pitch", "roll", "dpitch", "droll",
         "ax", "ay", "az", "gx", "gy", "gz"]
 
-# Documented posture tags (firmware header + docs/plano-medicoes-midterm.md).
+# Documented posture tags (firmware header + data/README.md).
 DOCUMENTED_TAGS = {0, 1, 2, 3, 4, 5, 9}
 JUNK_TAG = 9  # "moving / transition" — dropped from steady-posture analysis
 

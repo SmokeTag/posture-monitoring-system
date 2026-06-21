@@ -165,5 +165,7 @@ Repeat with neck mount + other subjects: `docs/protocolo-captura-imu.md`.
 channel independently with on-hand hardware (no 2nd XIAO / mux / battery / chair
 yet) for a written partial report. Two campaigns — (A) IMU upper-back posture +
 re-don/calibration experiment ✅, (B) FSR402 load characterization + 6-channel
-weight map on the Uno (no mux). Full plan, TCC-objective mapping, and tracking
-checklist: `docs/plano-medicoes-midterm.md`.
+weight map on the Uno (no mux). TCC-objective mapping + partial results now live
+in the written report (`report/relatorio_parcial.tex`); run registry and
+per-campaign status in `data/README.md`. Capture SOPs:
+`docs/protocolo-captura-imu.md` (A) and `docs/protocolo-caracterizacao-fsr.md` (B).

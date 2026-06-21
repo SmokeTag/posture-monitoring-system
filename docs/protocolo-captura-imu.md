@@ -1,8 +1,9 @@
 # Procedure — IMU upper-back posture capture (repeatable)
 
-> Standalone SOP for **Campaign A** of the midterm plan
-> ([`plano-medicoes-midterm.md`](plano-medicoes-midterm.md)). Open this, follow
-> the steps, get one clean `data/*.csv` ready for `analysis/`. ~15 min of capture.
+> Standalone SOP for **Campaign A** (IMU upper-back posture) of the partial
+> report ([`../report/relatorio_parcial.tex`](../report/relatorio_parcial.tex)).
+> Open this, follow the steps, get one clean `data/*.csv` ready for `analysis/`.
+> ~15 min of capture.
 >
 > Repeat this run **with the neck mount** and **with other subjects** as those
 > become available — each repeat is a new row in the data run registry.
@@ -70,7 +71,10 @@ calibration, `0`–`9` set the tag.
 
 ## Step 4 — the posture sequence (≈10 s each, `9` on every move)
 
-Hold each posture still for **~10 s**, press `9` while moving between them:
+Hold each posture still for **~10 s**, press `9` while moving between them —
+moving contaminates the data twice: the angle sweeps through in-between values,
+and while moving the accelerometer reads motion + gravity, so the tilt math is
+briefly wrong (these `9` rows are dropped in analysis):
 
 ```
 0 (upright, 10s) → 9 → 1 (slouch) → 9 → 2 (lean L) → 9 → 3 (lean R)
