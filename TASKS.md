@@ -12,8 +12,12 @@ Toolchain/FQBN: cabeçalho de `firmware/xiao_imu_test/xiao_imu_test.ino`.
 ### [ ] 1. Leitura dos 8 FSRs na PCB da cadeira
 
 Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
-**Falta:** C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
-Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
+**Falta (bancada):**
+- [ ] C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
+      Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
+- [ ] Botão de calibração esquecido na PCB: soldar botão entre um pino livre
+      (D4–D9, ex.: D6) e GND, `INPUT_PULLUP` no firmware. Depois trocar o
+      `'c'` serial por esse botão (com debounce) no `chair.ino`.
 
 ### [ ] 3. Firmware do corpo: IMU + motor
 
