@@ -15,20 +15,13 @@ Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
 **Falta:** C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
 Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
 
-### [ ] 2. Link ESB cadeira → corpo
-
-"Hello world" ESB entre os dois XIAO: cadeira transmite um pacote com
-contador + 8 leituras; corpo recebe e imprime. Verificar que o ESB funciona
-no core Seeed nRF52 (SoftDevice inativo sem `Bluefruit.begin()`; senão,
-avaliar biblioteca/timeslot). Incluir comando de calibração no protocolo
-(ainda disparado por serial).
-**Pronto quando:** taxa de perda e latência medidas em bancada, a ~1 m.
-
 ### [ ] 3. Firmware do corpo: IMU + motor
 
-Partir de `xiao_imu_test.ino` (pitch/roll + calibração por desvio) e
-adicionar o motor de vibração (driver transistor + diodo de roda livre) com
-padrão de alerta. Lógica inicial só com IMU: desvio além do limiar por
+Partir de `firmware/body/` (receptor ESB), trazer de `xiao_imu_test.ino`
+o pitch/roll + calibração por desvio (disparada pelo comando que chega via
+ESB) e adicionar o motor de vibração (driver transistor + diodo de roda
+livre) com padrão de alerta. O `loop()` não pode bloquear (ver ESB no
+`CLAUDE.md`). Lógica inicial só com IMU: desvio além do limiar por
 X segundos → vibra.
 **Pronto quando:** inclinar-se além do limiar por X s aciona o motor e
 voltar à postura calibrada o desliga.

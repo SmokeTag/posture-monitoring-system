@@ -48,6 +48,10 @@ no further prompting. Defaults:
   detected.
 - **Chair→brain link = Nordic ESB** (low latency, built-in auto-ack/retransmit);
   chair = transmitter, brain = receiver. BLE only if a phone joins later.
+  Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
+  It is polled — the receiver's ACK is sent inside `radio.available()`, so the
+  body `loop()` must never block. Bench @ ~1 m: 0 lost in 1200 packets (20 Hz),
+  write→ACK ~1 ms (≤11 ms with retries).
 - **Calibration = per-user, by button:** alert on deviation from a captured
   "upright" reference, not on absolute angle. The button lives on the chair unit
   (XIAO has only RESET) and sends a calibrate command over ESB; stubbed for now
