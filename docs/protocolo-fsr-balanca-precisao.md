@@ -1,8 +1,6 @@
 # Procedure — FSR402 R-vs-load on a ≤2 kg precision scale (light-contact)
 
-> Variant of [`protocolo-caracterizacao-fsr.md`](protocolo-caracterizacao-fsr.md)
-> for when the only scale on hand is a **precision balance that maxes at ~2 kg**.
-> This maps the **light-contact / low-force end** of the FSR402 curve at high
+> Bench SOP using a **precision balance that maxes at ~2 kg**. This maps the **light-contact / low-force end** of the FSR402 curve at high
 > resolution. It does **NOT** reach the saturation knee (which sits well above
 > 2 kg under a seated adult) — that needs a bigger scale in a later run.
 > Designed to be followed step-by-step with check-ins; ~30 min incl. creep test.

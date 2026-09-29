@@ -79,9 +79,6 @@ points (hollow markers) and exclude them from the spread.
 
 ## 6. Still not explored (next steps / *Próximas etapas*)
 
-- **6-channel seat weight map** (`uno_fsr6_test`, A0–A5) — *the* missing Campaign B
-  deliverable and the most report-relevant gap: the left/right + front/back
-  contrast is the chair-unit's whole premise, and none of B1–B7 touch it.
 - **Release/recovery run** — creep measured loading drift but not how fast R
   *recovers* after unload; matters for a continuously-sampling alert (does the
   reading reset between posture changes?).

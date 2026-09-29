@@ -75,52 +75,6 @@ normalize. `#`-prefixed lines are comments (the CSV header, tag stamps).
 > (puck not transferring force). FSR3 was **recaptured** into B6/B7 above; B7 is
 > clean. Run `validate_fsr.py` on any new capture before trusting it.
 
-### Cross-run findings (FSR1 + FSR2 + FSR3, N=3)
-
-- **Saturation / floor:** all three parts converge to a shared **~158–180 Ω
-  floor** by **~1.6–2 kg** (only FSR2 is in-band by 1.6 kg; FSR1/FSR3 reach it at
-  2 kg). **Caveat:** that floor is the resistance *at the 2 kg scale cap* and the
-  curve is still descending there (FSR1 −6 % on the last step) → it is an **upper
-  bound** on the true saturation floor, not the asymptote. A seated adult loads
-  well past 2 kg, so saturation is deeper still. Report as *relative pressure*,
-  not a calibrated floor.
-- **Part-to-part (N=3, all-samples median per level — one consistent rule):** at
-  the seated/operating end the three parts agree to **~10–22 %** (1.6 kg =
-  192/158/183 Ω → 22 %; 2 kg = 180/164/173 → 10 %); at 400 g = 453/514/502 → 13 %.
-  Intermediate 1 kg is noisier — **~46 %** (290/267/391, FSR3-driven). **Method
-  note:** the earlier "~5 % at 1 kg" used FSR3's anomalously-low *up-sweep* point
-  (283 Ω vs its 391 Ω overall) — a per-sensor cherry-pick that understated the
-  spread; quote ONE direction rule (`plot_fsr_parttopart.py --both`). Either way
-  part-to-part (≤~46 %) stays far below the **3–11× seating swing** (see next) —
-  that contrast, not the absolute spread, is the result.
-- **Seating dominates part-to-part (the strong result):** the *same* sensor reads
-  **3–11× higher** at light load when the puck has not bedded into the pad
-  (FSR3 B6: 400 g up≈9 kΩ vs down 812 Ω). Mounting/seating variation ≫ part-to-part
-  → a fixed absolute threshold is fragile, which **strongly motivates per-install /
-  per-user calibration** (OE1; reinforces `docs/decisao-calibracao-vs-limiar-absoluto.md`).
-  **Honest caveat:** this 3–11× is a *bench up-sweep transient on an unbedded rigid
-  puck* — it demonstrates install-sensitivity *in principle*; the swing on the
-  actual foam-mounted chair FSR under a human is not yet measured (→ Próximas
-  etapas). The directly-measured leg of the calibration argument is the IMU re-don
-  drift (8.0° pitch / 21.6° roll, `../analysis/VALIDATION.md`).
-- **Hysteresis (up vs down, verified):** FSR2 −76 % @50 g → −6 % @1 kg; FSR1 ~−17…
-  −33 % light → −6 % by 1.6 kg. Mean |hysteresis| ≤400 g ≈ **52 %** (FSR2) / 24 %
-  (FSR1); ≥1 kg ≈ **6 %** → direction-independent in the operating regime.
-- **Response model:** power law R = a·F^b fits R²≈0.95–0.97, but **conductance
-  G = 1/R is ~linear in force** (R²≈0.95) vs R-vs-F linear (R²≈0.43) → G is the
-  natural variable for a relative-pressure map.
-- **Resolution:** operating-band sensitivity ≈ **10 Ω / 100 g**; the 10-bit ADC
-  resolves ~3 Ω/count at the floor ≈ **1.7 %/count** → only a handful of
-  distinguishable pressure bands when seated → coarse relative contact, not force.
-- **Takeaway:** all the messiness (spread, noise, hysteresis, seating) lives at the
-  **light end**; the seated/operating regime is clean and direction-independent but
-  **low-resolution** → use FSRs for **relative pressure / contact**, not force.
-
-Tooling (all share `../analysis/fsr_lib.py`; run from repo root):
-- `validate_fsr.py --csv data/<run>.csv` — PASS/WARN/FAIL gate (catches VOID /
-  seating); auto-detects sweep vs creep. **Run this first on every new capture.**
-- `plot_fsr_curve.py --units g` — single-sweep R-vs-load + knee (`figures/fsr_curve.png`).
-- `plot_fsr_parttopart.py` — N-sensor overlay + spread, seating-suspect flagged (`figures/fsr_parttopart.png`).
-- `plot_fsr_hysteresis.py` — up/down loop per load (`figures/fsr_hysteresis.png`).
-- `plot_fsr_model.py` — power-law + conductance fit + resolution (`figures/fsr_model.png`).
-- `plot_fsr_creep.py --units g` — creep R-vs-time (`figures/fsr_creep.png`).
+Cross-run findings (floor, part-to-part, seating, hysteresis, model,
+resolution): [`../analysis/FSR_FINDINGS.md`](../analysis/FSR_FINDINGS.md).
+Tooling: [`../analysis/README.md`](../analysis/README.md).
