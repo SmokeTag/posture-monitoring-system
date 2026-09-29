@@ -35,3 +35,20 @@ só enche ~28 %/~55 % dos 1800 mAh por conexão do USB.
 - [ ] Firmware: ao ler a tensão da bateria, **nunca levar P0.14 a HIGH**
       (ver doc).
 - [ ] Registrar o resultado no `CLAUDE.md` (seção de energia / bateria).
+
+## Arquitetura do sistema
+
+### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
+
+**Contexto:** hoje o sistema é autônomo — a unidade corporal (XIAO) funde os
+dados da cadeira (via ESB) com o IMU e aciona o motor de vibração, sem nenhuma
+interface externa. Questão em aberto em `CLAUDE.md` → *Open questions*.
+
+**A decidir:**
+- [ ] Standalone puro **ou** algum complemento: app de celular, dashboard web,
+      ou só registro de dados (ex.: log em flash / serial para análise).
+- [ ] Se houver app/celular: o elo com o telefone seria **BLE** (fallback já
+      previsto no `CLAUDE.md`), convivendo com o ESB cadeira→cérebro.
+- [ ] Impacto em escopo/prazo do TCC, consumo de bateria e firmware.
+- [ ] Registrar a decisão e a justificativa no `CLAUDE.md` (marcar o item em
+      *Open questions*).
