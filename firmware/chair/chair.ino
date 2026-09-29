@@ -1,8 +1,10 @@
 /*
- * XIAO nRF52840 Sense (chair unit) — read the 8 FSR402s through the mux
- * ---------------------------------------------------------------------
+ * XIAO nRF52840 Sense (chair unit) — read the 8 FSR402s, send them over ESB
+ * -------------------------------------------------------------------------
  * Scans CD74HC4067 channels C8..C15 (one FSR each), reads the shared SIG line
- * on A0 and prints one CSV row per scan.
+ * on A0, prints one CSV row per scan and transmits the raw counts to the body
+ * unit (firmware/body) over Nordic ESB (library: nrf_to_nrf, TMRh20 —
+ * `arduino-cli lib install nrf_to_nrf`; runs the RADIO directly, no SoftDevice).
  *
  * Per-channel divider (pull-down; mux sits on the SENSE side only):
  *
@@ -23,6 +25,9 @@
  *   t_ms,c8,c9,...,c15
  * Default unit is ohms (-1 = open / no force). Send 'r' to toggle raw ADC
  * counts (0..4095) — handy for the bring-up check "open FSR ~ 0".
+ * Send 'c' to queue a calibrate command; it rides on the next packets until
+ * one is ACKed. Once per second a '#' line reports the link: packets ACKed,
+ * retransmissions, and write->ACK time (an upper bound on one-way latency).
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/chair
@@ -31,6 +36,7 @@
  */
 
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core
+#include <nrf_to_nrf.h>
 
 const int   SIG_PIN    = A0;
 const int   SEL_PINS[4] = {D10, D3, D2, D1};   // S0, S1, S2, S3
@@ -43,7 +49,26 @@ const int   OPEN_RAW    = 8;                   // below this => open / no force 
 const int   SETTLE_US   = 50;                  // mux switch + SIG node settling
 const int   SAMPLE_MS   = 50;                  // 20 Hz scan rate
 
+// --- ESB link (keep in sync with firmware/body/body.ino) ---
+const uint8_t RF_ADDR[6]  = "PCHR1";          // 5-byte pipe address
+const uint8_t RF_CHANNEL  = 76;               // 2476 MHz
+enum : uint8_t { CMD_NONE = 0, CMD_CALIBRATE = 1 };
+struct __attribute__((packed)) ChairPacket {
+  uint16_t seq;                                // +1 per scan; gaps = lost packets
+  uint8_t  cmd;                                // CMD_*
+  uint8_t  reserved;
+  uint16_t raw[8];                             // ADC counts, C8..C15
+};
+
+nrf_to_nrf radio;
 bool rawMode = false;                          // 'r' toggles ohms <-> raw counts
+bool pendingCal = false;                       // 'c' -> send CMD_CALIBRATE until ACKed
+uint16_t seq = 0;
+
+// link stats, reported and reset once per second
+uint16_t nSent = 0, nOk = 0, nRetx = 0;
+uint32_t latSum = 0, latMax = 0;
+unsigned long lastReport = 0;
 
 void selectChannel(int ch) {
   for (int b = 0; b < 4; b++) digitalWrite(SEL_PINS[b], (ch >> b) & 1);
@@ -75,8 +100,40 @@ void pollSerial() {
     if (c == 'r' || c == 'R') {
       rawMode = !rawMode;
       printHeader();
+    } else if (c == 'c' || c == 'C') {
+      pendingCal = true;
+      Serial.println("# calibrate queued");
     }
   }
+}
+
+void sendPacket(const int *raw) {
+  ChairPacket pkt;
+  pkt.seq = seq++;
+  pkt.cmd = pendingCal ? CMD_CALIBRATE : CMD_NONE;
+  pkt.reserved = 0;
+  for (int i = 0; i < N_FSR; i++) pkt.raw[i] = raw[i];
+
+  unsigned long t0 = micros();
+  bool ok = radio.write(&pkt, sizeof(pkt));
+  uint32_t dt = micros() - t0;
+
+  nSent++;
+  if (ok) {
+    nOk++;
+    nRetx += radio.getARC();
+    latSum += dt;
+    if (dt > latMax) latMax = dt;
+    if (pkt.cmd == CMD_CALIBRATE) { pendingCal = false; Serial.println("# calibrate sent"); }
+  }
+}
+
+void reportLink() {
+  Serial.print("# tx ok="); Serial.print(nOk); Serial.print('/'); Serial.print(nSent);
+  Serial.print(" retx="); Serial.print(nRetx);
+  Serial.print(" lat_us avg="); Serial.print(nOk ? latSum / nOk : 0);
+  Serial.print(" max="); Serial.println(latMax);
+  nSent = nOk = nRetx = 0; latSum = latMax = 0;
 }
 
 void setup() {
@@ -88,7 +145,15 @@ void setup() {
 
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 2000) {}   // give the USB monitor a moment
-  Serial.println("# chair FSR scan: C8..C15. 'r' = toggle ohms/raw.");
+
+  if (!radio.begin()) Serial.println("# radio init FAILED");
+  radio.setChannel(RF_CHANNEL);
+  radio.enableDynamicPayloads();
+  radio.setRetries(5, 15);                     // up to 15 retries, ~1.3 ms apart
+  radio.openWritingPipe(RF_ADDR);
+  radio.stopListening();                       // TX role
+
+  Serial.println("# chair FSR scan: C8..C15. 'r' = toggle ohms/raw, 'c' = calibrate.");
   printHeader();
 }
 
@@ -96,14 +161,19 @@ void loop() {
   pollSerial();
 
   unsigned long t = millis();
+  int raw[N_FSR];
+  for (int i = 0; i < N_FSR; i++) raw[i] = readChannel(FIRST_CH + i);
+  sendPacket(raw);
+
   Serial.print(t);
   for (int i = 0; i < N_FSR; i++) {
-    int raw = readChannel(FIRST_CH + i);
     Serial.print(',');
-    if (rawMode) Serial.print(raw);
-    else         Serial.print(rawToOhms(raw), 0);
+    if (rawMode) Serial.print(raw[i]);
+    else         Serial.print(rawToOhms(raw[i]), 0);
   }
   Serial.println();
+
+  if (t - lastReport >= 1000) { lastReport = t; reportLink(); }
 
   long wait = SAMPLE_MS - (long)(millis() - t);
   if (wait > 0) delay(wait);
