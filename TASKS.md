@@ -11,31 +11,27 @@ aqui ficam as ações concretas.
 
 ### [ ] Ligação da bateria LiPo 1S (3 fios) ao XIAO nRF52840 Sense
 
-**Contexto:** a bateria comprada é de **uma célula (1S, 3,7 V)** mas tem
-**3 fios** e um **conector de 3 vias**. Objetivo: alimentar o XIAO por ela e
+**Contexto:** bateria **JYH LIP103450-1800 1S1P** (3,7 V, 1800 mAh, 6,6 Wh),
+com **3 fios** e **conector de 3 vias**. Objetivo: alimentar o XIAO por ela e
 recarregá-la pelo USB-C da própria placa, **sem cortar os fios da bateria**.
 
-**Hipóteses a verificar (não confirmadas):**
-- O 3º fio costuma ser um **termistor NTC** (tipicamente 10 kΩ a 25 °C, entre
-  o fio e o negativo) ou, mais raramente, um pino de identificação. Se for NTC,
-  deixá-lo desconectado deve ser aceitável — o XIAO não usa termistor.
-- O XIAO tem pads **BAT+ / BAT−** no verso e um carregador onboard (BQ25101)
-  que carrega a célula pelo USB-C (~50 mA padrão; ~100 mA configurável via
-  pino P0.13). Então **só + e − ligados nos pads + carga via USB-C** deve
-  funcionar. Confirmar no wiki/esquemático da Seeed.
+**Pesquisa feita (2026-09-29):** `docs/pesquisa-bateria-lipo.md`.
+Resumo: ligar **só + e − nos pads BAT+/BAT−** e isolar o 3º fio (quase
+certamente NTC 10 kΩ; o XIAO não tem onde ligá-lo) é seguro e funciona.
+**Porém** o timer de segurança de ~10 h do carregador BQ25101, a 50/100 mA,
+só enche ~28 %/~55 % dos 1800 mAh por conexão do USB.
 
-**Passos:**
-- [ ] Ler a etiqueta/datasheet da bateria (capacidade em mAh, se tem circuito
-      de proteção/PCM embutido, função do 3º fio).
-- [ ] Identificar o conector: medir o passo entre pinos (2,0 mm → provável
-      JST-PH; 1,25 mm → Molex PicoBlade/JST-GH; 1,0 mm → JST-SH) e fotografar.
-- [ ] Com multímetro: tensão entre os fios para achar + e − (**polaridade de
-      conectores JST não é padronizada**); resistência do 3º fio ao − para
-      confirmar se é NTC.
-- [ ] Verificar se a corrente de carga do XIAO (50/100 mA) é adequada à
-      capacidade da célula (carga ≤ ~1C; para células pequenas, 50 mA é seguro).
-- [ ] Comprar o **conector fêmea correspondente com rabicho** (pigtail) para
-      ligar aos pads BAT+/BAT− sem cortar a bateria.
-- [ ] Testar: alimentar pela bateria, conectar USB-C e confirmar que carrega
-      (LED de carga do XIAO) e que a placa roda só na bateria.
+**Falta (bancada/compra):**
+- [ ] Medir o passo do conector (2,0 mm = JST-PH, 1,25 mm = PicoBlade,
+      1,0 mm = JST-SH, 2,54 mm = JST-XH) e fotografar.
+- [ ] Multímetro: vermelho↔preto = 3,0–4,2 V (confirma polaridade);
+      3º fio↔preto ≈ 10 kΩ, caindo ao aquecer = NTC.
+- [ ] Comprar o **par do conector com rabicho** (ex.: "JST PH 2.0 3 pinos com
+      cabo"). Ao chegar, conferir de novo qual fio é + antes de soldar.
+- [ ] **Decidir a estratégia de carga:** carregador do XIAO (P0.13 = LOW →
+      100 mA no firmware + replugar o USB) **ou** carregador externo (TP4056,
+      MCP73831, bq24074). Nunca usar os dois ao mesmo tempo.
+- [ ] Testar: rodar só na bateria; com USB, confirmar carga (LED em P0.17).
+- [ ] Firmware: ao ler a tensão da bateria, **nunca levar P0.14 a HIGH**
+      (ver doc).
 - [ ] Registrar o resultado no `CLAUDE.md` (seção de energia / bateria).
