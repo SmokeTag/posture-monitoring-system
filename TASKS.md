@@ -11,12 +11,9 @@ Toolchain/FQBN: cabeçalho de `firmware/xiao_imu_test/xiao_imu_test.ino`.
 
 ### [ ] 1. Leitura dos 8 FSRs na PCB da cadeira
 
-Sketch novo (`firmware/chair/`) no XIAO da cadeira: varrer os canais
-**C8–C15** do mux (pinagem no `CLAUDE.md`), ADC 12 bits, pequeno tempo de
-acomodação após trocar de canal, converter para ohms (fórmula do divisor
-pull-down com R_fixed = 3,3 kΩ) e imprimir CSV (`t_ms` + 8 canais).
-**Pronto quando:** pressionar cada FSR solto altera só o seu canal; FSR
-aberto ≈ 0 V.
+Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
+**Falta:** C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
+Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
 
 ### [ ] 2. Link ESB cadeira → corpo
 
