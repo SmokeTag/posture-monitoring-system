@@ -1,11 +1,8 @@
 # Tarefas pendentes
 
 Lista de coisas a fazer que ainda não viraram trabalho ativo. Cada item tem
-contexto suficiente para ser retomado a frio. Quando concluir, marque `[x]` e
-registre o resultado (ou mova a conclusão para o doc/CLAUDE.md pertinente).
-
-Decisões de projeto em aberto continuam em `CLAUDE.md` → *Open questions*;
-aqui ficam as ações concretas.
+contexto suficiente para ser retomado a frio. Ao concluir, **remova o item**;
+registre o resultado em outro doc só se necessário.
 
 ## Hardware — unidade corporal
 
@@ -34,7 +31,6 @@ só enche ~28 %/~55 % dos 1800 mAh por conexão do USB.
 - [ ] Testar: rodar só na bateria; com USB, confirmar carga (LED em P0.17).
 - [ ] Firmware: ao ler a tensão da bateria, **nunca levar P0.14 a HIGH**
       (ver doc).
-- [ ] Registrar o resultado no `CLAUDE.md` (seção de energia / bateria).
 
 ## Arquitetura do sistema
 
@@ -42,13 +38,11 @@ só enche ~28 %/~55 % dos 1800 mAh por conexão do USB.
 
 **Contexto:** hoje o sistema é autônomo — a unidade corporal (XIAO) funde os
 dados da cadeira (via ESB) com o IMU e aciona o motor de vibração, sem nenhuma
-interface externa. Questão em aberto em `CLAUDE.md` → *Open questions*.
+interface externa.
 
 **A decidir:**
 - [ ] Standalone puro **ou** algum complemento: app de celular, dashboard web,
       ou só registro de dados (ex.: log em flash / serial para análise).
-- [ ] Se houver app/celular: o elo com o telefone seria **BLE** (fallback já
-      previsto no `CLAUDE.md`), convivendo com o ESB cadeira→cérebro.
+- [ ] Se houver app/celular: o elo com o telefone seria **BLE**, convivendo com o ESB cadeira→cérebro.
 - [ ] Impacto em escopo/prazo do TCC, consumo de bateria e firmware.
-- [ ] Registrar a decisão e a justificativa no `CLAUDE.md` (marcar o item em
-      *Open questions*).
+- [ ] Registrar a decisão no `CLAUDE.md`.

@@ -66,8 +66,12 @@ no further prompting. Defaults:
 The body XIAO is the "brain": it combines incoming chair data with its own IMU
 measurement and decides when to buzz.
 
-## Where things are
-- Current phase + backlog: `TASKS.md`
-- Firmware: `firmware/` · Analysis (venv `.venv`): `analysis/README.md`
-- Results: `analysis/VALIDATION.md` (IMU), `analysis/FSR_FINDINGS.md` + `data/README.md` (FSR)
-- Protocols/decisions: `docs/`
+## Repository structure
+```
+firmware/   Arduino sketches (toolchain/build: header of xiao_imu_test.ino)
+analysis/   Python analysis + findings (venv .venv; see README.md)
+data/       raw CSV captures (registry: data/README.md)
+docs/       protocols, decisions, research (PT-BR)
+report/     LaTeX report
+TASKS.md    backlog
+```
