@@ -30,6 +30,7 @@ no further prompting. Defaults:
   loose (not yet placed in the chair). 4 spare FSR402s on hand.
   - **Pin map (mux → XIAO):** SIG → **D0 (A0)** · S0 → **D10** · S1 → **D3** ·
     S2 → **D2** · S3 → **D1** · EN → GND · VCC → 3V3 out · GND → GND.
+    Calibrate button **D9 → GND** (`INPUT_PULLUP`, software debounce).
   - **Divider per channel:** `GND — 3.3 kΩ — Cn (sense node) — FSR402 — 3V3`.
     Pull-down topology: the ADC voltage **rises** with force
     (V = 3.3 V · R_fixed / (R_fixed + R_FSR)); open FSR reads ≈0 V.
@@ -54,8 +55,9 @@ no further prompting. Defaults:
   write→ACK ~1 ms (≤11 ms with retries).
 - **Calibration = per-user, by button:** alert on deviation from a captured
   "upright" reference, not on absolute angle. The button lives on the chair unit
-  (XIAO has only RESET) and sends a calibrate command over ESB; stubbed for now
-  by serial `'c'`. Rationale: `docs/decisao-calibracao-vs-limiar-absoluto.md`.
+  (XIAO has only RESET) and sends a calibrate command over ESB (serial `'c'`
+  also works); the ACK flashes the chair's green LED.
+  Rationale: `docs/decisao-calibracao-vs-limiar-absoluto.md`.
 
 ## Data Flow
 ```

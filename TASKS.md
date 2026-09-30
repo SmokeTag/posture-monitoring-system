@@ -15,9 +15,10 @@ Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
 **Falta (bancada):**
 - [ ] C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
       Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
-- [ ] Botão de calibração esquecido na PCB: soldar botão entre um pino livre
-      (D4–D9, ex.: D6) e GND, `INPUT_PULLUP` no firmware. Depois trocar o
-      `'c'` serial por esse botão (com debounce) no `chair.ino`.
+- [ ] Botão de calibração: soldar entre **D9** e GND (firmware pronto:
+      `INPUT_PULLUP` + debounce por software, sem RC). Testar: apertar →
+      `# calibrate queued (button)` → `# calibrate sent` e o LED verde pisca
+      (se não piscar, a polaridade `LED_ON` do LED está invertida).
 
 ### [ ] 3. Firmware do corpo: IMU + motor
 
