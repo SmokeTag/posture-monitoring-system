@@ -53,6 +53,9 @@ Re-runnable on any future capture. Full write-up of the current file:
   own notebooks.
 - `validate_postures.py` — the validator (above).
 - `plot_postures.py` — the IMU figures (above).
+- `live_imu.py` — live plot of the body unit (`firmware/body`) over serial: current
+  `(dpitch, droll)` + trail on the recorded clusters, alert circles, alert/LED
+  state. `c`/`r` in the window calibrate/clear. `--log` also saves the stream.
 ### FSR402 tooling (Campaign B)
 
 All share `fsr_lib.py` (robust loader, load-jitter canonicalization, up/down

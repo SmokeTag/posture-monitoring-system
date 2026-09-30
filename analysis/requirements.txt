@@ -3,3 +3,6 @@
 numpy>=2.0
 pandas>=2.2
 matplotlib>=3.8
+# live_imu.py (live serial plot of the body unit)
+pyserial>=3.5
+PyQt6>=6.6
