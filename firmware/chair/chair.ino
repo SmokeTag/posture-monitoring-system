@@ -19,14 +19,16 @@
  * without knowing the exact 3V3 rail voltage.
  *
  * Mux pins: S0=D10  S1=D3  S2=D2  S3=D1  (EN tied to GND, always on).
+ * Button: D9 -> GND.  Onboard RGB LED is active LOW.
  * Channels 8..15 => S3 is always HIGH; S2..S0 = the FSR index 0..7.
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')):
  *   t_ms,c8,c9,...,c15
  * Default unit is ohms (-1 = open / no force). Send 'r' to toggle raw ADC
  * counts (0..4095) — handy for the bring-up check "open FSR ~ 0".
- * Send 'c' to queue a calibrate command; it rides on the next packets until
- * one is ACKed. Once per second a '#' line reports the link: packets ACKed,
+ * The calibrate button (D9 -> GND, INPUT_PULLUP, software debounce) or a
+ * serial 'c' queues a calibrate command; it rides on the next packets until
+ * one is ACKed, and the ACK flashes the green LED. Once per second a '#' line reports the link: packets ACKed,
  * retransmissions, and write->ACK time (an upper bound on one-way latency).
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
@@ -49,6 +51,12 @@ const int   OPEN_RAW    = 8;                   // below this => open / no force 
 const int   SETTLE_US   = 50;                  // mux switch + SIG node settling
 const int   SAMPLE_MS   = 50;                  // 20 Hz scan rate
 
+const int   BTN_PIN     = D9;                  // calibrate button to GND
+const int   DEBOUNCE_MS = 25;                  // input must be stable this long
+const int   CAL_LED     = LED_GREEN;           // flashes when calibrate is ACKed
+const int   LED_ON      = LOW;                 // RGB LED is active LOW (core's LED_STATE_ON is wrong)
+const int   FLASH_MS    = 300;
+
 // --- ESB link (keep in sync with firmware/body/body.ino) ---
 const uint8_t RF_ADDR[6]  = "PCHR1";          // 5-byte pipe address
 const uint8_t RF_CHANNEL  = 76;               // 2476 MHz
@@ -62,8 +70,13 @@ struct __attribute__((packed)) ChairPacket {
 
 nrf_to_nrf radio;
 bool rawMode = false;                          // 'r' toggles ohms <-> raw counts
-bool pendingCal = false;                       // 'c' -> send CMD_CALIBRATE until ACKed
+bool pendingCal = false;                       // button/'c' -> send CMD_CALIBRATE until ACKed
 uint16_t seq = 0;
+
+bool btnRaw = HIGH, btnState = HIGH;           // last read / debounced level
+unsigned long btnChangedAt = 0;
+unsigned long ledOnAt = 0;
+bool ledLit = false;
 
 // link stats, reported and reset once per second
 uint16_t nSent = 0, nOk = 0, nRetx = 0;
@@ -94,6 +107,31 @@ void printHeader() {
   Serial.println();
 }
 
+void queueCalibrate(const char *src) {
+  pendingCal = true;
+  Serial.print("# calibrate queued ("); Serial.print(src); Serial.println(")");
+}
+
+void pollButton() {
+  bool r = digitalRead(BTN_PIN);
+  unsigned long now = millis();
+  if (r != btnRaw) { btnRaw = r; btnChangedAt = now; }
+  else if (r != btnState && now - btnChangedAt >= DEBOUNCE_MS) {
+    btnState = r;
+    if (btnState == LOW) queueCalibrate("button");   // act on press, not release
+  }
+}
+
+void flashLed() {
+  digitalWrite(CAL_LED, LED_ON);
+  ledLit = true;
+  ledOnAt = millis();
+}
+
+void updateLed() {
+  if (ledLit && millis() - ledOnAt >= FLASH_MS) { digitalWrite(CAL_LED, !LED_ON); ledLit = false; }
+}
+
 void pollSerial() {
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -101,8 +139,7 @@ void pollSerial() {
       rawMode = !rawMode;
       printHeader();
     } else if (c == 'c' || c == 'C') {
-      pendingCal = true;
-      Serial.println("# calibrate queued");
+      queueCalibrate("serial");
     }
   }
 }
@@ -124,7 +161,7 @@ void sendPacket(const int *raw) {
     nRetx += radio.getARC();
     latSum += dt;
     if (dt > latMax) latMax = dt;
-    if (pkt.cmd == CMD_CALIBRATE) { pendingCal = false; Serial.println("# calibrate sent"); }
+    if (pkt.cmd == CMD_CALIBRATE) { pendingCal = false; flashLed(); Serial.println("# calibrate sent"); }
   }
 }
 
@@ -139,6 +176,9 @@ void reportLink() {
 void setup() {
   Serial.begin(115200);
   for (int b = 0; b < 4; b++) pinMode(SEL_PINS[b], OUTPUT);
+  pinMode(BTN_PIN, INPUT_PULLUP);
+  pinMode(CAL_LED, OUTPUT);
+  digitalWrite(CAL_LED, !LED_ON);
   analogReference(AR_VDD4);                    // full scale = VDD -> ratiometric
   analogReadResolution(12);
   analogSampleTime(10);                        // us; source impedance <= R_FIXED
@@ -153,7 +193,7 @@ void setup() {
   radio.openWritingPipe(RF_ADDR);
   radio.stopListening();                       // TX role
 
-  Serial.println("# chair FSR scan: C8..C15. 'r' = toggle ohms/raw, 'c' = calibrate.");
+  Serial.println("# chair FSR scan: C8..C15. 'r' = toggle ohms/raw, 'c'/button = calibrate.");
   printHeader();
 }
 
@@ -175,6 +215,9 @@ void loop() {
 
   if (t - lastReport >= 1000) { lastReport = t; reportLink(); }
 
-  long wait = SAMPLE_MS - (long)(millis() - t);
-  if (wait > 0) delay(wait);
+  while (millis() - t < SAMPLE_MS) {           // idle until next scan, but stay responsive
+    pollButton();
+    updateLed();
+    delay(1);
+  }
 }
