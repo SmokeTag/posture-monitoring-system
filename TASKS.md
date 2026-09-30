@@ -21,14 +21,14 @@ Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
 
 ### [ ] 3. Firmware do corpo: IMU + motor
 
-Partir de `firmware/body/` (receptor ESB), trazer de `xiao_imu_test.ino`
-o pitch/roll + calibração por desvio (disparada pelo comando que chega via
-ESB) e adicionar o motor de vibração (driver transistor + diodo de roda
-livre) com padrão de alerta. O `loop()` não pode bloquear (ver ESB no
-`CLAUDE.md`). Lógica inicial só com IMU: desvio além do limiar por
-X segundos → vibra.
-**Pronto quando:** inclinar-se além do limiar por X s aciona o motor e
-voltar à postura calibrada o desliga.
+IMU pronto e validado nas costas (`firmware/body/`: desvio > 10° por 3 s →
+alerta, < 7° desliga; LED vermelho no lugar do motor; visualização ao vivo
+em `analysis/live_imu.py`).
+**Falta (bancada):**
+- [ ] Ligar o motor de vibração (driver transistor + diodo de roda livre) e
+      trocar `ALERT_PIN`/`ALERT_ACTIVE` no `body.ino` para o pino do driver.
+- [ ] Limiar pareceu leniente: reajustar 10°/3 s depois de montado no
+      invólucro (medir no `live_imu.py` onde cai uma postura "levemente ruim").
 
 ### [ ] 4. Fusão cadeira + IMU e classificação
 
