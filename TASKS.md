@@ -17,8 +17,7 @@ Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
       Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
 - [ ] Botão de calibração: soldar entre **D9** e GND (firmware pronto:
       `INPUT_PULLUP` + debounce por software, sem RC). Testar: apertar →
-      `# calibrate queued (button)` → `# calibrate sent` e o LED verde pisca
-      (se não piscar, a polaridade `LED_ON` do LED está invertida).
+      `# calibrate queued (button)` → `# calibrate sent` e o LED verde pisca.
 
 ### [ ] 3. Firmware do corpo: IMU + motor
 
