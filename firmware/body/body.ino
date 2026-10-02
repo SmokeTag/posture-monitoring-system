@@ -16,14 +16,15 @@
  * mean of the next CAL_SAMPLES samples (1 s). 'r' clears it. No alerts until
  * calibrated.
  *
- * Alert output: the onboard red LED stands in for the vibration motor
- * (pulsed PULSE_ON_MS every PULSE_PERIOD_MS while alerting). Move ALERT_PIN /
- * ALERT_ACTIVE to the motor driver pin once it's wired.
+ * Alert output: vibration motor on D10 (NPN low-side driver + flyback diode,
+ * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength), mirrored on the
+ * onboard red LED. Pulsed PULSE_ON_MS every PULSE_PERIOD_MS while alerting.
+ * 'm' buzzes once (MOTOR_TEST_MS) to bench-test the motor.
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), 20 Hz:
  *   t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq,c8,...,c15
  *   dev   = sqrt(dpitch^2 + droll^2), degrees from upright (0 if uncalibrated)
- *   alert = 1 while in alert (dev held above threshold), led = LED/motor pin now
+ *   alert = 1 while in alert (dev held above threshold), led = motor/LED on now
  *   seq,c8..c15 = last chair packet (raw ADC counts); seq=-1 before the first
  * Events: "# alert ON/OFF", "# calibrat...", once per second "# rx pkts=N lost=M".
  *
@@ -57,10 +58,12 @@ const unsigned long ALERT_HOLD_MS = 3000;      // dev must stay > ALERT_DEG this
 const unsigned long SAMPLE_MS     = 50;        // 20 Hz
 const int CAL_SAMPLES             = 20;        // 1 s of samples averaged into the reference
 
-// Alert output: red LED (active LOW) as the motor stand-in
-const int  ALERT_PIN    = LED_RED;
-const bool ALERT_ACTIVE = LOW;
+// Alert output: motor driver (active HIGH, PWM) + red LED (active LOW) mirror
+const int MOTOR_PIN  = D10;
+const int MOTOR_DUTY = 255;                    // 0..255; lower = weaker buzz
+const int LED_PIN    = LED_RED;
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;
+const unsigned long MOTOR_TEST_MS   = 500;
 
 const float RAD_TO_DEGF = 57.2957795f;
 
@@ -83,6 +86,7 @@ float pitchRef = 0, rollRef = 0;
 bool alert = false, ledState = false;
 unsigned long overSince = 0, alertStart = 0;   // overSince = 0: not over threshold
 unsigned long lastSample = 0;
+unsigned long testUntil = 0;                   // 'm' bench buzz; 0 = idle
 
 // Axis mapping for this mounting (see xiao_imu_test.ino): pitch = forward/back.
 void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
@@ -98,7 +102,8 @@ void startCalibration(const char *src) {
 
 void setLed(bool on) {
   ledState = on;
-  digitalWrite(ALERT_PIN, on ? ALERT_ACTIVE : !ALERT_ACTIVE);
+  analogWrite(MOTOR_PIN, on ? MOTOR_DUTY : 0);
+  digitalWrite(LED_PIN, on ? LOW : HIGH);
 }
 
 void setAlert(bool on, float dev) {
@@ -130,6 +135,11 @@ void pollSerial() {
       calibrated = false; calLeft = 0; overSince = 0;
       setAlert(false, 0);
       Serial.println("# calibration cleared");
+    }
+    else if (c == 'm' || c == 'M') {
+      testUntil = millis() + MOTOR_TEST_MS;
+      setLed(true);
+      Serial.println("# motor test");
     }
   }
 }
@@ -181,7 +191,8 @@ void sample(unsigned long t) {
 }
 
 void setup() {
-  pinMode(ALERT_PIN, OUTPUT);
+  pinMode(MOTOR_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
   setLed(false);
 
   Serial.begin(115200);
@@ -195,7 +206,7 @@ void setup() {
   radio.openReadingPipe(1, RF_ADDR);
   radio.startListening();                      // RX role
 
-  Serial.println("# body unit: sit upright, then calibrate (chair 'c' or 'c' here); 'r' clears");
+  Serial.println("# body unit: sit upright, then calibrate (chair 'c' or 'c' here); 'r' clears; 'm' buzzes");
   Serial.println("t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq,c8,c9,c10,c11,c12,c13,c14,c15");
 }
 
@@ -210,6 +221,7 @@ void loop() {
   }
 
   if (alert) setLed((t - alertStart) % PULSE_PERIOD_MS < PULSE_ON_MS);
+  else if (testUntil && (long)(t - testUntil) >= 0) { testUntil = 0; setLed(false); }
 
   if (t - lastReport >= 1000) {
     lastReport = t;
