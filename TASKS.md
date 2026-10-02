@@ -25,8 +25,10 @@ IMU pronto e validado nas costas (`firmware/body/`: desvio > 10° por 3 s →
 alerta, < 7° desliga; LED vermelho no lugar do motor; visualização ao vivo
 em `analysis/live_imu.py`).
 **Falta (bancada):**
-- [ ] Ligar o motor de vibração (driver transistor + diodo de roda livre) e
-      trocar `ALERT_PIN`/`ALERT_ACTIVE` no `body.ino` para o pino do driver.
+- [ ] Motor montado no **D10** e firmware pronto (PWM `MOTOR_DUTY`, LED
+      vermelho espelha). Testar: serial `'m'` → vibra 0,5 s; depois um alerta
+      real. Ajustar `MOTOR_DUTY` se forte demais; ver se o 3V3/rádio não sofre
+      na partida (senão, 10–47 µF entre 3V3 e GND).
 - [ ] Limiar pareceu leniente: reajustar 10°/3 s depois de montado no
       invólucro (medir no `live_imu.py` onde cai uma postura "levemente ruim").
 
