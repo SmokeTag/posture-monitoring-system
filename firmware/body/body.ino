@@ -60,7 +60,7 @@ const int CAL_SAMPLES             = 20;        // 1 s of samples averaged into t
 
 // Alert output: motor driver (active HIGH, PWM) + red LED (active LOW) mirror
 const int MOTOR_PIN  = D10;
-const int MOTOR_DUTY = 30;                     // 0..255; lower = weaker buzz
+const int MOTOR_DUTY = 100;                     // 0..255; lower = weaker buzz
 const int LED_PIN    = LED_RED;
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;
 const unsigned long MOTOR_TEST_MS   = 500;
