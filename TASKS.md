@@ -11,26 +11,11 @@ Toolchain/FQBN: cabeçalho de `firmware/xiao_imu_test/xiao_imu_test.ino`.
 
 ### [ ] 1. Leitura dos 8 FSRs na PCB da cadeira
 
-Sketch `firmware/chair/` pronto e validado em C8 e C10–C15.
+Sketch `firmware/chair/` pronto e validado nos 8 canais (C8–C15).
 **Falta (bancada):**
-- [ ] C9 está em curto com o 3V3 na PCB (lê fundo de escala sem FSR).
-      Corrigir o curto e confirmar que pressionar o FSR do C9 altera só o C9.
 - [ ] Botão de calibração: soldar entre **D9** e GND (firmware pronto:
       `INPUT_PULLUP` + debounce por software, sem RC). Testar: apertar →
       `# calibrate queued (button)` → `# calibrate sent` e o LED verde pisca.
-
-### [ ] 3. Firmware do corpo: IMU + motor
-
-IMU pronto e validado nas costas (`firmware/body/`: desvio > 10° por 3 s →
-alerta, < 7° desliga; LED vermelho no lugar do motor; visualização ao vivo
-em `analysis/live_imu.py`).
-**Falta (bancada):**
-- [ ] Motor montado no **D10** e firmware pronto (PWM `MOTOR_DUTY`, LED
-      vermelho espelha). Testar: serial `'m'` → vibra 0,5 s; depois um alerta
-      real. Ajustar `MOTOR_DUTY` se forte demais; ver se o 3V3/rádio não sofre
-      na partida (senão, 10–47 µF entre 3V3 e GND).
-- [ ] Limiar pareceu leniente: reajustar 10°/3 s depois de montado no
-      invólucro (medir no `live_imu.py` onde cai uma postura "levemente ruim").
 
 ### [ ] 4. Fusão cadeira + IMU e classificação
 
@@ -45,7 +30,9 @@ são classificadas corretamente em sessões gravadas.
 
 FSRs fixados na cadeira (4 assento + 4 encosto), botão físico de calibração
 na unidade da cadeira, unidade corporal na bateria (ver item da LiPo abaixo),
-leitura da tensão da bateria. Validação final com sessões de uso para o
+leitura da tensão da bateria. Reajustar o limiar do IMU (10°/3 s pareceu
+leniente) já no invólucro, medindo no `analysis/live_imu.py` onde cai uma
+postura "levemente ruim". Validação final com sessões de uso para o
 relatório.
 **Pronto quando:** sistema completo funciona sem USB durante uma sessão
 sentada.
