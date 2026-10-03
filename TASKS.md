@@ -9,14 +9,6 @@ que surgirem vão para o `CLAUDE.md`.
 Etapas em ordem; cada uma é testável isoladamente antes da seguinte.
 Toolchain/FQBN: cabeçalho de `firmware/xiao_imu_test/xiao_imu_test.ino`.
 
-### [ ] 1. Leitura dos 8 FSRs na PCB da cadeira
-
-Sketch `firmware/chair/` pronto e validado nos 8 canais (C8–C15).
-**Falta (bancada):**
-- [ ] Botão de calibração: soldar entre **D9** e GND (firmware pronto:
-      `INPUT_PULLUP` + debounce por software, sem RC). Testar: apertar →
-      `# calibrate queued (button)` → `# calibrate sent` e o LED verde pisca.
-
 ### [ ] 4. Fusão cadeira + IMU e classificação
 
 Combinar a distribuição de pressão (assento/encosto, presença, assimetria
