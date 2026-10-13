@@ -47,8 +47,9 @@ no further prompting. Defaults:
 - Powered by a **single-cell (1S) 3.7 V LiPo**
 - Drives a **vibration motor** that activates when problematic posture is
   detected. Coin motor 2.5–4 V / ≤90 mA (too much for a GPIO): **D10 → 1 kΩ →
-  NPN base**, emitter → GND, collector → motor − ; motor + → **3V3**; flyback
-  diode across the motor (cathode at 3V3) + 100 nF ceramic. PWM sets strength.
+  NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
+  flyback diode (likely 1N4148 — marking unconfirmed) across the motor
+  (cathode at 3V3) + 100 nF ceramic. PWM sets strength.
 - **Chair→brain link = Nordic ESB** (low latency, built-in auto-ack/retransmit);
   chair = transmitter, brain = receiver. BLE only if a phone joins later.
   Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
