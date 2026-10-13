@@ -49,7 +49,7 @@ no further prompting. Defaults:
   detected. Coin motor 2.5–4 V / ≤90 mA (too much for a GPIO): **D10 → 1 kΩ →
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
   flyback diode (likely 1N4148 — marking unconfirmed) across the motor
-  (cathode at 3V3) + 100 nF ceramic. PWM sets strength.
+  (cathode at 3V3) + 33 nF ceramic ("333"). PWM sets strength.
 - **Chair→brain link = Nordic ESB** (low latency, built-in auto-ack/retransmit);
   chair = transmitter, brain = receiver. BLE only if a phone joins later.
   Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
