@@ -13,11 +13,13 @@ The system fuses two sources of information:
 **Do not make any change (code, docs, data, config) unless explicitly requested.**
 Suggestions and proposed changes are welcome — just ask before applying them.
 
-## Git / commits (working agreement)
-**The AI agent (Claude Code or Codex) owns the commits for this repo.**
+## Git
+**The AI agent owns the commits for this repo.**
 It stages and writes the commit itself — clear message, logical grouping,
 no further prompting. Defaults:
-- Commit straight to `main` unless told otherwise.
+- **Small / high-confidence changes** → commit straight to `main`.
+- **Larger or non-trivial changes** → open a PR (feature branch) so the
+  automated review bots can give feedback before merging.
 - Group by intent (tooling vs data vs docs) rather than one giant commit.
 - Never commit data that's botched/void
 
