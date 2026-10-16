@@ -6,7 +6,7 @@ midterm OE1/OE2/OE4 analysis; the WARNs are expected/by-design behaviour, not
 data defects.
 
 Source: `data/2026-06-19_andre_no-neck-mount_own-chair.csv` — serial capture
-from `firmware/xiao_imu_test/xiao_imu_test.ino` (XIAO nRF52840 Sense). **Run 1:
+from `firmware/archive/xiao_imu_test/xiao_imu_test.ino` (XIAO nRF52840 Sense). **Run 1:
 André Thomas Monteiro, no neck mount (bare XIAO), his own office chair.** Re-run
 the checks with `.venv/bin/python analysis/validate_postures.py`.
 
@@ -75,7 +75,7 @@ hold per round in all 5 rounds (within-hold std pitch ±0.43° / roll ±0.81°) 
 deliberate, repeated pose: hips slid forward, torso leaning **back** against the
 chair, so it has the **highest pitch of any tag (63.8°)** (this mounting reads
 backward lean as *high* pitch, forward lean as *low*). It is now in the tag map
-(`firmware/xiao_imu_test/xiao_imu_test.ino`, `data/README.md`,
+(`firmware/archive/xiao_imu_test/xiao_imu_test.ino`, `data/README.md`,
 `analysis/postures.py`). Being a backward lean, it separates cleanly from the
 forward postures.
 

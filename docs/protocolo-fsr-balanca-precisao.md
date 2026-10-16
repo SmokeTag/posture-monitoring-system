@@ -43,7 +43,7 @@ Wiring (unchanged): `5V —[FSR402]—+—[2.833 kΩ]— GND`, node `+` → `A0`
 ## Step 1 — flash + sanity check  → CHECK-IN A
 
 ```bash
-arduino-cli compile --upload -p /dev/ttyACM0 --fqbn arduino:avr:uno firmware/uno_fsr_test
+arduino-cli compile --upload -p /dev/ttyACM0 --fqbn arduino:avr:uno firmware/archive/uno_fsr_test
 arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
 ```
 Watch the plain `raw  V  ohms` view. **Send the `raw / V / ohms` for (a) no load

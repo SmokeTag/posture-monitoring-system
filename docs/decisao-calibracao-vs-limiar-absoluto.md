@@ -63,7 +63,7 @@ portanto é o espaço de decisão adequado para o alerta.
 
 ## Estado de implementação
 
-Calibração comprovada em firmware (`firmware/xiao_imu_test/`): o comando serial
+Calibração comprovada em firmware (`firmware/archive/xiao_imu_test/`): o comando serial
 `c` captura a média de 20 amostras como referência "ereto" e o sketch passa a
 exibir o desvio (dPitch/dRoll). Pendentes: botão físico na cadeira (hoje *stub*
 pelo comando serial `c`), o enlace ESB e a persistência em flash.

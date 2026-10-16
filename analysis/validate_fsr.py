@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate an FSR402 capture (sweep or creep) and print a PASS/WARN/FAIL report.
 
-Turn-key gate for Campaign B captures from firmware/uno_fsr_test: run it right
+Turn-key gate for Campaign B captures from firmware/archive/uno_fsr_test: run it right
 after a capture to know whether the run is good BEFORE analysing or committing
 it. It auto-detects the capture kind and tunes the checks:
 

@@ -7,7 +7,7 @@ que surgirem vão para o `CLAUDE.md`.
 ## Roteiro do firmware
 
 Etapas em ordem; cada uma é testável isoladamente antes da seguinte.
-Toolchain/FQBN: cabeçalho de `firmware/xiao_imu_test/xiao_imu_test.ino`.
+Toolchain/FQBN: `firmware/README.md`.
 
 ### [ ] 4. Fusão cadeira + IMU e classificação
 

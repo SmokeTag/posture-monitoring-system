@@ -1,6 +1,6 @@
 """Shared loader + helpers for the FSR402 characterization captures (Campaign B).
 
-The CSVs are produced by firmware/uno_fsr_test/uno_fsr_test.ino: an Arduino Uno
+The CSVs are produced by firmware/archive/uno_fsr_test/uno_fsr_test.ino: an Arduino Uno
 reads one FSR402 through a voltage divider and dumps serial at ~10 Hz in CSV
 mode. Columns:
 

@@ -1,7 +1,7 @@
 # Posture data — validation & plotting
 
 Scripts to **validate** the IMU capture (`postures.csv`) and **visualise** it.
-The CSV is the serial dump from `firmware/xiao_imu_test/xiao_imu_test.ino`
+The CSV is the serial dump from `firmware/archive/xiao_imu_test/xiao_imu_test.ino`
 (XIAO nRF52840 Sense on the upper back). Schema:
 
 ```
@@ -60,7 +60,7 @@ Re-runnable on any future capture. Full write-up of the current file:
 
 All share `fsr_lib.py` (robust loader, load-jitter canonicalization, up/down
 direction split, power-law fit, run discovery). Inputs are `data/*fsr*.csv` from
-`firmware/uno_fsr_test` (press `l`, type each scale reading; precision-balance
+`firmware/archive/uno_fsr_test` (press `l`, type each scale reading; precision-balance
 runs stamp **grams**). Procedure: `../docs/protocolo-fsr-balanca-precisao.md`.
 
 | script | what it does | figure |

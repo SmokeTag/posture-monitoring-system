@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plot the FSR402 creep curve: resistance vs. time under a constant dead load.
 
-Input: a capture from firmware/uno_fsr_test in CSV mode — columns
+Input: a capture from firmware/archive/uno_fsr_test in CSV mode — columns
 `t_ms,load_kg,raw,ohms` (ohms = -1 means open/no force). Rest a pre-weighed dead
 weight on the sensor, stamp its mass once, and leave it untouched ~10 min so the
 FSR's slow drift (creep) under sustained load can be measured.
@@ -68,7 +68,7 @@ def main() -> int:
     path = Path(args.csv)
     if not path.exists():
         print(f"No creep capture found at {path}.\n"
-              f"Capture one with firmware/uno_fsr_test (press 'l', rest a dead weight,\n"
+              f"Capture one with firmware/archive/uno_fsr_test (press 'l', rest a dead weight,\n"
               f"type its mass once, leave ~10 min), saving to data/<date>_fsr_*creep*.csv.")
         return 2
 
