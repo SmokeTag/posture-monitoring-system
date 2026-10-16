@@ -20,6 +20,8 @@ no further prompting. Defaults:
 - **Small / high-confidence changes** → commit straight to `main`.
 - **Larger or non-trivial changes** → open a PR (feature branch) so the
   automated review bots can give feedback before merging.
+  After publishing, wait for the **2 automated reviews** (~10–15 min), then
+  address their feedback until the PR is ready to merge.
 - Group by intent (tooling vs data vs docs) rather than one giant commit.
 - Never commit data that's botched/void
 
