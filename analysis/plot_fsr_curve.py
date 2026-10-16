@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plot the FSR402 resistance-vs-load curve and find the saturation knee.
 
-Input: a capture from firmware/uno_fsr_test in CSV mode — columns
+Input: a capture from firmware/archive/uno_fsr_test in CSV mode — columns
 `t_ms,load_kg,raw,ohms` (ohms = -1 means open/no force). Press the FSR through a
 rigid puck on a bathroom scale, type each scale reading to stamp `load_kg`.
 
@@ -72,7 +72,7 @@ def main() -> int:
     path = Path(args.csv)
     if not path.exists():
         print(f"No FSR capture found at {path}.\n"
-              f"Capture one with firmware/uno_fsr_test (press 'l', type each scale\n"
+              f"Capture one with firmware/archive/uno_fsr_test (press 'l', type each scale\n"
               f"reading in kg), saving to data/<date>_fsr_*.csv, then pass --csv.")
         return 2
 

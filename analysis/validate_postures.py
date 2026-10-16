@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validate an IMU posture capture (postures.csv) and print a PASS/WARN/FAIL
-report. Re-runnable on any future capture from firmware/xiao_imu_test.
+report. Re-runnable on any future capture from firmware/archive/xiao_imu_test.
 
 Checks: parse integrity, timing/sampling, the cal==0 dpitch==pitch invariant,
 per-epoch calibration-reference consistency, accelerometer health (|g|~1),

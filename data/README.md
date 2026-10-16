@@ -1,6 +1,6 @@
 # Capture data — IMU posture runs
 
-Raw serial captures from `firmware/xiao_imu_test/xiao_imu_test.ino`. One CSV per
+Raw serial captures from `firmware/archive/xiao_imu_test/xiao_imu_test.ino`. One CSV per
 capture run. The procedure that produces these files:
 [`../docs/protocolo-captura-imu.md`](../docs/protocolo-captura-imu.md).
 
@@ -35,7 +35,7 @@ analysis). `#`-prefixed lines are comments (calibration events, tag stamps).
 
 # Capture data — FSR402 characterization (Campaign B)
 
-Raw serial captures from `firmware/uno_fsr_test/uno_fsr_test.ino` (Arduino Uno,
+Raw serial captures from `firmware/archive/uno_fsr_test/uno_fsr_test.ino` (Arduino Uno,
 single FSR402 on a voltage divider). Procedure:
 [`../docs/protocolo-fsr-balanca-precisao.md`](../docs/protocolo-fsr-balanca-precisao.md)
 (precision-balance light-contact variant).

@@ -50,8 +50,8 @@ e.g. 2026-06-19_andre_no-neck-mount_own-chair.csv
 ## Step 2 — flash the firmware
 
 ```bash
-arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/xiao_imu_test
-arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/xiao_imu_test
+arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/archive/xiao_imu_test
+arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/archive/xiao_imu_test
 ```
 
 ## Step 3 — start logging to file

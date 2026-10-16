@@ -44,7 +44,7 @@
  *
  * Build+upload / monitor (arduino-cli, Uno on /dev/ttyACM0):
  *   arduino-cli compile --upload -p /dev/ttyACM0 \
- *     --fqbn arduino:avr:uno firmware/uno_fsr_test
+ *     --fqbn arduino:avr:uno firmware/archive/uno_fsr_test
  *   arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee data/<file>.csv
  * (classic Nano clone: --fqbn arduino:avr:nano:cpu=atmega328 on /dev/ttyUSB0)
  */

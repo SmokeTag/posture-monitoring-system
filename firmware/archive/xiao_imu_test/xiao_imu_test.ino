@@ -75,8 +75,8 @@
  * The onboard IMU sits on the internal I2C bus at address 0x6A.
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
- *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/xiao_imu_test
- *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/xiao_imu_test
+ *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense firmware/archive/xiao_imu_test
+ *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/archive/xiao_imu_test
  *   arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
  */
 

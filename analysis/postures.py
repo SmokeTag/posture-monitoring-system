@@ -1,6 +1,6 @@
 """Shared loader + helpers for the IMU posture capture (postures.csv).
 
-The CSV is produced by firmware/xiao_imu_test/xiao_imu_test.ino: a continuous
+The CSV is produced by firmware/archive/xiao_imu_test/xiao_imu_test.ino: a continuous
 ~20 Hz serial dump from the XIAO nRF52840 Sense worn on the upper back. Every
 prose/diagnostic line is prefixed with '#', so the numeric stream parses
 directly; the first non-'#' line is the textual header.

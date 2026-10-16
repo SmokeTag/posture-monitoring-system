@@ -85,7 +85,7 @@ measurement and decides when to buzz.
 
 ## Repository structure
 ```
-firmware/   Arduino sketches (toolchain/build: header of xiao_imu_test.ino)
+firmware/   Arduino sketches (toolchain/build: firmware/README.md)
 analysis/   Python analysis + findings (venv .venv; see README.md)
 data/       raw CSV captures (registry: data/README.md)
 docs/       protocols, decisions, research (PT-BR)

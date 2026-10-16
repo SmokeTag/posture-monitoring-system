@@ -88,7 +88,7 @@ unsigned long overSince = 0, alertStart = 0;   // overSince = 0: not over thresh
 unsigned long lastSample = 0;
 unsigned long testUntil = 0;                   // 'm' bench buzz; 0 = idle
 
-// Axis mapping for this mounting (see xiao_imu_test.ino): pitch = forward/back.
+// Axis mapping for this mounting (see archive/xiao_imu_test): pitch = forward/back.
 void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
   pitch = atan2f(-aX, sqrtf(aY * aY + aZ * aZ)) * RAD_TO_DEGF;
   roll  = atan2f(aY, aZ) * RAD_TO_DEGF;
