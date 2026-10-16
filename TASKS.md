@@ -70,6 +70,6 @@ interface externa.
 **A decidir:**
 - [ ] Standalone puro **ou** algum complemento: app de celular, dashboard web,
       ou só registro de dados (ex.: log em flash / serial para análise).
-- [ ] Se houver app/celular: o elo com o telefone seria **BLE**, convivendo com o ESB cadeira→cérebro.
+- [ ] Se houver app/celular: o elo com o telefone seria **BLE**, convivendo com o ESB corpo↔cadeira (cérebro).
 - [ ] Impacto em escopo/prazo do TCC, consumo de bateria e firmware.
 - [ ] Registrar a decisão no `CLAUDE.md`.
