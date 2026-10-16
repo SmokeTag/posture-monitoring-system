@@ -9,6 +9,9 @@ The system fuses two sources of information:
 1. **How body weight is distributed on the chair** (pressure sensors).
 2. **The orientation/curvature of the upper back** (worn sensor IMU).
 
+## Scope of changes
+**Do not make any change (code, docs, data, config) unless explicitly requested.**
+
 ## Git / commits (working agreement)
 **The AI agent (Claude Code or Codex) owns the commits for this repo.**
 It stages and writes the commit itself — clear message, logical grouping,
