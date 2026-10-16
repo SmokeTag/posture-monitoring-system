@@ -75,6 +75,18 @@ lib. Junto: `radio.powerDown()` entre envios no corpo e tirar o
 **Pronto quando:** retx/s perto do de antes e a corrente do corpo medida antes
 e depois (número para o relatório).
 
+#### [ ] Baixar a taxa do enlace para 5–10 Hz no produto final
+
+**Contexto:** 20 Hz fica durante desenvolvimento/calibração (capturas mais
+finas). Postura muda devagar e o alerta já espera 3 s, então 5–10 Hz basta.
+**Cuidados:** taxa numa constante única no `PostureLink.h` (hoje
+`SAMPLE_MS` no corpo e `SCAN_MS` na cadeira) e `LINK_TIMEOUT_MS`
+proporcional a ela (~10 pacotes; a 5 Hz, ~2 s); amostrar o IMU mais rápido e
+enviar a média (hoje é uma leitura crua por pacote); rever a nota de fase em
+`chair.ino` (~l. 269); anotar a taxa das capturas no `data/README.md`. Só
+economiza de fato junto com o sleep do item acima.
+**Pronto quando:** enlace estável na taxa nova e corrente medida.
+
 ### Arquitetura do sistema
 
 #### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
