@@ -11,6 +11,7 @@ The system fuses two sources of information:
 
 ## Scope of changes
 **Do not make any change (code, docs, data, config) unless explicitly requested.**
+Suggestions and proposed changes are welcome — just ask before applying them.
 
 ## Git / commits (working agreement)
 **The AI agent (Claude Code or Codex) owns the commits for this repo.**
