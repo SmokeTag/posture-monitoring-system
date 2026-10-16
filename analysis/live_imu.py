@@ -55,6 +55,7 @@ class ChairReader(threading.Thread):
         self.events: deque[str] = deque(maxlen=3)
         self.link = ""
         self.connected = False
+        self.body_up = False                          # latest data row came from the body
 
     def send(self, ch: str):
         if self.ser:
@@ -67,7 +68,7 @@ class ChairReader(threading.Thread):
         while True:
             try:
                 self.ser = serial.Serial(self.port, 115200, timeout=0.5)
-                self.connected = True
+                self.connected, self.body_up = True, False
                 while True:
                     line = self.ser.readline().decode(errors="replace").strip()
                     if line:
@@ -93,12 +94,13 @@ class ChairReader(threading.Thread):
                     row = {k: float(v) for k, v in zip(FIELDS, parts)}
                 except ValueError:
                     return
-                if row["seq"] >= 0:                   # seq=-1: body silent, IMU fields void
+                self.body_up = row["seq"] >= 0        # seq=-1: body silent, IMU fields void
+                if self.body_up:
                     self.rows.append(row)
 
     def snapshot(self):
         with self.lock:
-            return list(self.rows), list(self.events), self.link
+            return list(self.rows), list(self.events), self.link, self.body_up
 
 
 def draw_reference(ax, csv: Path):
@@ -169,11 +171,12 @@ def main() -> int:
     fig.canvas.mpl_connect("key_press_event", on_key)
 
     def update(_):
-        rows, events, link = reader.snapshot()
+        rows, events, link, body_up = reader.snapshot()
         if not reader.connected:
             banner.set_text(f"waiting for {Path(args.port).name} …")
-        elif not rows:
-            banner.set_text("connected, no data yet …")
+        elif not body_up:
+            banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" if rows
+                            else "connected, waiting for the body …")
         elif not rows[-1]["cal"]:
             banner.set_text("NOT CALIBRATED\nsit upright, press the chair button "
                             "(or 'c' here)")
@@ -186,13 +189,19 @@ def main() -> int:
             x = np.array([r["dpitch"] for r in cal_rows])
             y = np.array([r["droll"] for r in cal_rows])
             trail.set_data(x, y)
+            trail.set_alpha(0.5 if body_up else 0.15)
             dot.set_offsets([[x[-1], y[-1]]])
-            dot.set_visible(True)
+            dot.set_visible(body_up)
         else:
             trail.set_data([], [])
             dot.set_visible(False)
 
-        if rows:
+        if rows and not body_up:
+            status.set_text(
+                "dev     —\nstate — body silent\nLED     —\n"
+                f"chair {link or '—'}\n"
+                + "\nlast events\n" + "\n".join(f"· {e[:44]}" for e in events))
+        elif rows:
             r = rows[-1]
             if r["alert"]:
                 colour, state = C_ALERT, "▲ ALERT"
