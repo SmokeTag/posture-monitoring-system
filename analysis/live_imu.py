@@ -1,15 +1,16 @@
 """Live view of the body unit's IMU in the calibrated decision space.
 
-Reads the serial CSV of firmware/body/body.ino and plots the current
+Reads the serial CSV of the chair unit (firmware/chair/chair.ino, the "brain",
+which receives the body's IMU over ESB) and plots the current
 (dpitch, droll) point with a short trail, on top of the per-posture clusters
 from a recorded capture (the right panel of figures/02_separation.png), with
 the alert (10°) and clear (7°) circles. The status box shows dev, alert and the
 LED/motor state as the firmware reports them.
 
-Keys (plot window focused):  c = calibrate (sends 'c' to the body)   r = clear
+Keys (plot window focused):  c = calibrate (sends 'c' to the chair)   r = clear
 
     .venv/bin/python analysis/live_imu.py
-    .venv/bin/python analysis/live_imu.py --port /dev/ttyACM1 --log data/<name>.csv
+    .venv/bin/python analysis/live_imu.py --port /dev/ttyACM0 --log data/<name>.csv
 
 Needs pyserial + PyQt6 in the venv (see requirements.txt).
 """
@@ -33,16 +34,16 @@ from matplotlib.patches import Circle  # noqa: E402
 
 import postures as P  # noqa: E402
 
-BODY_PORT = "/dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_3B4A158C694F1777-if00"
+CHAIR_PORT = "/dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00"
 REF_CSV = P.DATA_DIR / "2026-06-19_andre_no-neck-mount_own-chair.csv"
-ALERT_DEG, CLEAR_DEG = 10.0, 7.0            # keep in sync with body.ino
+ALERT_DEG, CLEAR_DEG = 10.0, 7.0            # keep in sync with firmware/libraries/PostureLink
 FIELDS = ["t_ms", "cal", "dev", "alert", "led", "dpitch", "droll", "pitch", "roll", "seq"]
 
 # status colours (state, not identity) — always paired with a text label
 C_OK, C_OVER, C_ALERT = "#444444", "#e69f00", "#d62728"
 
 
-class BodyReader(threading.Thread):
+class ChairReader(threading.Thread):
     """Background serial reader; reconnects if the board resets."""
 
     def __init__(self, port: str, log: Path | None, trail_n: int):
@@ -89,9 +90,11 @@ class BodyReader(threading.Thread):
                 if len(parts) < len(FIELDS) or not parts[0].isdigit():
                     return
                 try:
-                    self.rows.append({k: float(v) for k, v in zip(FIELDS, parts)})
+                    row = {k: float(v) for k, v in zip(FIELDS, parts)}
                 except ValueError:
-                    pass
+                    return
+                if row["seq"] >= 0:                   # seq=-1: body silent, IMU fields void
+                    self.rows.append(row)
 
     def snapshot(self):
         with self.lock:
@@ -118,14 +121,14 @@ def draw_reference(ax, csv: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--port", default=BODY_PORT)
+    ap.add_argument("--port", default=CHAIR_PORT)
     ap.add_argument("--ref", type=Path, default=REF_CSV,
                     help="recorded capture drawn as reference clusters")
     ap.add_argument("--log", type=Path, help="also append every serial line here")
     ap.add_argument("--trail", type=float, default=3.0, help="trail length, s")
     args = ap.parse_args()
 
-    reader = BodyReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
+    reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
     reader.start()
 
     for k in ("keymap.back", "keymap.home"):          # free 'c' and 'r'
