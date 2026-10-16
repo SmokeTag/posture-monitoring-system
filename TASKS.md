@@ -59,6 +59,22 @@ só enche ~28 %/~55 % dos 1800 mAh por conexão do USB.
 - [ ] Firmware: ao ler a tensão da bateria, **nunca levar P0.14 a HIGH**
       (ver doc).
 
+### Firmware — enlace ESB e energia
+
+#### [ ] Retransmissões altas no enlace corpo→cadeira (+ economia de energia)
+
+**Contexto:** desde que o cérebro foi para a cadeira (PR #2), o corpo vê
+~10–35 retransmissões/s a 20 Hz (antes ~3/s), com 0 pacotes perdidos e no
+máximo ~+20 ms de latência. Teste A/B: sem ACK payload ficam 3–10/s; com ele, a
+`nrf_to_nrf` espera o ACK só ~0,8 ms (`ACK_TIMEOUT_1MBPS` + 200 µs) em vez de
+~1,35 ms. O loop da cadeira não é a causa (~22 µs por volta; pico de ~2 ms =
+2 ticks do FreeRTOS).
+**Ideias:** ACK payload menor (refs em int16), 2 Mbps, ajustar o timeout na
+lib. Junto: `radio.powerDown()` entre envios no corpo e tirar o
+`TASKS_CONSTLAT` que a lib liga.
+**Pronto quando:** retx/s perto do de antes e a corrente do corpo medida antes
+e depois (número para o relatório).
+
 ### Arquitetura do sistema
 
 #### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
