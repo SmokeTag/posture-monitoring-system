@@ -108,7 +108,8 @@ class ChairReader(threading.Thread):
         while True:
             try:
                 self.ser = serial.Serial(self.port, 115200, timeout=0.5)
-                self.connected, self.body_up = True, False
+                self.connected, self.body_up, self.raw = True, False, False
+                self.send("uu")                   # toggle twice: same mode, header re-sent
                 while True:
                     line = self.ser.readline().decode(errors="replace").strip()
                     if line:
