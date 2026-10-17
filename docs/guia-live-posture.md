@@ -19,8 +19,8 @@ Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
 ## O que aparece
 
 - **Esquerda — IMU:** desvio da postura calibrada `(dpitch, droll)` com rastro,
-  sobre os clusters de uma captura gravada; círculos de alerta (10°) e de
-  liberação (7°). Caixa de status: desvio, estado do alerta, motor/LED, enlace.
+  e círculos de alerta (10°) e de liberação (7°). Caixa de status: desvio,
+  estado do alerta, motor/LED, enlace.
 - **Direita — cadeira vista de cima, encosto rebatido para trás** (a esquerda de
   quem senta fica à esquerda da tela): 4 posições no assento + 4 no encosto.
   - Cor = carga no FSR (mais escuro = mais força; **cinza = solto**), com a

@@ -3,10 +3,8 @@
 Reads the serial CSV of the chair unit (firmware/chair/chair.ino, the "brain",
 which receives the body's IMU over ESB and scans its FSRs).
 
-Left: the current (dpitch, droll) point with a short trail, on top of the
-per-posture clusters from a recorded capture (the right panel of
-figures/02_separation.png), with the alert (10°) and clear (7°) circles. The
-status box shows dev, alert and the LED/motor state as the firmware reports.
+Left: the current (dpitch, droll) point with a short trail, with the alert
+(10°) and clear (7°) circles. The status box shows dev, alert and the LED/motor state as the firmware reports.
 
 Right: the chair seen from above with the backrest folded back (sitter's left
 on the left) — 4 seat + 4 backrest spots, each filled by its FSR's load
@@ -44,10 +42,8 @@ from matplotlib.colors import LinearSegmentedColormap, PowerNorm  # noqa: E402
 from matplotlib.patches import Circle, FancyBboxPatch  # noqa: E402
 
 import chair_map as M  # noqa: E402
-import postures as P  # noqa: E402
 
 CHAIR_PORT = "/dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00"
-REF_CSV = P.DATA_DIR / "2026-06-19_andre_no-neck-mount_own-chair.csv"
 ALERT_DEG, CLEAR_DEG = 10.0, 7.0            # keep in sync with firmware/libraries/PostureLink
 FIELDS = ["t_ms", "cal", "dev", "alert", "led", "dpitch", "droll", "pitch", "roll", "seq"]
 R_FIXED, ADC_MAX, OPEN_RAW = 3300.0, 4095, 8  # keep in sync with firmware/chair ('u' raw mode)
@@ -155,24 +151,6 @@ class ChairReader(threading.Thread):
         with self.lock:
             return (list(self.rows), list(self.fsr), list(self.events), self.link,
                     self.body_up)
-
-
-def draw_reference(ax, csv: Path):
-    """Recorded postures, calibrated deviation (cal==1, steady rows)."""
-    if not csv.exists():
-        return
-    st = P.steady(P.load(csv))
-    st = st[st["cal"] == 1]
-    for tag, g in st.groupby("tag"):
-        c = P.TAG_COLORS.get(tag, "#999")
-        ax.scatter(g["dpitch"], g["droll"], s=5, alpha=0.10, color=c, lw=0)
-        mx, my = g["dpitch"].mean(), g["droll"].mean()
-        ax.scatter([mx], [my], s=110, color=c, edgecolor="white", lw=2, zorder=3,
-                   alpha=0.8, label=P.TAG_LABELS.get(tag, str(tag)))
-        below = tag == 4                              # head-down sits beside slouch
-        ax.annotate(P.TAG_LABELS.get(tag, str(tag)), (mx, my),
-                    xytext=(8, -14 if below else 6),
-                    textcoords="offset points", fontsize=8, color="#555")
 
 
 class ChairView:
@@ -386,8 +364,6 @@ class ChairView:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--port", default=CHAIR_PORT)
-    ap.add_argument("--ref", type=Path, default=REF_CSV,
-                    help="recorded capture drawn as reference clusters")
     ap.add_argument("--map", type=Path, default=M.MAP_PATH,
                     help="FSR channel -> chair spot map (read + written)")
     ap.add_argument("--log", type=Path, help="also append every serial line here")
@@ -405,7 +381,6 @@ def main() -> int:
     ax = fig.add_axes((0.04, 0.08, 0.39, 0.84))
     chair = ChairView(fig, (0.575, 0.37, 0.41, 0.50), (0.59, 0.335, 0.2, 0.013),
                       (0.575, 0.03, 0.41, 0.27), args.map, reader)
-    draw_reference(ax, args.ref)
     ax.add_patch(Circle((0, 0), ALERT_DEG, fill=False, color="#888", lw=1.5))
     ax.add_patch(Circle((0, 0), CLEAR_DEG, fill=False, color="#888", lw=1, ls=":"))
     ax.annotate(f"alert {ALERT_DEG:.0f}°", (ALERT_DEG * 0.71, ALERT_DEG * 0.71),
@@ -418,10 +393,7 @@ def main() -> int:
     ax.grid(alpha=0.25)
     ax.set_xlabel("dpitch [deg]   (− forward · back +)")
     ax.set_ylabel("droll [deg]")
-    ax.set_title("Live deviation from calibrated upright\n"
-                 f"reference clusters: {args.ref.name} (earlier mount — indicative)",
-                 fontsize=10)
-    ax.legend(loc="lower left", fontsize=8, title="recorded posture", frameon=False)
+    ax.set_title("Live deviation from calibrated upright", fontsize=10)
 
     trail, = ax.plot([], [], color="#333", lw=2, alpha=0.5, zorder=4)
     dot = ax.scatter([0], [0], s=260, color=C_OK, edgecolor="white", lw=2.5, zorder=6)
