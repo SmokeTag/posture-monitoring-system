@@ -93,6 +93,25 @@ enviar a média (hoje é uma leitura crua por pacote); rever a nota de fase em
 economiza de fato junto com o sleep do item acima.
 **Pronto quando:** enlace estável na taxa nova e corrente medida.
 
+### Firmware — alerta do motor
+
+#### [ ] Padrão de vibração do alerta (menos insuportável)
+
+**Contexto:** hoje o corpo pulsa o motor 300 ms a cada 1 s
+(`PULSE_ON_MS`/`PULSE_PERIOD_MS` em `body.ino`) **sem parar** enquanto o
+alerta durar. Ideia inicial (ainda a amadurecer), em ms, `+` ligado e `-`
+desligado:
+`+600 -1000 +200 -200 +200 -200 +200 -1000` ×3 → silêncio 3 min → repete
+o bloco → silêncio 10 min.
+**A pensar:** o que acontece depois dos 10 min (repete? fica quieto até
+corrigir?); corrigir a postura reinicia o ciclo do zero ou só pausa
+(evitar que endireitar e voltar a curvar "fure" o silêncio); se o padrão
+roda só no corpo (vale também no fallback sem enlace) com a cadeira mandando
+só o flag de alerta; LED vermelho continua espelhando o motor; padrão numa
+tabela de constantes fácil de ajustar. Testar intensidade (`MOTOR_DUTY`) junto.
+**Pronto quando:** padrão definido, implementado e testado no corpo
+(com e sem enlace).
+
 ### Arquitetura do sistema
 
 #### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
