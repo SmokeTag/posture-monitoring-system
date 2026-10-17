@@ -27,7 +27,7 @@ import pandas as pd
 COLS = ["t_ms", "tag", "cal", "pitch", "roll", "dpitch", "droll",
         "ax", "ay", "az", "gx", "gy", "gz"]
 
-# Documented posture tags (firmware header + data/README.md).
+# Documented posture tags (firmware header + data/archive/README.md).
 DOCUMENTED_TAGS = {0, 1, 2, 3, 4, 5, 9}
 JUNK_TAG = 9  # "moving / transition" — dropped from steady-posture analysis
 
@@ -53,26 +53,15 @@ TAG_COLORS = {
     9: "#cfcfcf",  # grey   — junk/motion
 }
 
-# Repo root = parent of the analysis/ directory this file lives in.
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "data"
+# Repo root = two levels above this file (analysis/archive/).
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data" / "archive"
 
 RAD_TO_DEG = 57.2957795
 
 
-def latest_csv() -> Path:
-    """Newest capture under data/ (ISO-dated names sort chronologically).
-
-    Falls back to a legacy ./postures.csv so older invocations still resolve.
-    The returned path may not exist; load() will then raise a clear error.
-    """
-    files = sorted(DATA_DIR.glob("*.csv"))
-    if files:
-        return files[-1]
-    return REPO_ROOT / "postures.csv"
-
-
-DEFAULT_CSV = latest_csv()
+# The one IMU capture (the other archived CSVs are FSR runs).
+DEFAULT_CSV = DATA_DIR / "2026-06-19_andre_no-neck-mount_own-chair.csv"
 
 
 def load(path: str | Path = DEFAULT_CSV) -> pd.DataFrame:

@@ -1,7 +1,7 @@
 # FSR402 data — evaluation & what was under-explored (Campaign B)
 
 > Companion to `VALIDATION.md` (IMU). Written 2026-06-19 after a multi-lens review
-> of every `data/*fsr*.csv`. All numbers below were recomputed from the raw CSVs
+> of every `data/archive/*fsr*.csv`. All numbers below were recomputed from the raw CSVs
 > via `fsr_lib.py`; the headline correction (FSR3 light end) was confirmed by an
 > adversarial re-check. Feeds the partial report's *Resultados parciais* (OE2/OE4)
 > and the calibration argument (OE1).
@@ -24,7 +24,7 @@
 
 - **R-vs-load curve + saturation knee** (`plot_fsr_curve.py`).
 - **Creep** under a constant 1 kg load (`plot_fsr_creep.py`).
-- Prose cross-run notes in `data/README.md` (floor, repeatability, part-to-part,
+- Prose cross-run notes in `data/archive/README.md` (floor, repeatability, part-to-part,
   hysteresis) — but with **no figure** for part-to-part or hysteresis and **no
   model fit**.
 

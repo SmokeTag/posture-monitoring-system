@@ -7,7 +7,7 @@ jumps is assigned (`MapSession`). live_posture.py drives it and keeps the result
 chair_map.json. Pure logic, no plotting.
 
 Conductance G = 1/R (µS) is the load variable throughout: it is ~linear in
-force for the FSR402 (FSR_FINDINGS.md §3), and an open FSR is simply G = 0.
+force for the FSR402 (archive/FSR_FINDINGS.md §3), and an open FSR is simply G = 0.
 """
 
 from __future__ import annotations

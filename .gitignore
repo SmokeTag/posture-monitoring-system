@@ -27,3 +27,4 @@ Thumbs.db
 __pycache__/
 *.pyc
 analysis/figures/
+analysis/archive/figures/

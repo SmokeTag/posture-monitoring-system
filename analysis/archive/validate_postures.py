@@ -10,7 +10,7 @@ segment durations, and posture separability in (pitch, roll) space.
 Exit code: 0 if no FAIL, 1 if any check FAILs (WARN does not fail the run).
 
 Usage:
-    .venv/bin/python analysis/validate_postures.py [--csv postures.csv]
+    .venv/bin/python analysis/archive/validate_postures.py [--csv postures.csv]
 """
 
 from __future__ import annotations

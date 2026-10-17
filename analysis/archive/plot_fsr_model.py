@@ -17,10 +17,10 @@ Also prints: the >1 kg operating-band sensitivity (Ω per gram) and the ADC
 resolution (Ω per count) at light load vs at the floor, to quantify how few
 distinct pressure bands the divider can actually resolve when seated.
 
-Writes analysis/figures/fsr_model.png.
+Writes analysis/archive/figures/fsr_model.png.
 
 Usage:
-    .venv/bin/python analysis/plot_fsr_model.py [--csv data/<sweep>.csv] [--rfixed 2833]
+    .venv/bin/python analysis/archive/plot_fsr_model.py [--csv data/archive/<sweep>.csv] [--rfixed 2833]
 """
 
 from __future__ import annotations
