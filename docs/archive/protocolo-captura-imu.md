@@ -40,7 +40,7 @@ Pitch reads ~45° upright; forward postures read lower, reclining reads higher.
 ## Step 1 — record the run metadata (before you start)
 
 Write down: **date · subject · mount (none / neck-mount) · chair**. These become
-the filename and a row in [`../data/README.md`](../data/README.md):
+the filename and a row in [`../../data/archive/README.md`](../../data/archive/README.md):
 
 ```
 YYYY-MM-DD_<subject>_<mount>_<chair>.csv
@@ -109,7 +109,7 @@ If you don't have the env yet: `python3 -m venv .venv &&
 
 ## Step 7 — register the run
 
-Add a row to the table in [`../data/README.md`](../data/README.md) (run #, file,
+Add a row to the table in [`../../data/archive/README.md`](../../data/archive/README.md) (run #, file,
 date, subject, mount, chair, notes — e.g. pronounced vs subtle, anything odd).
 
 ## Quality checklist (what "good" looks like)

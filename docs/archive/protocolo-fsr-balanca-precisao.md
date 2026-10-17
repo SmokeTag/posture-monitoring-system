@@ -96,7 +96,7 @@ Repeat the up/down sweep (Step 3) 1–2 more times into new files
 
 ## Step 7 — register the run
 
-Add a row to [`../data/README.md`](../data/README.md): file, date, subject,
+Add a row to [`../../data/archive/README.md`](../../data/archive/README.md): file, date, subject,
 `R_FIXED` (2.833k, measured), **units = grams**, sweep vs creep, notes.
 
 ## Plot
