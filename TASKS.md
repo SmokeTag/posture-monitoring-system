@@ -23,7 +23,7 @@ são classificadas corretamente em sessões gravadas.
 FSRs fixados na cadeira (4 assento + 4 encosto), botão físico de calibração
 na unidade da cadeira, unidade corporal na bateria (ver item da LiPo abaixo),
 leitura da tensão da bateria. Reajustar o limiar do IMU (10°/3 s pareceu
-leniente) já no invólucro, medindo no `analysis/live_imu.py` onde cai uma
+leniente) já no invólucro, medindo no `analysis/live_posture.py` onde cai uma
 postura "levemente ruim". Validação final com sessões de uso para o
 relatório.
 **Pronto quando:** sistema completo funciona sem USB durante uma sessão

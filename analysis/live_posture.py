@@ -19,8 +19,8 @@ to assign it by hand.
 Keys (plot window focused):  c = calibrate (sends 'c' to the chair)   r = clear
                              m = map all 8 FSRs   Esc = cancel mapping
 
-    .venv/bin/python analysis/live_imu.py
-    .venv/bin/python analysis/live_imu.py --port /dev/ttyACM0 --log data/<name>.csv
+    .venv/bin/python analysis/live_posture.py
+    .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0 --log data/<name>.csv
 
 Needs pyserial + PyQt6 in the venv (see requirements.txt).
 """

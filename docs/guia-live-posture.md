@@ -1,4 +1,4 @@
-# Guia — `analysis/live_imu.py` (visão ao vivo do sistema)
+# Guia — `analysis/live_posture.py` (visão ao vivo do sistema)
 
 Janela ao vivo da unidade da cadeira (`firmware/chair`, o "cérebro"): o IMU do
 corpo e os 8 FSRs da cadeira, mais o mapeamento canal ↔ posição dos FSRs.
@@ -8,9 +8,9 @@ corpo e os 8 FSRs da cadeira, mais o mapeamento canal ↔ posição dos FSRs.
 Da raiz do repositório, com a cadeira no USB (e o corpo ligado, se quiser o IMU):
 
 ```bash
-.venv/bin/python analysis/live_imu.py
-.venv/bin/python analysis/live_imu.py --log data/<nome>.csv     # também grava o stream
-.venv/bin/python analysis/live_imu.py --port /dev/ttyACM0         # outra porta
+.venv/bin/python analysis/live_posture.py
+.venv/bin/python analysis/live_posture.py --log data/<nome>.csv     # também grava o stream
+.venv/bin/python analysis/live_posture.py --port /dev/ttyACM0         # outra porta
 ```
 
 Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes

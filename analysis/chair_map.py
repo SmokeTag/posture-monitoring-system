@@ -3,7 +3,7 @@
 The chair PCB wires the 8 FSRs to C8..C15 in whatever order the cables ended
 up; this module names the 4 seat + 4 backrest positions and builds the map
 interactively — press each sensor when asked and the channel whose conductance
-jumps is assigned (`MapSession`). live_imu.py drives it and keeps the result in
+jumps is assigned (`MapSession`). live_posture.py drives it and keeps the result in
 chair_map.json. Pure logic, no plotting.
 
 Conductance G = 1/R (µS) is the load variable throughout: it is ~linear in
