@@ -97,9 +97,9 @@ economiza de fato junto com o sleep do item acima.
 
 #### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
 
-**Contexto:** hoje o sistema é autônomo — a unidade corporal (XIAO) funde os
-dados da cadeira (via ESB) com o IMU e aciona o motor de vibração, sem nenhuma
-interface externa.
+**Contexto:** hoje o sistema é autônomo — a unidade da cadeira (cérebro) funde
+os FSRs com o IMU recebido do corpo (via ESB) e devolve o alerta; o corpo
+aciona o motor de vibração, sem nenhuma interface externa.
 
 **A decidir:**
 - [ ] Standalone puro **ou** algum complemento: app de celular, dashboard web,
