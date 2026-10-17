@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the figures for the IMU posture capture (postures.csv).
 
-Writes PNGs to analysis/figures/:
+Writes PNGs to analysis/archive/figures/:
   01_timeline.png          pitch & roll over the whole capture, shaded by posture,
                            calibration presses marked
   02_separation.png        pitch-vs-roll scatter — do the postures separate? (OE2/OE4)
@@ -10,7 +10,7 @@ Writes PNGs to analysis/figures/:
   05_sensor_health.png     accel |g| over time + histogram (steady vs motion)
 
 Usage:
-    .venv/bin/python analysis/plot_postures.py [--csv postures.csv] [--show]
+    .venv/bin/python analysis/archive/plot_postures.py [--csv postures.csv] [--show]
 """
 
 from __future__ import annotations

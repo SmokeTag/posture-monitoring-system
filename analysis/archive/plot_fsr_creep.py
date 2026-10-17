@@ -16,10 +16,10 @@ the operator removed the weight without re-typing. We bin the loaded window into
 fixed time bins and use the per-bin median, which ignores that tail, and report
 creep as (R_last_bin - R_first_bin) / R_first_bin.
 
-Writes analysis/figures/fsr_creep.png and prints the creep summary.
+Writes analysis/archive/figures/fsr_creep.png and prints the creep summary.
 
 Usage:
-    .venv/bin/python analysis/plot_fsr_creep.py [--csv data/<run>.csv] \
+    .venv/bin/python analysis/archive/plot_fsr_creep.py [--csv data/archive/<run>.csv] \
         [--rfixed 2833] [--units g] [--load 1000] [--bin-min 0.5]
 """
 
@@ -35,8 +35,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "data"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data" / "archive"
 FIG_DIR = Path(__file__).resolve().parent / "figures"
 COLS = ["t_ms", "load_kg", "raw", "ohms"]
 
@@ -69,7 +69,7 @@ def main() -> int:
     if not path.exists():
         print(f"No creep capture found at {path}.\n"
               f"Capture one with firmware/archive/uno_fsr_test (press 'l', rest a dead weight,\n"
-              f"type its mass once, leave ~10 min), saving to data/<date>_fsr_*creep*.csv.")
+              f"type its mass once, leave ~10 min), saving to data/archive/<date>_fsr_*creep*.csv.")
         return 2
 
     df = load(path)

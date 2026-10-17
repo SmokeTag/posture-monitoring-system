@@ -16,8 +16,8 @@ it. It auto-detects the capture kind and tunes the checks:
 Exit code: 0 if no FAIL, 1 if any check FAILs (WARN does not fail the run).
 
 Usage:
-    .venv/bin/python analysis/validate_fsr.py --csv data/<run>.csv
-    .venv/bin/python analysis/validate_fsr.py            # newest data/*fsr*.csv
+    .venv/bin/python analysis/archive/validate_fsr.py --csv data/archive/<run>.csv
+    .venv/bin/python analysis/archive/validate_fsr.py            # newest data/archive/*fsr*.csv
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ import fsr_lib as fl
 
 _counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
 
-# Expectations grounded in the FSR1/FSR2 reference sweeps (see data/README.md).
+# Expectations grounded in the FSR1/FSR2 reference sweeps (see data/archive/README.md).
 FLOOR_BAND = (120.0, 300.0)   # Ω the curve should flatten onto at ~2 kg
 RAW_RAILED = 900              # heavy load should drive the ADC node this high
 MIN_DYNRANGE = 5.0            # Rmax/Rmin over the sweep (VOID capture ~1)

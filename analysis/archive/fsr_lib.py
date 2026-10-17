@@ -39,8 +39,8 @@ import pandas as pd
 COLS = ["t_ms", "load_kg", "raw", "ohms"]
 
 # Repo root = parent of the analysis/ directory this file lives in.
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "data"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data" / "archive"
 FIG_DIR = Path(__file__).resolve().parent / "figures"
 
 G = 9.80665          # kg -> N
@@ -52,7 +52,7 @@ LADDER_G = [50, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]
 
 
 def latest_csv(pattern: str = "*fsr*.csv") -> Path:
-    """Newest matching capture under data/. NOTE: same-day FSR files do not sort
+    """Newest matching capture under data/archive/. NOTE: same-day FSR files do not sort
     by capture time (the sensor/kind tokens dominate), so prefer an explicit
     --csv for a specific run; this is only a convenience default."""
     files = sorted(DATA_DIR.glob(pattern))

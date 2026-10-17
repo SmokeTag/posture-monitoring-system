@@ -19,7 +19,7 @@
   different run, different scale.)*
 - **Type loads in GRAMS** (`200`, `400`, …) — easier than decimals. The CSV
   column is named `load_kg` but for this run it holds **grams**; analysis divides
-  by 1000. Note it in `data/README.md`.
+  by 1000. Note it in `data/archive/README.md`.
 - **No direction tags.** The firmware drops any `+`/`-` suffix anyway. To capture
   loading vs unloading **hysteresis**, just sweep **up then back down in one
   file** — the time order recovers direction in analysis.
@@ -53,7 +53,7 @@ Sanity refs: no load → `open/no-force`; ~1.8 kg → raw ≈ 948, ~224 Ω.
 ## Step 2 — start logging the sweep
 
 ```bash
-arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/2026-06-19_fsr_andre_2833_sweep.csv"
+arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/archive/2026-06-19_fsr_andre_2833_sweep.csv"
 ```
 Press `l`+Enter → CSV mode on (header `t_ms,load_kg,raw,ohms` appears).
 
@@ -72,7 +72,7 @@ FSRs drift under constant load (creep) — this quantifies it. Use **dead weight
 not a hand-press (you can't hold a press for 10 min).
 
 ```bash
-arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/2026-06-19_fsr_andre_2833_creep1kg.csv"
+arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/archive/2026-06-19_fsr_andre_2833_creep1kg.csv"
 ```
 1. `l`+Enter for CSV mode.
 2. Rest a **pre-weighed ~1 kg dead weight** on the puck; **type `1000`**.
@@ -102,6 +102,6 @@ Add a row to [`../data/README.md`](../data/README.md): file, date, subject,
 ## Plot
 
 ```bash
-.venv/bin/python analysis/plot_fsr_curve.py --csv data/<file>.csv --rfixed 2833
+.venv/bin/python analysis/archive/plot_fsr_curve.py --csv data/archive/<file>.csv --rfixed 2833
 ```
 (Creep R-vs-time may need a small dedicated plot — handled at check-in C.)

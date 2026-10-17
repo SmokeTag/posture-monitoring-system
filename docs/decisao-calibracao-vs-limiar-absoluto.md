@@ -37,8 +37,8 @@ do projeto.
 
 ## Resultado experimental (OE1)
 
-Campanha A (`data/2026-06-19_andre_no-neck-mount_own-chair.csv`; análise em
-`analysis/VALIDATION.md`): em **4 re-dons genuínos** (vestir/retirar com nova
+Campanha A (`data/archive/2026-06-19_andre_no-neck-mount_own-chair.csv`; análise em
+`analysis/archive/VALIDATION.md`): em **4 re-dons genuínos** (vestir/retirar com nova
 captura de referência), a postura "ereto" capturada **derivou 8.0° em pitch e
 21.6° em roll** (`figures/04_redon_drift.png`). Essa variação entre montagens é
 maior do que vários dos desvios posturais que se deseja detectar — ou seja, **um

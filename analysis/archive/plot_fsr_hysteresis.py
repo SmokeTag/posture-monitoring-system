@@ -12,10 +12,10 @@ lives at the light end — the seated/operating regime is direction-independent.
 A *pathologically* wide loop at the light end (up >> down) is instead a seating
 artifact (the puck not yet bedded into the pad); validate_fsr.py flags that.
 
-Writes analysis/figures/fsr_hysteresis.png and prints the per-load loop table.
+Writes analysis/archive/figures/fsr_hysteresis.png and prints the per-load loop table.
 
 Usage:
-    .venv/bin/python analysis/plot_fsr_hysteresis.py [--csv data/<sweep>.csv] [--rfixed 2833]
+    .venv/bin/python analysis/archive/plot_fsr_hysteresis.py [--csv data/archive/<sweep>.csv] [--rfixed 2833]
 """
 
 from __future__ import annotations

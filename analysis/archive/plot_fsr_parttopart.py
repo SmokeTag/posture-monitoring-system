@@ -11,15 +11,15 @@ Why up-sweep only: mixing loading and unloading directions makes the per-load
 median non-monotonic (hysteresis), which muddies a part-to-part comparison. We
 take the loading (up) half of each sweep; pass --both to use all loaded samples.
 
-Inputs: every data/*fsr*sweep*.csv, grouped by sensor (fsr -> FSR1, fsr2 -> FSR2,
+Inputs: every data/archive/*fsr*sweep*.csv, grouped by sensor (fsr -> FSR1, fsr2 -> FSR2,
 ...). For a sensor with several sweeps the cleanest is preferred (a '*sweep2*'
 file over the first messy '*sweep*'); override with --csv SENSOR=path ... .
 
-Writes analysis/figures/fsr_parttopart.png and prints the spread table.
+Writes analysis/archive/figures/fsr_parttopart.png and prints the spread table.
 
 Usage:
-    .venv/bin/python analysis/plot_fsr_parttopart.py [--both] [--rfixed 2833] \
-        [--csv FSR1=data/...sweep2.csv FSR3=data/...sweep.csv]
+    .venv/bin/python analysis/archive/plot_fsr_parttopart.py [--both] [--rfixed 2833] \
+        [--csv FSR1=data/archive/...sweep2.csv FSR3=data/archive/...sweep.csv]
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", nargs="*", default=[],
-                    help="explicit SENSOR=path overrides, e.g. FSR1=data/...sweep2.csv")
+                    help="explicit SENSOR=path overrides, e.g. FSR1=data/archive/...sweep2.csv")
     ap.add_argument("--both", action="store_true",
                     help="use all loaded samples instead of the up-sweep only")
     ap.add_argument("--rfixed", type=float, default=2833.0)
@@ -124,7 +124,7 @@ def main() -> int:
         sensor, _, path = spec.partition("=")
         chosen[sensor] = Path(path)
     if not chosen:
-        print("No data/*fsr*sweep*.csv files found.")
+        print("No data/archive/*fsr*sweep*.csv files found.")
         return 2
 
     series = {}

@@ -5,10 +5,10 @@ Checks: **15 PASS / 3 WARN / 0 FAIL**. The data is safe to use as-is for the
 midterm OE1/OE2/OE4 analysis; the WARNs are expected/by-design behaviour, not
 data defects.
 
-Source: `data/2026-06-19_andre_no-neck-mount_own-chair.csv` — serial capture
+Source: `data/archive/2026-06-19_andre_no-neck-mount_own-chair.csv` — serial capture
 from `firmware/archive/xiao_imu_test/xiao_imu_test.ino` (XIAO nRF52840 Sense). **Run 1:
 André Thomas Monteiro, no neck mount (bare XIAO), his own office chair.** Re-run
-the checks with `.venv/bin/python analysis/validate_postures.py`.
+the checks with `.venv/bin/python analysis/archive/validate_postures.py`.
 
 ## What the file contains
 
@@ -75,8 +75,8 @@ hold per round in all 5 rounds (within-hold std pitch ±0.43° / roll ±0.81°) 
 deliberate, repeated pose: hips slid forward, torso leaning **back** against the
 chair, so it has the **highest pitch of any tag (63.8°)** (this mounting reads
 backward lean as *high* pitch, forward lean as *low*). It is now in the tag map
-(`firmware/archive/xiao_imu_test/xiao_imu_test.ino`, `data/README.md`,
-`analysis/postures.py`). Being a backward lean, it separates cleanly from the
+(`firmware/archive/xiao_imu_test/xiao_imu_test.ino`, `data/archive/README.md`,
+`analysis/archive/postures.py`). Being a backward lean, it separates cleanly from the
 forward postures.
 
 > ⚠️ **Forward-slouch (1) and head-down (4) overlap** — centroid gap only ~6.9°
@@ -123,7 +123,7 @@ the OE2/OE4 feasibility result. See `figures/02_separation.png` and
    (non-exaggerated) separation margin — the optimistic case is now established;
    the realistic case is the open question.
 4. Repeat with the **neck mount** and **other subjects** (this run: 1 subject,
-   bare XIAO). See `docs/protocolo-captura-imu.md` for the repeatable procedure.
+   bare XIAO). See `docs/archive/protocolo-captura-imu.md` for the repeatable procedure.
 5. *(Optional firmware nicety)* emit an incrementing calibration id (or a
    momentary `cal=0`) on each `'c'` so re-don epochs are readable from a column.
 

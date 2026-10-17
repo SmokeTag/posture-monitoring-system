@@ -45,7 +45,7 @@ struct __attribute__((packed)) ChairAck {
 };
 
 // --- Posture alert ---
-const float ALERT_DEG = 10.0f;                 // analysis/VALIDATION.md: upright p95 6.4°, bad p05 18.6°
+const float ALERT_DEG = 10.0f;                 // analysis/archive/VALIDATION.md: upright p95 6.4°, bad p05 18.6°
 const float CLEAR_DEG = 7.0f;                  // hysteresis: alert ends below this
 const unsigned long ALERT_HOLD_MS = 3000;      // dev must stay > ALERT_DEG this long
 

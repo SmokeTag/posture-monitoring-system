@@ -5,10 +5,10 @@ Input: a capture from firmware/archive/uno_fsr_test in CSV mode — columns
 `t_ms,load_kg,raw,ohms` (ohms = -1 means open/no force). Press the FSR through a
 rigid puck on a bathroom scale, type each scale reading to stamp `load_kg`.
 
-Writes analysis/figures/fsr_curve.png and prints the saturation summary.
+Writes analysis/archive/figures/fsr_curve.png and prints the saturation summary.
 
 Usage:
-    .venv/bin/python analysis/plot_fsr_curve.py [--csv data/<run>.csv] [--rfixed 3300]
+    .venv/bin/python analysis/archive/plot_fsr_curve.py [--csv data/archive/<run>.csv] [--rfixed 3300]
 """
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "data"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data" / "archive"
 FIG_DIR = Path(__file__).resolve().parent / "figures"
 G = 9.80665  # kg -> N
 COLS = ["t_ms", "load_kg", "raw", "ohms"]
@@ -73,7 +73,7 @@ def main() -> int:
     if not path.exists():
         print(f"No FSR capture found at {path}.\n"
               f"Capture one with firmware/archive/uno_fsr_test (press 'l', type each scale\n"
-              f"reading in kg), saving to data/<date>_fsr_*.csv, then pass --csv.")
+              f"reading in kg), saving to data/archive/<date>_fsr_*.csv, then pass --csv.")
         return 2
 
     df = load(path)

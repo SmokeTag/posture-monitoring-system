@@ -1,8 +1,8 @@
 # Procedure — IMU upper-back posture capture (repeatable)
 
 > Standalone SOP for **Campaign A** (IMU upper-back posture) of the partial
-> report ([`../report/relatorio_parcial.tex`](../report/relatorio_parcial.tex)).
-> Open this, follow the steps, get one clean `data/*.csv` ready for `analysis/`.
+> report ([`../../report/relatorio_parcial.tex`](../../report/relatorio_parcial.tex)).
+> Open this, follow the steps, get one clean `data/archive/*.csv` ready for `analysis/`.
 > ~15 min of capture.
 >
 > Repeat this run **with the neck mount** and **with other subjects** as those
@@ -57,7 +57,7 @@ arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 fir
 ## Step 3 — start logging to file
 
 ```bash
-arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/<your-filename>.csv"
+arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200 | tee "data/archive/<your-filename>.csv"
 ```
 
 Typed commands send on **Enter** (the monitor is line-buffered). Single chars:
@@ -100,8 +100,8 @@ shifts the captured "upright" by several degrees — that drift is the point.
 `Ctrl-C` to stop the monitor. Then:
 
 ```bash
-.venv/bin/python analysis/validate_postures.py        # newest data/ file; expect 0 FAIL
-.venv/bin/python analysis/plot_postures.py            # writes analysis/figures/*.png
+.venv/bin/python analysis/archive/validate_postures.py        # newest data/archive/ file; expect 0 FAIL
+.venv/bin/python analysis/archive/plot_postures.py            # writes analysis/archive/figures/*.png
 ```
 
 If you don't have the env yet: `python3 -m venv .venv &&
