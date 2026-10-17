@@ -53,10 +53,15 @@ Re-runnable on any future capture. Full write-up of the current file:
   own notebooks.
 - `validate_postures.py` — the validator (above).
 - `plot_postures.py` — the IMU figures (above).
-- `live_imu.py` — live plot of the body IMU via the chair unit (`firmware/chair`,
-  the brain) over serial: current
-  `(dpitch, droll)` + trail on the recorded clusters, alert circles, alert/LED
-  state. `c`/`r` in the window calibrate/clear. `--log` also saves the stream.
+- `live_imu.py` — live view of the chair unit (`firmware/chair`, the brain)
+  over serial. Left: body IMU `(dpitch, droll)` + trail on the recorded
+  clusters, alert circles, alert/LED state. Right: the chair from above
+  (4 seat + 4 backrest spots filled by FSR load, centre of pressure, L/R and
+  front/rear split) + a 10 s trace per channel C8..C15. `c`/`r` calibrate/clear;
+  `m` maps the FSRs (press each spot's sensor when asked; or click one spot to
+  re-map it). `--log` also saves the stream (with the map as a `# fsr map` line).
+- `chair_map.py` — the spot names, the press-to-map logic and
+  `chair_map.json` (channel ↔ spot; written by `live_imu.py`).
 ### FSR402 tooling (Campaign B)
 
 All share `fsr_lib.py` (robust loader, load-jitter canonicalization, up/down
