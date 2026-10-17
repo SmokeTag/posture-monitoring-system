@@ -15,8 +15,14 @@ Combinar a distribuição de pressão (assento/encosto, presença, assimetria
 E/D) com o desvio do IMU; definir posturas-alvo, limiares e temporização
 (histerese, sem alertas em transições). Log serial CSV para ajustar
 limiares com dados reais.
-**Pronto quando:** as posturas do protocolo (`docs/protocolo-captura-imu.md`)
-são classificadas corretamente em sessões gravadas.
+Escrever o protocolo de captura completa (IMU + FSRs, com invólucro e colar),
+reaproveitando o que funcionou no antigo (`docs/archive/protocolo-captura-imu.md`):
+rotular as posturas com o **mapa de tags** (`0` ereto, `1` curvado para frente,
+`2`/`3` inclinado E/D, `4` cabeça baixa, `5` reclinado) e a **tag `9` em toda
+transição** (descartada na análise). Essa captura também alimenta o overlay de
+referência do `analysis/live_posture.py`.
+**Pronto quando:** as posturas desse protocolo são classificadas corretamente
+em sessões gravadas.
 
 ### [ ] 5. Integração, montagem e validação
 
