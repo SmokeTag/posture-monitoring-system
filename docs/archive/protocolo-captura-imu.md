@@ -100,7 +100,7 @@ shifts the captured "upright" by several degrees — that drift is the point.
 `Ctrl-C` to stop the monitor. Then:
 
 ```bash
-.venv/bin/python analysis/archive/validate_postures.py        # newest data/archive/ file; expect 0 FAIL
+.venv/bin/python analysis/archive/validate_postures.py        # the archived IMU run; expect 0 FAIL
 .venv/bin/python analysis/archive/plot_postures.py            # writes analysis/archive/figures/*.png
 ```
 

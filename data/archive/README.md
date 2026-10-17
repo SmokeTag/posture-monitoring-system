@@ -22,8 +22,8 @@ YYYY-MM-DD_<subject>_<mount>_<chair>.csv
 - `chair` — `own-chair`, `office-chair-A`, …
 - Add `-run2`, `-run3` if more than one capture in a day with the same setup.
 
-The analysis scripts default to the **newest** file here (ISO dates sort
-chronologically); override with `--csv data/archive/<file>.csv`.
+The IMU scripts default to the run-1 capture; the FSR scripts default to the
+newest `*fsr*.csv` (prefer an explicit `--csv data/archive/<file>.csv`).
 
 ## Schema
 
