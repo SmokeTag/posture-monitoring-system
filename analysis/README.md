@@ -61,7 +61,8 @@ Re-runnable on any future capture. Full write-up of the current file:
   `m` maps the FSRs (press each spot's sensor when asked; or click one spot to
   re-map it). `--log` also saves the stream (with the map as a `# fsr map` line).
 - `chair_map.py` — the spot names, the press-to-map logic and
-  `chair_map.json` (channel ↔ spot; written by `live_imu.py`).
+  `chair_map.json` (channel ↔ spot; written by `live_imu.py`). How-to (PT-BR):
+  [`../docs/guia-live-imu.md`](../docs/guia-live-imu.md).
 ### FSR402 tooling (Campaign B)
 
 All share `fsr_lib.py` (robust loader, load-jitter canonicalization, up/down
