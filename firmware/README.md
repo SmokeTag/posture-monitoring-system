@@ -37,9 +37,10 @@ ignored; serial input is line-buffered (type, then Enter).
 make -C firmware/test
 ```
 
-Unit tests for `libraries/PostureLink`: the body's link freshness (only a valid
-`ChairAck` keeps the link up), the chair's seq bookkeeping (lost/dup/reboot/
-wrap) and the non-blocking serial output.
+Unit tests for `libraries/PostureLink` (link freshness, seq bookkeeping,
+non-blocking serial output), plus `chair.ino` and `body.ino` themselves built
+on host stubs (`test/stub/`: fake radio, USB serial, IMU) and driven through
+link loss, duplicates, reboots, a stalled USB host and a `millis()` wrap.
 
 ## Serial output
 
@@ -48,5 +49,6 @@ out whole only if the USB FIFO has room, so a host that holds the port open but
 stops reading can't stall `loop()` (and, on the chair, the ESB ACKs). Dropped
 lines are counted in the stats line (`sdrop`/`edrop`); the header is re-sent
 whenever a host opens the port. Flash **both** boards together: the body's
-`BodyPacket.boot` (reboot detection) is ignored by an older chair, and an older
-body (boot = 0) only gets reboots inferred from seq going back.
+`BodyPacket.boot` (1-byte reboot id) is ignored by an older chair, and an older
+body (boot = 0) only gets reboots inferred from seq going back. Reboot
+detection is best effort either way (1/255 id collisions, see `SeqTracker`).

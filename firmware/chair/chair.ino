@@ -52,8 +52,10 @@
  *   lost  = seq numbers skipped between packets < LINK_TIMEOUT_MS apart, same
  *           body session. Not the body's noack: a packet can arrive and only
  *           its ACK get lost. Outages and body reboots are not counted here.
- *   dup / old = repeated / out-of-order packets, ignored
- *   rst   = body restarts seen (boot id changed, or seq went back/jumped)
+ *   dup / old = repeated / out-of-order packets, ignored (they don't keep the
+ *           link up: "# body link lost" comes 1 s after the last NEW sample)
+ *   rst   = body restarts seen (boot id changed, or seq went back/jumped;
+ *           best effort — see SeqTracker in PostureLink.h)
  *   sdrop / edrop = CSV rows / '#' events dropped because the USB host was not
  *           reading (firmware/libraries/PostureLink/SerialOut.h); the header is
  *           re-sent whenever a host opens the port.
@@ -270,6 +272,16 @@ void onBodySample(unsigned long t) {
   printRow(t, dev, dPitch, dRoll);
 }
 
+void checkBodyLink(unsigned long t) {
+  if (!bodyUp || t - lastBodyAt < LINK_TIMEOUT_MS) return;
+  bodyUp = false;
+  calLeft = 0;                                 // an interrupted capture is discarded
+  if (gate.alert) setAlert(false, 0);
+  gate.reset();
+  updateAck();
+  event("# body link lost");
+}
+
 void pollRadio() {
   if (!radio.available()) return;              // also sends the ACK (+ payload)
   BodyPacket pkt;
@@ -278,9 +290,13 @@ void pollRadio() {
   if (len != sizeof(pkt)) return;
 
   unsigned long t = millis();
+  checkBodyLink(t);                            // a timed-out link is declared lost (alert
+                                               // cleared, capture aborted) before this packet
   SeqKind k = seqs.onPacket(pkt.boot, pkt.seq, t);
-  lastBodyAt = t;                              // any well-formed packet: the body is alive
-  if (k == SEQ_DUP || k == SEQ_OLD) return;    // not a new sample
+  // Not a new sample: it doesn't keep the link up either, or a stream of them
+  // would hold bodyUp (and a stale alert in the ACK) without fresh decisions.
+  if (k == SEQ_DUP || k == SEQ_OLD) return;
+  lastBodyAt = t;
   body = pkt;
 
   bool fresh = k == SEQ_FIRST || k == SEQ_RESTART;
@@ -292,16 +308,6 @@ void pollRadio() {
     bodyUp = true;
   }
   onBodySample(t);
-}
-
-void checkBodyLink(unsigned long t) {
-  if (!bodyUp || t - lastBodyAt < LINK_TIMEOUT_MS) return;
-  bodyUp = false;
-  calLeft = 0;                                 // an interrupted capture is discarded
-  if (gate.alert) setAlert(false, 0);
-  gate.reset();
-  updateAck();
-  event("# body link lost");
 }
 
 // A full scan takes ~2 ms, longer than the body waits for an ACK (~0.8 ms);

@@ -169,15 +169,22 @@ enum SeqKind : uint8_t {
                                                // went back / jumped with no other explanation)
   SEQ_DUP,                                     // same seq again: ignore
   SEQ_OLD,                                     // slightly behind, same session, link up: ignore
+                                               // (DUP/OLD are no new sample: they must not
+                                               // keep the chair's link up)
 };
 const uint16_t SEQ_MAX_GAP = 64;               // ~3 s at 20 Hz; while linked, gaps are < ~20
 
 // lost = seq numbers skipped between two packets of the same session received
 // less than LINK_TIMEOUT_MS apart. Packets missed during an outage are not
 // counted (the outage itself is the "# body link lost/up" events), nor across a
-// restart. Wrap 65535 -> 0 is an ordinary step. With boot ids (both boards on
-// this firmware) a reboot is told apart exactly; with boot = 0 (old body
-// firmware) it is inferred from seq going back.
+// restart. Wrap 65535 -> 0 is an ordinary step.
+// Reboots, best effort: the boot id is 1 random byte, so a reboot keeps the
+// same id with probability 1/255 (and boot = 0, old body firmware, never
+// tells). Then it is inferred from seq: back after an outage -> RESTART (the
+// usual case: the body's boot takes ~1 s+); but if it lands within the same
+// link window it can pass as OLD/DUP (samples ignored until the link times
+// out, then RESTART) or as NEXT/RESUME (a few bogus `lost`). No exactness is
+// claimed; a wider id would need a protocol change.
 struct SeqTracker {
   bool have = false;
   uint8_t boot = 0;
