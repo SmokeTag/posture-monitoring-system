@@ -11,11 +11,22 @@
  *                    ACK until it is rewritten, so it always carries the latest
  *                    state (one packet behind, i.e. <= 50 ms).
  *
+ * Link state: the body counts the link as up only while VALID ChairAcks keep
+ * arriving (BodyLink); a bare/empty/odd ACK proves the radio got through, not
+ * that the chair is in control. The chair tracks the body's seq per boot
+ * session (SeqTracker), so a body reboot is not counted as lost packets.
+ *
  * Build: arduino-cli ... --libraries firmware/libraries (see firmware/README.md).
  */
 #pragma once
+#if defined(ARDUINO)
 #include <Arduino.h>
+#else                                          // host unit tests (firmware/test)
+#include <stdint.h>
+#include <stddef.h>
+#endif
 #include <math.h>
+#include <string.h>
 
 namespace posture {
 
@@ -27,9 +38,10 @@ const unsigned long LINK_TIMEOUT_MS = 1000;   // no packet/ACK this long = link 
 
 enum : uint8_t { BF_MOTOR = 1 << 0 };          // BodyPacket.flags: motor/LED on right now
 struct __attribute__((packed)) BodyPacket {
-  uint16_t seq;                                // +1 per sample; gaps = lost packets
+  uint16_t seq;                                // +1 per sample (wraps 65535 -> 0)
   uint8_t  flags;                              // BF_*
-  uint8_t  reserved;
+  uint8_t  boot;                               // random 1..255 per body boot; 0 = unknown
+                                               // (older body firmware: was `reserved`, always 0)
   float    pitch, roll;                        // degrees, from the accelerometer
 };
 
@@ -73,6 +85,135 @@ struct AlertGate {
     }
     return false;
   }
+};
+
+// --- Body side: freshness of the chair's control state ---
+
+inline bool finiteF(float v) { return v == v && v - v == 0.0f; }   // not NaN, not +-inf
+
+// A ChairAck is only trusted if it has the exact size and sane contents.
+inline bool parseChairAck(const void *buf, uint8_t len, ChairAck &out) {
+  if (len != sizeof(ChairAck)) return false;
+  ChairAck a;
+  memcpy(&a, buf, sizeof(a));
+  if (a.flags & ~(CF_CAL | CF_ALERT)) return false;
+  if ((a.flags & CF_CAL) && !(finiteF(a.pitchRef) && finiteF(a.rollRef))) return false;
+  out = a;
+  return true;
+}
+
+// Up while fresh control data keeps arriving; down LINK_TIMEOUT_MS after the
+// last one. Call update() on every sample: going down by state (not by
+// comparing timestamps later) keeps it right across the millis() rollover.
+struct LinkWatch {
+  bool up = false;
+  uint32_t lastAt = 0;
+
+  // Returns true when `up` changed.
+  bool update(uint32_t t, bool fresh) {
+    bool was = up;
+    if (fresh) { lastAt = t; up = true; }
+    else if (up && t - lastAt >= LINK_TIMEOUT_MS) up = false;
+    return up != was;
+  }
+};
+
+// What one radio.write() and its ACK payload mean to the body. Transport
+// (ACK received) and control (a valid ChairAck in it) are counted apart; only
+// control renews the link. `ack` keeps the last valid state across link loss,
+// so the fallback still has the chair's reference.
+struct BodyLink {
+  ChairAck ack = {};
+  bool haveAck = false;                        // ever got a valid ChairAck
+  uint8_t lastBuzz = 0;
+  LinkWatch watch;
+  // since clearCounts(); noack = sent - acked; acked = ctl + bad
+  uint32_t sent = 0, acked = 0, retx = 0, ctl = 0, bad = 0;
+
+  struct Result { bool ctl, buzz, linkChanged; };
+
+  // ok/arc: radio.write() result and getARC() (retransmissions of this write,
+  // also when it ran out of retries). payload/len: the ACK payload (len 0 if none).
+  Result onTx(uint32_t t, bool ok, uint8_t arc, const void *payload, uint8_t len) {
+    Result r = {false, false, false};
+    sent++;
+    retx += arc;
+    ChairAck a;
+    if (ok) {
+      acked++;
+      if (parseChairAck(payload, len, a)) {
+        ctl++;
+        r.ctl = true;
+        r.buzz = watch.up && a.buzz != lastBuzz;   // a fresh link only syncs the counter
+        lastBuzz = a.buzz;
+        ack = a;
+        haveAck = true;
+      } else {
+        bad++;
+      }
+    }
+    r.linkChanged = watch.update(t, r.ctl);
+    return r;
+  }
+
+  void clearCounts() { sent = acked = retx = ctl = bad = 0; }
+};
+
+// --- Chair side: the body's packet sequence ---
+
+enum SeqKind : uint8_t {
+  SEQ_FIRST,                                   // first packet since chair boot
+  SEQ_NEXT,                                    // in order (gap, if any, counted in `lost`)
+  SEQ_RESUME,                                  // same session after a link outage: gap not counted
+  SEQ_RESTART,                                 // new body session (boot id changed, or seq
+                                               // went back / jumped with no other explanation)
+  SEQ_DUP,                                     // same seq again: ignore
+  SEQ_OLD,                                     // slightly behind, same session, link up: ignore
+                                               // (DUP/OLD are no new sample: they must not
+                                               // keep the chair's link up)
+};
+const uint16_t SEQ_MAX_GAP = 64;               // ~3 s at 20 Hz; while linked, gaps are < ~20
+
+// lost = seq numbers skipped between two packets of the same session received
+// less than LINK_TIMEOUT_MS apart. Packets missed during an outage are not
+// counted (the outage itself is the "# body link lost/up" events), nor across a
+// restart. Wrap 65535 -> 0 is an ordinary step.
+// Reboots, best effort: the boot id is 1 random byte, so a reboot keeps the
+// same id with probability 1/255 (and boot = 0, old body firmware, never
+// tells). Then it is inferred from seq: back after an outage -> RESTART (the
+// usual case: the body's boot takes ~1 s+); but if it lands within the same
+// link window it can pass as OLD/DUP (samples ignored until the link times
+// out, then RESTART) or as NEXT/RESUME (a few bogus `lost`). No exactness is
+// claimed; a wider id would need a protocol change.
+struct SeqTracker {
+  bool have = false;
+  uint8_t boot = 0;
+  uint16_t seq = 0;
+  uint32_t at = 0;                             // millis() of the last accepted packet
+  uint32_t pkts = 0, lost = 0, dup = 0, old = 0, rst = 0;   // since clearCounts()
+
+  SeqKind onPacket(uint8_t b, uint16_t s, uint32_t t) {
+    uint16_t fwd = s - seq, back = seq - s;
+    bool linked = t - at < LINK_TIMEOUT_MS;
+    SeqKind k;
+    if (!have)                       k = SEQ_FIRST;
+    else if (b != boot)              k = SEQ_RESTART;
+    else if (fwd == 0)               k = SEQ_DUP;
+    else if (fwd >= 0x8000)          k = (b && linked && back <= SEQ_MAX_GAP) ? SEQ_OLD : SEQ_RESTART;
+    else if (!linked)                k = SEQ_RESUME;
+    else if (fwd > SEQ_MAX_GAP)      k = SEQ_RESTART;
+    else                             k = SEQ_NEXT;
+
+    if (k == SEQ_DUP) { dup++; return k; }
+    if (k == SEQ_OLD) { old++; return k; }
+    if (k == SEQ_NEXT) lost += fwd - 1;
+    if (k == SEQ_RESTART) rst++;
+    have = true; boot = b; seq = s; at = t;
+    pkts++;
+    return k;
+  }
+
+  void clearCounts() { pkts = lost = dup = old = rst = 0; }
 };
 
 }  // namespace posture

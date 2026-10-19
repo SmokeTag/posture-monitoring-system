@@ -28,3 +28,6 @@ __pycache__/
 *.pyc
 analysis/figures/
 analysis/archive/figures/
+firmware/test/test_posturelink
+firmware/test/test_chair
+firmware/test/test_body

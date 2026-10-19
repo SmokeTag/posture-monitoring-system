@@ -1,0 +1,26 @@
+# Host tests (no board): make -C firmware/test
+#   test_posturelink: PostureLink.h / SerialOut.h units
+#   test_chair, test_body: the real sketches on host stubs (stub/)
+CXX      ?= g++
+CXXFLAGS ?= -std=gnu++11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined
+LIB      := ../libraries/PostureLink
+DEPS     := check.h $(LIB)/PostureLink.h $(LIB)/SerialOut.h
+STUBS    := $(wildcard stub/*.h)
+TESTS    := test_posturelink test_chair test_body
+
+test: $(TESTS)
+	@for t in $(TESTS); do ./$$t || exit 1; done
+
+test_posturelink: test_posturelink.cpp $(DEPS)
+	$(CXX) $(CXXFLAGS) -I$(LIB) -o $@ $<
+
+test_chair: test_chair.cpp ../chair/chair.ino $(DEPS) $(STUBS)
+	$(CXX) $(CXXFLAGS) -Istub -I$(LIB) -o $@ $<
+
+test_body: test_body.cpp ../body/body.ino $(DEPS) $(STUBS)
+	$(CXX) $(CXXFLAGS) -Istub -I$(LIB) -o $@ $<
+
+clean:
+	rm -f $(TESTS)
+
+.PHONY: test clean

@@ -68,7 +68,7 @@ no further prompting. Defaults:
   chair `loop()` must never block (the TX waits only ~0.8 ms for an ACK
   payload). Bench @ ~1 m: 0 lost (20 Hz), but ~10–35 retx/s — tune in the
   power work.
-- **Link loss → body fallback:** after 1 s without ACK the body applies the
+- **Link loss → body fallback:** after 1 s without a valid ChairAck the body applies the
   same alert rule alone, with the last reference the chair sent.
 - **Calibration = per-user, by button:** alert on deviation from a captured
   "upright" reference, not on absolute angle. The button lives on the chair unit
