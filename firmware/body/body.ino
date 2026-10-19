@@ -10,7 +10,9 @@
  * the same alert rule by itself, using the last reference the chair sent (no
  * alerts if it never had one). An ACK that is empty or malformed counts as
  * radio transport only: it does not keep the link up. When valid ChairAcks
- * return, the chair is in charge again.
+ * return, the chair is in charge again. Each packet also reports what the
+ * body is doing (who decides, reference id, alert, motor/test, age of the
+ * decision held), so the chair's CSV shows the applied state next to its own.
  *
  * Libraries: nrf_to_nrf (TMRh20, ESB; runs the RADIO directly, no SoftDevice),
  * Seeed Arduino LSM6DS3, PostureLink (firmware/libraries). As the transmitter,
@@ -21,13 +23,23 @@
  * onboard red LED. Pulsed PULSE_ON_MS every PULSE_PERIOD_MS while alerting.
  * A motor test ('m' here, or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
  *
- * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), 20 Hz:
- *   t_ms,link,cal,dev,alert,led,pitch,roll
- *   link  = 1 while valid ChairAcks arrive; 0 = fallback (body decides alone)
- *   cal   = 1 if the body holds a reference from the chair
+ * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one
+ * row per sample (20 Hz), written AFTER that sample's ACK was digested:
+ *   t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll
+ *   t_ms  = this board's millis() (never compare it with the chair's)
+ *   seq   = BodyPacket.seq sent for this sample (boot id: header line 0)
+ *   ctl   = who decides: 1 = chair (valid ChairAcks arriving), 2 = fallback
+ *           (none for LINK_TIMEOUT_MS: body decides alone), 0 = none yet
+ *   cal / calid = the body holds the chair's reference / its id (0 = none)
  *   dev   = degrees from that reference (0 if none)
- *   alert = alert in effect (chair's while linked, local in fallback)
- *   led   = motor/LED on now
+ *   alert = alert in effect (chair's in ctl 1, local in ctl 2)
+ *   motor = motor/LED output commanded on now (PWM; not a measurement)
+ *   test  = a motor-test buzz is running (motor on for the test, not an alert)
+ *   aseq / age = body sample the ChairAck held was decided on, and seq - aseq
+ *           (1 normally: decided on the previous sample); age 254 = 254 or
+ *           more; -1 / -1 = unknown (none held, or not made on a sample of
+ *           this session). The next packet reports this row's ctl/cal/calid/
+ *           alert/aseq to the chair (its age one higher), see PostureLink.h.
  * Events: "# link up/lost", "# alert ON/OFF", "# motor test (...)".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
@@ -52,6 +64,7 @@
 #include <nrf_to_nrf.h>
 #include <PostureLink.h>
 #include <SerialOut.h>
+#include <RandomId.h>
 #include "LSM6DS3.h"
 #include "Wire.h"
 #include <math.h>
@@ -73,7 +86,7 @@ nrf_to_nrf radio;
 LSM6DS3 imu(I2C_MODE, 0x6A);                   // onboard LSM6DS3TR-C
 
 // chair link
-uint16_t seq = 0;
+uint32_t n = 0;                                // samples sent since boot; seq = low 16 bits
 uint8_t bootId = 0;                            // BodyPacket.boot: random per boot
 BodyLink chairLink;                            // .ack: CF_CAL/refs survive link loss (fallback)
 unsigned long lastReport = 0;
@@ -107,26 +120,14 @@ bool bodyHeader(uint8_t i, Line &l) {
              .hex8(bootId); return true;
     case 1: if (imuFailed) l.str("# IMU init FAILED"); return true;
     case 2: if (radioFailed) l.str("# radio init FAILED"); return true;
-    case 3: l.str("t_ms,link,cal,dev,alert,led,pitch,roll"); return true;
+    case 3: l.str("t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll"); return true;
   }
   return false;
 }
 
 void event(const char *s) { Line l; l.str(s); out.event(l); }
 
-// Hardware RNG (no SoftDevice here, so it is free); never 0 (= "unknown").
-uint8_t makeBootId() {
-  uint8_t id = 0;
-  NRF_RNG->TASKS_START = 1;
-  for (int tries = 0; tries < 8 && !id; tries++) {
-    NRF_RNG->EVENTS_VALRDY = 0;
-    unsigned long t0 = micros();
-    while (!NRF_RNG->EVENTS_VALRDY && micros() - t0 < 1000) {}
-    if (NRF_RNG->EVENTS_VALRDY) id = (uint8_t)NRF_RNG->VALUE;
-  }
-  NRF_RNG->TASKS_STOP = 1;
-  return id ? id : (uint8_t)(1 + micros() % 255);
-}
+bool testRunning(unsigned long t) { return testUntil && (int32_t)(t - testUntil) < 0; }
 
 void setAlert(bool on, float dev) {
   if (on == alert) return;
@@ -153,14 +154,24 @@ void pollSerial() {
   }
 }
 
-// Send one sample and digest the ACK (if any) into chairLink.
+// Send sample n and digest the ACK (if any) into chairLink. The packet also
+// reports the state applied so far (at sample n-1): its ACK isn't in yet.
 void sendSample(unsigned long t, float pitch, float roll) {
-  BodyPacket pkt;
-  pkt.seq = seq++;
-  pkt.flags = ledState ? BF_MOTOR : 0;
+  const ChairAck &held = chairLink.ack;
+  BodyPacket pkt = {};
+  pkt.ver = PROTO_VER;
   pkt.boot = bootId;
+  pkt.seq = (uint16_t)n;
   pkt.pitch = pitch;
   pkt.roll = roll;
+  pkt.ctl = chairLink.control();
+  pkt.flags = (alert ? BF_ALERT : 0) | (ledState ? BF_MOTOR : 0) | (testRunning(t) ? BF_TEST : 0);
+  if (chairLink.haveAck) {
+    pkt.calId = held.calId;
+    if (held.flags & CF_CAL) pkt.flags |= BF_CAL;
+  }
+  pkt.age = chairLink.age(n);
+  pkt.ackSeq = pkt.age == AGE_NONE ? 0 : held.basisSeq;
 
   bool ok = radio.write(&pkt, sizeof(pkt));
   uint8_t arc = radio.getARC();                // retransmissions, also when !ok
@@ -172,7 +183,7 @@ void sendSample(unsigned long t, float pitch, float roll) {
     radio.read(buf, len);
   }
 
-  BodyLink::Result r = chairLink.onTx(t, ok, arc, buf, len);
+  BodyLink::Result r = chairLink.onTx(t, n, bootId, ok, arc, buf, len);
   if (r.buzz) motorTest("chair");
   if (r.linkChanged) {
     localGate.reset();
@@ -195,11 +206,17 @@ void sample(unsigned long t) {
   else if (cal) { localGate.update(dev, t); setAlert(localGate.alert, dev); }
   else          setAlert(false, dev);
 
-  // t_ms,link,cal,dev,alert,led,pitch,roll
+  // t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll
+  uint8_t age = chairLink.age(n);
+  bool known = age != AGE_NONE;
   Line l;
-  l.u32(t).chr(',').u32(linkUp).chr(',').u32(cal).chr(',').fix(dev, 1).chr(',')
-   .u32(alert).chr(',').u32(ledState).chr(',').fix(pitch, 1).chr(',').fix(roll, 1);
+  l.u32(t).chr(',').u32((uint16_t)n).chr(',').u32(chairLink.control()).chr(',')
+   .u32(cal).chr(',').u32(chairLink.haveAck ? ack.calId : 0).chr(',').fix(dev, 1).chr(',')
+   .u32(alert).chr(',').u32(ledState).chr(',').u32(testRunning(t)).chr(',')
+   .i32(known ? (int32_t)ack.basisSeq : -1).chr(',').i32(known ? (int32_t)age : -1).chr(',')
+   .fix(pitch, 1).chr(',').fix(roll, 1);
   out.row(l);
+  n++;
 }
 
 void report(unsigned long t) {
@@ -224,7 +241,7 @@ void setup() {
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 2000) {}   // give the USB monitor a moment
 
-  bootId = makeBootId();
+  bootId = randomId();
   imuFailed = imu.begin() != 0;
   radioFailed = !radio.begin();
   radio.setChannel(RF_CHANNEL);
