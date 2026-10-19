@@ -44,7 +44,19 @@
  *   seq   = body packet seq; -1 (IMU fields 0) while the body is silent
  *   c8..c15 = FSRs, ohms (-1 = open) or raw ADC counts ('u')
  * Events: "# alert ON/OFF", "# calibrat...", "# body link up/lost",
- * once per second "# rx pkts=N lost=M".
+ * "# body new session". The body's boot id (hex) is in "# body link up ...".
+ * Stats, normally once per second (counts since the previous stats line; dt =
+ * its span in ms, > 1000 only if the USB host stalled):
+ *   # rx pkts=N lost=L dup=D old=O rst=R sdrop=S edrop=E dt=T
+ *   pkts  = body samples accepted (dup/old excluded)
+ *   lost  = seq numbers skipped between packets < LINK_TIMEOUT_MS apart, same
+ *           body session. Not the body's noack: a packet can arrive and only
+ *           its ACK get lost. Outages and body reboots are not counted here.
+ *   dup / old = repeated / out-of-order packets, ignored
+ *   rst   = body restarts seen (boot id changed, or seq went back/jumped)
+ *   sdrop / edrop = CSV rows / '#' events dropped because the USB host was not
+ *           reading (firmware/libraries/PostureLink/SerialOut.h); the header is
+ *           re-sent whenever a host opens the port.
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/chair
@@ -55,6 +67,7 @@
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core
 #include <nrf_to_nrf.h>
 #include <PostureLink.h>
+#include <SerialOut.h>
 
 using namespace posture;
 
@@ -84,11 +97,16 @@ unsigned long lastScan = 0;
 
 // body link
 BodyPacket body;
-bool haveBody = false, bodyUp = false;
+bool bodyUp = false;
 unsigned long lastBodyAt = 0;
-uint16_t nPkts = 0, nLost = 0;                 // reported and reset once per second
+SeqTracker seqs;                               // pkts/lost/dup/old/rst, reported once per second
 unsigned long lastReport = 0;
 ChairAck ack = {};                             // preloaded as the ESB ACK payload
+bool radioFailed = false;                      // reported in the header
+
+bool chairHeader(uint8_t i, Line &l);
+SerialOut<decltype(Serial)> out(Serial, chairHeader);
+const uint8_t HDR_UNIT = 2;                    // chairHeader(): first line re-sent by 'u'
 
 // calibration
 bool  calibrated = false;
@@ -120,12 +138,21 @@ float rawToOhms(int raw) {
   return (raw >= OPEN_RAW) ? R_FIXED * (ADC_MAX - raw) / raw : -1.0;
 }
 
-void printHeader() {
-  Serial.print(rawMode ? "# unit=raw\n" : "# unit=ohms (-1 = open)\n");
-  Serial.print("t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq");
-  for (int i = 0; i < N_FSR; i++) { Serial.print(",c"); Serial.print(FIRST_CH + i); }
-  Serial.println();
+bool chairHeader(uint8_t i, Line &l) {
+  switch (i) {
+    case 0: l.str("# chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, "
+                  "'r' = clear, 'm' = motor test, 'u' = toggle ohms/raw"); return true;
+    case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
+    case HDR_UNIT: l.str(rawMode ? "# unit=raw" : "# unit=ohms (-1 = open)"); return true;
+    case HDR_UNIT + 1:
+      l.str("t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq");
+      for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
+      return true;
+  }
+  return false;
 }
+
+void event(const char *s) { Line l; l.str(s); out.event(l); }
 
 void flashLed() {
   digitalWrite(CAL_LED, LED_ON);
@@ -147,14 +174,22 @@ void updateAck() {
 
 void setAlert(bool on, float dev) {
   gate.alert = on;
-  Serial.print(on ? "# alert ON  dev=" : "# alert OFF dev="); Serial.println(dev, 1);
+  Line l;
+  l.str(on ? "# alert ON  dev=" : "# alert OFF dev=").fix(dev, 1);
+  out.event(l);
 }
 
 void startCalibration(const char *src) {
-  if (!bodyUp) { Serial.print("# calibrate ignored (no body data), from "); Serial.println(src); return; }
+  Line l;
+  if (!bodyUp) {
+    l.str("# calibrate ignored (no body data), from ").str(src);
+    out.event(l);
+    return;
+  }
   calLeft = CAL_SAMPLES;
   calPSum = calRSum = 0;
-  Serial.print("# calibrating (hold upright 1 s), from "); Serial.println(src);
+  l.str("# calibrating (hold upright 1 s), from ").str(src);
+  out.event(l);
 }
 
 void clearCalibration() {
@@ -162,7 +197,7 @@ void clearCalibration() {
   if (gate.alert) setAlert(false, 0);
   gate.reset();
   updateAck();
-  Serial.println("# calibration cleared");
+  event("# calibration cleared");
 }
 
 void pollButton() {
@@ -176,42 +211,38 @@ void pollButton() {
 }
 
 void pollSerial() {
-  while (Serial.available() > 0) {
+  for (int n = 0; n < 16 && Serial.available() > 0; n++) {   // bounded per loop()
     char c = Serial.read();
     if (c == 'u' || c == 'U') {
       rawMode = !rawMode;
-      printHeader();
+      out.header(HDR_UNIT);
     } else if (c == 'c' || c == 'C') {
       startCalibration("serial");
     } else if (c == 'r' || c == 'R') {
       clearCalibration();
     } else if (c == 'm' || c == 'M') {
-      if (!bodyUp) { Serial.println("# motor test ignored (no body data)"); continue; }
+      if (!bodyUp) { event("# motor test ignored (no body data)"); continue; }
       ack.buzz++;
       updateAck();
-      Serial.println("# motor test requested");
+      event("# motor test requested");
     }
   }
 }
 
 // t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq,c8..c15
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
-  Serial.print(t);                              Serial.print(',');
-  Serial.print(calibrated);                     Serial.print(',');
-  Serial.print(dev, 1);                         Serial.print(',');
-  Serial.print(gate.alert);                     Serial.print(',');
-  Serial.print(bodyUp && (body.flags & BF_MOTOR)); Serial.print(',');
-  Serial.print(dPitch, 1);                      Serial.print(',');
-  Serial.print(dRoll, 1);                       Serial.print(',');
-  Serial.print(bodyUp ? body.pitch : 0, 1);     Serial.print(',');
-  Serial.print(bodyUp ? body.roll : 0, 1);      Serial.print(',');
-  Serial.print(bodyUp ? (long)body.seq : -1L);
+  Line l;
+  l.u32(t).chr(',').u32(calibrated).chr(',').fix(dev, 1).chr(',').u32(gate.alert).chr(',')
+   .u32(bodyUp && (body.flags & BF_MOTOR)).chr(',')
+   .fix(dPitch, 1).chr(',').fix(dRoll, 1).chr(',')
+   .fix(bodyUp ? body.pitch : 0, 1).chr(',').fix(bodyUp ? body.roll : 0, 1).chr(',')
+   .i32(bodyUp ? (int32_t)body.seq : -1);
   for (int i = 0; i < N_FSR; i++) {
-    Serial.print(',');
-    if (rawMode) Serial.print(fsr[i]);
-    else         Serial.print(rawToOhms(fsr[i]), 0);
+    l.chr(',');
+    if (rawMode) l.i32(fsr[i]);
+    else         l.fix(rawToOhms(fsr[i]), 0);
   }
-  Serial.println();
+  out.row(l);
 }
 
 // One body sample: calibration capture, alert decision, ACK, CSV row.
@@ -225,8 +256,9 @@ void onBodySample(unsigned long t) {
       if (gate.alert) setAlert(false, 0);
       gate.reset();
       flashLed();
-      Serial.print("# calibrated upright: pitch="); Serial.print(pitchRef, 1);
-      Serial.print(" roll="); Serial.println(rollRef, 1);
+      Line l;
+      l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1);
+      out.event(l);
     }
   }
 
@@ -244,14 +276,21 @@ void pollRadio() {
   uint8_t len = radio.getDynamicPayloadSize();
   radio.read(&pkt, sizeof(pkt));
   if (len != sizeof(pkt)) return;
-  if (haveBody) nLost += (uint16_t)(pkt.seq - body.seq - 1);
-  haveBody = true;
-  body = pkt;
-  nPkts++;
 
   unsigned long t = millis();
-  lastBodyAt = t;
-  if (!bodyUp) { bodyUp = true; Serial.println("# body link up"); }
+  SeqKind k = seqs.onPacket(pkt.boot, pkt.seq, t);
+  lastBodyAt = t;                              // any well-formed packet: the body is alive
+  if (k == SEQ_DUP || k == SEQ_OLD) return;    // not a new sample
+  body = pkt;
+
+  bool fresh = k == SEQ_FIRST || k == SEQ_RESTART;
+  if (!bodyUp || k == SEQ_RESTART) {
+    Line l;
+    l.str(!bodyUp ? "# body link up boot=" : "# body new session boot=").hex8(pkt.boot);
+    if (!bodyUp) l.str(fresh ? " new" : " resumed");
+    out.event(l);
+    bodyUp = true;
+  }
   onBodySample(t);
 }
 
@@ -262,7 +301,7 @@ void checkBodyLink(unsigned long t) {
   if (gate.alert) setAlert(false, 0);
   gate.reset();
   updateAck();
-  Serial.println("# body link lost");
+  event("# body link lost");
 }
 
 // A full scan takes ~2 ms, longer than the body waits for an ACK (~0.8 ms);
@@ -289,7 +328,7 @@ void setup() {
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 2000) {}   // give the USB monitor a moment
 
-  if (!radio.begin()) Serial.println("# radio init FAILED");
+  radioFailed = !radio.begin();
   radio.setChannel(RF_CHANNEL);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
@@ -297,13 +336,24 @@ void setup() {
   updateAck();                                 // preload before the first packet
   radio.startListening();                      // RX role
 
-  Serial.println("# chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, "
-                 "'r' = clear, 'm' = motor test, 'u' = toggle ohms/raw");
-  printHeader();
+  out.poll();                                  // header goes out once a host is there
+}
+
+void report(unsigned long t) {
+  Line l;
+  l.str("# rx pkts=").u32(seqs.pkts).str(" lost=").u32(seqs.lost)
+   .str(" dup=").u32(seqs.dup).str(" old=").u32(seqs.old).str(" rst=").u32(seqs.rst)
+   .str(" sdrop=").u32(out.rowDrops()).str(" edrop=").u32(out.eventDrops())
+   .str(" dt=").u32(t - lastReport);
+  if (!out.stats(l)) return;                   // host not reading: keep counting
+  lastReport = t;
+  seqs.clearCounts();
+  out.clearDrops();
 }
 
 void loop() {
   pollRadio();
+  out.poll();
   pollSerial();
   pollButton();
   updateLed();
@@ -316,10 +366,5 @@ void loop() {
     if (!bodyUp) printRow(t, 0, 0, 0);
   }
 
-  if (t - lastReport >= 1000) {
-    lastReport = t;
-    Serial.print("# rx pkts="); Serial.print(nPkts);
-    Serial.print(" lost="); Serial.println(nLost);
-    nPkts = nLost = 0;
-  }
+  if (t - lastReport >= 1000) report(t);
 }

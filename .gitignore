@@ -28,3 +28,4 @@ __pycache__/
 *.pyc
 analysis/figures/
 analysis/archive/figures/
+firmware/test/test_posturelink
