@@ -20,7 +20,20 @@ Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
 
 - **Esquerda — IMU:** desvio da postura calibrada `(dpitch, droll)` com rastro,
   e círculos de alerta (10°) e de liberação (7°). Caixa de status: desvio,
-  estado do alerta, motor/LED, enlace.
+  decisão da cadeira (`chair`), o que o corpo relata ter aplicado (`body`),
+  motor e enlace:
+  - `body  chair, age 2` — a cadeira decide; o corpo segura a decisão tomada
+    2 amostras antes desta (o normal: decidida em N, aplicada com o ACK de
+    N+1, relatada em N+2). `age 254+` = muito velha; `?` = desconhecida.
+  - `✓ applied` / `≠ applied` — confere o que o corpo aplicou (referência e
+    alerta) com a linha da cadeira que tomou essa decisão. `unconfirmed`
+    quando não dá para conferir (sem base, idade desconhecida/saturada,
+    decisão fora do buffer, outra sessão do corpo) — não é divergência.
+  - `body  FALLBACK (alone)` — sem ACKs válidos há 1 s, o corpo decide
+    sozinho com a referência que tem (`ref = chair's` / `ref ≠ chair's`);
+    o alerta dele pode legitimamente diferir do da cadeira.
+  - `motor ● ON alert` / `● ON test` — saída do motor comandada (não medida),
+    por alerta ou por teste de motor (`m`).
 - **Direita — cadeira vista de cima, encosto rebatido para trás** (a esquerda de
   quem senta fica à esquerda da tela): 4 posições no assento + 4 no encosto.
   - Cor = carga no FSR (mais escuro = mais força; **cinza = solto**), com a
@@ -72,3 +85,4 @@ cadeira real, commite o `chair_map.json`: ele registra a fiação.
 | todos os círculos cinza | nada pressionado (FSR solto lê `-1` = aberto) |
 | o mapeamento não reconhece o toque | aperte com mais força (precisa < ~20 kΩ); ou clique no gráfico do canal |
 | "BODY SILENT" | unidade corporal desligada ou fora de alcance — os FSRs continuam |
+| "BODY PACKETS REJECTED (bad=N)" | corpo e cadeira com versões diferentes do protocolo ESB — grave as **duas** placas |
