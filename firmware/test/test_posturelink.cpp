@@ -19,14 +19,28 @@ using namespace posture;
 
 static ChairAck mkAck(uint8_t flags, uint8_t buzz = 0, float p = 1.5f, float r = -2.5f) {
   ChairAck a = {};
+  a.ver = PROTO_VER; a.calId = 1;
   a.flags = flags; a.buzz = buzz; a.pitchRef = p; a.rollRef = r;
   return a;
 }
 
-// Feed one transmission; returns the result.
+static ChairAck based(uint8_t boot, uint16_t seq, uint8_t flags = CF_CAL) {
+  ChairAck a = mkAck(flags);
+  a.basisBoot = boot; a.basisSeq = seq;
+  return a;
+}
+
+const uint8_t BOOT = 0x42;
+
+// Feed one transmission (sample number = writes so far); returns the result.
 static BodyLink::Result tx(BodyLink &L, uint32_t t, bool ok, uint8_t arc, const ChairAck *a,
                            uint8_t len = sizeof(ChairAck)) {
-  return L.onTx(t, ok, arc, a, a ? len : 0);
+  return L.onTx(t, L.sent, BOOT, ok, arc, a, a ? len : 0);
+}
+
+// One write of sample n with ACK `a` (always ok).
+static void txn(BodyLink &L, uint32_t n, const ChairAck &a, uint8_t boot = BOOT) {
+  L.onTx(n * 50, n, boot, true, 0, &a, sizeof a);
 }
 
 static void testParseChairAck() {
@@ -44,9 +58,134 @@ static void testParseChairAck() {
   CHECK(!parseChairAck(&nanRef, sizeof nanRef, out));         // CAL with a NaN reference
   ChairAck infRef = mkAck(CF_CAL, 0, 0, INFINITY);
   CHECK(!parseChairAck(&infRef, sizeof infRef, out));
+  ChairAck farRef = mkAck(CF_CAL, 0, 90.5f, 0);               // no accelerometer pitch is > 90
+  CHECK(!parseChairAck(&farRef, sizeof farRef, out));
+  ChairAck edgeRef = mkAck(CF_CAL, 0, -90, 180);
+  CHECK(parseChairAck(&edgeRef, sizeof edgeRef, out));
+  ChairAck ver1 = mkAck(CF_CAL); ver1.ver = 1;                // another protocol version
+  CHECK(!parseChairAck(&ver1, sizeof ver1, out));
+  ChairAck noId = mkAck(CF_CAL); noId.calId = 0;              // calId 0 is "none"
+  CHECK(!parseChairAck(&noId, sizeof noId, out));
+  ChairAck alertNoCal = mkAck(CF_ALERT);                      // alert without a reference
+  CHECK(!parseChairAck(&alertNoCal, sizeof alertNoCal, out));
+  ChairAck seqNoBasis = mkAck(CF_CAL); seqNoBasis.basisSeq = 5;
+  CHECK(!parseChairAck(&seqNoBasis, sizeof seqNoBasis, out));
+  // a v1 ChairAck (flags, buzz, reserved, refs: 12 bytes) is never taken
+  uint8_t v1[12] = {CF_CAL | CF_ALERT, 3, 0, 0};
+  CHECK(!parseChairAck(v1, sizeof v1, out));
   ChairAck nanNoCal = mkAck(0, 0, NAN, NAN);                  // refs unused without CAL
   CHECK(parseChairAck(&nanNoCal, sizeof nanNoCal, out));
   CHECK_EQ(out.buzz, 0);                                      // failures above left `out` alone
+}
+
+static BodyPacket mkPkt(uint8_t ctl, uint8_t flags, uint8_t calId, uint8_t age, uint16_t seq = 100) {
+  BodyPacket p = {};
+  p.ver = PROTO_VER; p.boot = 0x42; p.seq = seq; p.pitch = 10; p.roll = -20;
+  p.ctl = ctl; p.flags = flags; p.calId = calId; p.age = age;
+  p.ackSeq = age == AGE_NONE ? 0 : (uint16_t)(seq - (age < AGE_MAX ? age : 300));
+  return p;
+}
+
+static void testParseBodyPacket() {
+  BodyPacket out = {};
+  BodyPacket good = mkPkt(CTL_CHAIR, BF_CAL | BF_ALERT | BF_MOTOR, 7, 2);
+  CHECK(parseBodyPacket(&good, sizeof good, out));
+  CHECK_EQ(out.ackSeq, 98);
+  BodyPacket wrap = mkPkt(CTL_CHAIR, BF_CAL, 7, 2, 1);        // ackSeq 65535: across the wrap
+  CHECK(parseBodyPacket(&wrap, sizeof wrap, out));
+  CHECK_EQ(out.ackSeq, 65535);
+  BodyPacket stale = mkPkt(CTL_FALLBACK, BF_CAL, 7, AGE_MAX); // age 254+: ackSeq not checked
+  CHECK(parseBodyPacket(&stale, sizeof stale, out));
+  BodyPacket none = mkPkt(CTL_NONE, BF_MOTOR | BF_TEST, 0, AGE_NONE);   // test buzz, no chair yet
+  CHECK(parseBodyPacket(&none, sizeof none, out));
+  out = {};
+  CHECK(!parseBodyPacket(&good, sizeof good - 1, out));       // size
+  uint8_t v1[12] = {5, 0, 0, 0x5a};                           // v1: seq, flags, boot, pitch, roll
+  CHECK(!parseBodyPacket(v1, sizeof v1, out));
+  BodyPacket p = good; p.ver = 3;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.boot = 0;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.pitch = NAN;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.roll = -180.5f;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.ctl = 3;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.flags = 0x10;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.flags = BF_ALERT;                               // alert with no reference
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.calId = 0;                                      // chair/fallback hold an id
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = none; p.calId = 3;                                      // none holds nothing
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = none; p.age = 2; p.ackSeq = 98;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.ackSeq = 97;                                    // age doesn't match seq - ackSeq
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.age = AGE_NONE;                                 // unknown age with an ackSeq
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  CHECK_EQ(out.seq, 0);                                       // failures left `out` alone
+}
+
+// Age of the held ChairAck, in body samples (BodyLink::age).
+static void testAge() {
+  // decided on sample n-1, arrives with the ACK of n: age 1, then grows
+  BodyLink L;
+  CHECK_EQ(L.age(0), AGE_NONE);
+  CHECK_EQ(L.control(), CTL_NONE);
+  txn(L, 10, based(BOOT, 9));
+  CHECK_EQ(L.age(10), 1);
+  CHECK_EQ(L.age(11), 2);                                     // what packet 11 reports
+  CHECK_EQ(L.control(), CTL_CHAIR);
+  // age 0: the chair got the first copy of 11, its ACK was lost, a retry of
+  // 11 brought the decision made on 11 itself
+  txn(L, 11, based(BOOT, 11));
+  CHECK_EQ(L.age(11), 0);
+  // the same basis repeated doesn't reset the count
+  for (uint32_t n = 12; n < 40; n++) txn(L, n, based(BOOT, 11));
+  CHECK_EQ(L.age(39), 28);
+  // at most SEQ_MAX_GAP behind: accepted; one more: unknown
+  BodyLink G;
+  txn(G, 1000, based(BOOT, 1000 - SEQ_MAX_GAP));
+  CHECK_EQ(G.age(1000), SEQ_MAX_GAP);
+  BodyLink H;
+  txn(H, 1000, based(BOOT, 1000 - SEQ_MAX_GAP - 1));
+  CHECK_EQ(H.age(1000), AGE_NONE);
+  // a basis can't be before this boot's first sample
+  BodyLink E;
+  txn(E, 3, based(BOOT, 65535));
+  CHECK_EQ(E.age(3), AGE_NONE);
+  // another boot id: not this session's sample
+  BodyLink B;
+  txn(B, 100, based(0x43, 99));
+  CHECK_EQ(B.age(100), AGE_NONE);
+  CHECK(B.watch.up);                                          // still control: the link is up
+  // across the seq wrap: n = 65537 is seq 1, basis 65535 -> 2 samples
+  BodyLink W;
+  txn(W, 65537, based(BOOT, 65535));
+  CHECK_EQ(W.age(65537), 2);
+  // a ChairAck without basis replaces the held one: unknown, not the old age
+  txn(W, 65538, based(0, 0));
+  CHECK_EQ(W.age(65538), AGE_NONE);
+  txn(W, 65539, based(BOOT, 2));                              // a new decision: known again
+  CHECK_EQ(W.age(65539), 1);
+  // long fallback: no ChairAck for > 65536 samples -> saturates at AGE_MAX
+  BodyLink F;
+  txn(F, 5, based(BOOT, 4));
+  CHECK_EQ(F.age(5 + 253), 254);
+  CHECK_EQ(F.age(5 + 300), AGE_MAX);
+  CHECK_EQ(F.age(5 + 65536 + 1), AGE_MAX);                    // seq is back near 5: still old
+  // ...and the same basis coming back after the wrap is still that old one
+  txn(F, 5 + 65536, based(BOOT, 4));
+  CHECK_EQ(F.age(5 + 65536), AGE_MAX);
+  // an invalid basis repeated until the seq wraps doesn't turn valid either
+  BodyLink R;
+  txn(R, 200, based(BOOT, 100));                              // 100 behind: rejected
+  CHECK_EQ(R.age(200), AGE_NONE);
+  txn(R, 100 + 65536 + 1, based(BOOT, 100));                  // u16 delta 1 now
+  CHECK_EQ(R.age(100 + 65536 + 1), AGE_NONE);
 }
 
 static void testFreshnessNeedsValidAck() {
@@ -412,6 +551,8 @@ static void testSerialRowsWaitForEventsAndHeader() {
 
 int main() {
   testParseChairAck();
+  testParseBodyPacket();
+  testAge();
   testFreshnessNeedsValidAck();
   testTxFailuresAndRecovery();
   testFreshnessRollover();
