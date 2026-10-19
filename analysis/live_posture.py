@@ -125,7 +125,7 @@ class ChairReader(threading.Thread):
             self.log.flush()
         with self.lock:
             if line.startswith("# rx"):
-                self.link = line[2:]
+                self.link = rx_summary(line[2:])
             elif line.startswith("# unit="):
                 self.raw = line.startswith("# unit=raw")
             elif line.startswith("#"):
@@ -151,6 +151,16 @@ class ChairReader(threading.Thread):
         with self.lock:
             return (list(self.rows), list(self.fsr), list(self.events), self.link,
                     self.body_up)
+
+
+def rx_summary(text: str) -> str:
+    """Chair stats line, short for the status box: 'rx pkts=20 lost=0' plus any
+    other count that isn't 0 (dup/old/rst/sdrop/edrop; dt left out). Older
+    firmware ('rx pkts=N lost=M') passes through unchanged."""
+    words = text.split()
+    keep = [w for w in words[1:] if "=" in w and not w.startswith("dt=")
+            and (w.split("=")[0] in ("pkts", "lost") or w.split("=")[1] != "0")]
+    return " ".join(words[:1] + keep)
 
 
 class ChairView:
