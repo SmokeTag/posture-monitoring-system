@@ -73,6 +73,11 @@ class Connection(unittest.TestCase):
                 if self.dtr:
                     self.lines.append("# unit=raw")
                 self.lines.clear()                   # pyserial's input flush during open
+                self.lines.append("stale previous header")  # USB bytes arriving after that flush
+
+            def reset_input_buffer(self):
+                self.actions.append(("flush", self.dtr))
+                self.lines.clear()
 
             def close(self):
                 self.is_open = False
@@ -85,7 +90,8 @@ class Connection(unittest.TestCase):
             for _ in range(2):                      # opening and reconnecting use the same handshake
                 port = r._open_port()
                 self.assertEqual(port.port, r.port)
-                self.assertEqual(port.actions, [("dtr", False), ("open", False), ("dtr", True)])
+                self.assertEqual(port.actions, [("dtr", False), ("open", False),
+                                                ("flush", False), ("dtr", True)])
                 self.assertEqual(port.lines, ["# unit=raw"])
                 port.close()
             self.assertEqual(sleep.call_count, 2)

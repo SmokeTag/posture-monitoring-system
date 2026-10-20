@@ -119,6 +119,7 @@ class ChairReader(threading.Thread):
         try:
             port.open()
             time.sleep(0.05)                         # let loop() observe DTR low, including on reconnect
+            port.reset_input_buffer()               # discard late bytes from the previous connection
             port.dtr = True
         except (serial.SerialException, OSError):
             port.close()
