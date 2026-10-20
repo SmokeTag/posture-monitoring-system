@@ -40,6 +40,7 @@
 #endif
 #include <math.h>
 #include <string.h>
+#include "FloatBits.h"
 
 namespace posture {
 
@@ -154,7 +155,8 @@ struct AlertGate {
 // What anglesFromAccel() (atan2) can produce: pitch in [-90, 90], roll in
 // [-180, 180]; references are means of such samples. False for NaN too.
 inline bool anglesOk(float pitch, float roll) {
-  return pitch >= -90.0f && pitch <= 90.0f && roll >= -180.0f && roll <= 180.0f;
+  return floatIsFinite(pitch) && floatIsFinite(roll) &&
+         pitch >= -90.0f && pitch <= 90.0f && roll >= -180.0f && roll <= 180.0f;
 }
 
 // A ChairAck is only trusted if it has the exact size and sane, coherent
@@ -186,7 +188,7 @@ inline bool parseBodyPacket(const void *buf, uint8_t len, BodyPacket &out) {
   if (p.ver != PROTO_VER || p.boot == 0) return false;
   if (p.imu > IMU_RANGE) return false;
   if (p.imu == IMU_OK ? !anglesOk(p.pitch, p.roll)
-                      : !(isnan(p.pitch) && isnan(p.roll))) return false;
+                      : !(floatIsNan(p.pitch) && floatIsNan(p.roll))) return false;
   if (p.ctl > CTL_FALLBACK) return false;
   if (p.flags & ~(BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST | BF_INH)) return false;
   if ((p.flags & BF_ALERT) && !(p.flags & BF_CAL)) return false;

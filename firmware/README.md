@@ -44,6 +44,11 @@ radio, USB serial, IMU) and driven through link loss, duplicates, reboots, a
 stalled USB host and a `millis()` wrap; `test_system` runs both sketches
 together over a fake radio (decision → applied → reported timeline, fallback,
 outage). `analysis/test_live_posture.py` parses that run's chair output.
+`test_fastmath` also runs with the board core's `-Ofast` setting: invalid-IMU
+heartbeats must accept NaN angles, healthy packets must reject them, and CSV
+must preserve `nan`, infinities and negative zero. Protocol classification and
+formatting inspect IEEE-754 bits, because `-Ofast` can remove floating-point
+`isnan()`/`v != v` checks. No global compiler or Arduino library flags change.
 
 ## Serial output
 
