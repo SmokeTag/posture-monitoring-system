@@ -20,6 +20,11 @@ to assign it by hand.
 
 Keys (plot window focused):  c = calibrate (sends 'c' to the chair)   r = clear
                              m = map all 8 FSRs   Esc = cancel mapping
+                             0..9 = posture tag (0 = transition)
+
+With --log, every data row gets the current tag as an extra last column `tag`
+(it starts at 0, so anything not tagged on purpose is dropped as transition);
+the tag names from tags.json go in as a `# tag map` line.
 
     .venv/bin/python analysis/live_posture.py
     .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0 --log data/<name>.csv
@@ -30,6 +35,7 @@ Needs pyserial + PyQt6 in the venv (see requirements.txt).
 from __future__ import annotations
 
 import argparse
+import json
 import threading
 import time
 from collections import deque
@@ -70,6 +76,13 @@ G_MAX = 6250.0                               # µS = 160 Ω, the FSR402 floor at
 LOAD_NORM = PowerNorm(0.5, 0, G_MAX)         # sqrt: light touches stay visible
 R_TICKS = [10_000, 2_000, 1_000, 500, 250]    # Ω, on the load scale
 TRACE_S = 10.0
+TAGS_PATH = Path(__file__).with_name("tags.json")   # {"1": "upright", ...}; 0 is always transition
+
+
+def load_tags(path: Path) -> dict[int, str]:
+    """Tag -> posture name; 0 = transition, missing names = undefined."""
+    names = {int(k): str(v) for k, v in json.loads(path.read_text()).items()} if path.exists() else {}
+    return {**names, 0: "transition"}
 
 
 def fmt_ohms(r: float) -> str:
@@ -96,6 +109,7 @@ class ChairReader(threading.Thread):
         self.fields = list(FIELDS)                    # data columns before c8..c15
         self.connected = False
         self.body_up = False                          # latest data row came from the body
+        self.tag = 0                                  # posture tag appended to logged rows
 
     def send(self, ch: str):
         if self.ser:
@@ -150,7 +164,13 @@ class ChairReader(threading.Thread):
 
     def _handle(self, line: str):
         if self.log:
-            self.log.write(line + "\n")
+            if line.startswith("t_ms,"):
+                line_out = line + ",tag"
+            elif line[:1].isdigit():
+                line_out = f"{line},{self.tag}"
+            else:
+                line_out = line
+            self.log.write(line_out + "\n")
             self.log.flush()
         with self.lock:
             if line.startswith("# rx"):
@@ -496,9 +516,13 @@ def main() -> int:
                     help="FSR channel -> chair spot map (read + written)")
     ap.add_argument("--log", type=Path, help="also append every serial line here")
     ap.add_argument("--trail", type=float, default=3.0, help="trail length, s")
+    ap.add_argument("--tags", type=Path, default=TAGS_PATH,
+                    help="posture tag names (JSON, {\"1\": \"name\", ...})")
     args = ap.parse_args()
 
+    tags = load_tags(args.tags)
     reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
+    reader.note("tag map " + " ".join(f"{k}={v.replace(' ', '_')}" for k, v in sorted(tags.items())))
     reader.start()
 
     for k in ("keymap.back", "keymap.home"):          # free 'c' and 'r'
@@ -538,10 +562,13 @@ def main() -> int:
             chair.start(M.WIZARD_ORDER)
         elif ev.key == "escape":
             chair.cancel()
+        elif ev.key in tuple("0123456789"):
+            reader.tag = int(ev.key)
     fig.canvas.mpl_connect("key_press_event", on_key)
     fig.canvas.mpl_connect("button_press_event", chair.on_click)
 
-    keys = "\n\nkeys\n· c calibrate\n· r clear cal\n· m map FSRs\n· Esc cancel map"
+    keys = ("\n\nkeys\n· c calibrate\n· r clear cal\n· m map FSRs\n· Esc cancel map"
+            "\n· 0-9 tag (0 = transition)")
 
     def update(_):
         rows, fsr, events, link, body_up = reader.snapshot()
@@ -580,7 +607,9 @@ def main() -> int:
             trail.set_data([], [])
             dot.set_visible(False)
 
-        tail = (f"chair {link.removeprefix('rx ') or '—'}\n"
+        tag = (f"tag   {reader.tag} · {tags.get(reader.tag, '(undefined)')}"
+               + ("" if args.log else "  (not logging)"))
+        tail = (f"{tag}\nchair {link.removeprefix('rx ') or '—'}\n"
                 + "\nlast events\n" + "\n".join(f"· {e[:26]}" for e in events) + keys)
         if not rows or not body_up:
             status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\n" + tail)

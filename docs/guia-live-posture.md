@@ -72,6 +72,7 @@ abre a porta com DTR baixo e o ativa após a abertura, sem enviar comandos.
 | `r` | limpar a calibração |
 | `m` | mapear os 8 FSRs |
 | `Esc` | cancelar o mapeamento |
+| `0`–`9` | tag da postura (`0` = transição); vai como coluna `tag` no `--log` ([protocolo](protocolo-captura.md)) |
 | clique num círculo | remapear só aquela posição |
 
 ## Mapear os FSRs

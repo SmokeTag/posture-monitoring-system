@@ -157,6 +157,30 @@ class RealFirmwareStream(unittest.TestCase):
         self.assertTrue(tested)
 
 
+    def test_log_gets_the_tag_column(self):
+        """The logged stream reads back as one table with a trailing tag column,
+        holding the tag in effect when each row arrived (0 until one is set)."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "run.csv"
+            r = LP.ChairReader("/dev/null", path, trail_n=60)
+            r.note("tag map 0=transition 1=upright")
+            half = len(self.lines) // 2
+            feed(r, self.lines[:half])
+            r.tag = 3
+            feed(r, self.lines[half:])
+            r.log.close()
+            table = [ln.split(",") for ln in path.read_text().splitlines()
+                     if not ln.startswith("#")]
+        header, data = table[0], table[1:]
+        self.assertEqual(header[-1], "tag")
+        self.assertTrue(data)
+        self.assertTrue(all(len(x) == len(header) for x in data))
+        tags = [x[-1] for x in data]
+        self.assertEqual(tags[0], "0")
+        self.assertEqual(tags[-1], "3")
+        self.assertEqual(sorted(set(tags)), ["0", "3"])
+
+
 class OldFirmware(unittest.TestCase):
     def test_v1_with_header(self):
         r = reader()

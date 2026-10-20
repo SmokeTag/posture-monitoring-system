@@ -18,7 +18,11 @@ python3 -m venv .venv
   (4 seat + 4 backrest spots filled by FSR load, centre of pressure, L/R and
   front/rear split) + a 10 s trace per channel C8..C15. `c`/`r` calibrate/clear;
   `m` maps the FSRs (press each spot's sensor when asked; or click one spot to
-  re-map it). `--log` also saves the stream (with the map as a `# fsr map` line).
+  re-map it). `0`–`9` set the posture tag (`0` = transition). `--log` also
+  saves the stream, with the tag as a last `tag` column and the map / tag names
+  as `# fsr map` / `# tag map` lines.
+- `tags.json` — posture tag names (`{"1": "...", ...}`), defined in capture
+  run 1 ([`../docs/protocolo-captura.md`](../docs/protocolo-captura.md)).
 - `test_live_posture.py` — `live_posture.py`'s parsing and body-status logic,
   on the real chair firmware's output (builds and runs `firmware/test/test_system`):
   `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s analysis`.
