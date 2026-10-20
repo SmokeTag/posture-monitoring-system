@@ -5,7 +5,9 @@ Full-system captures (IMU + 8 FSRs) recorded with
 in the file itself (documented in the header of `firmware/chair/chair.ino`;
 captures before ESB protocol v2 have the shorter v1 columns, with `led`
 instead of the body's `b*` report); the FSR channel ↔ chair spot map is
-saved as a `# fsr map` line. Capture protocol: to be written (TASKS.md, task 4).
+saved as a `# fsr map` line. The live tool appends the posture tag as a last
+`tag` column (`0` = transition, dropped in analysis), with the names as a
+`# tag map` line. Capture protocol (PT-BR): [`../docs/protocolo-captura.md`](../docs/protocolo-captura.md).
 
 ## Run registry
 
