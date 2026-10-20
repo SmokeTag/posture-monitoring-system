@@ -4,7 +4,11 @@ Reads the serial CSV of the chair unit (firmware/chair/chair.ino, the "brain",
 which receives the body's IMU over ESB and scans its FSRs).
 
 Left: the current (dpitch, droll) point with a short trail, with the alert
-(10°) and clear (7°) circles. The status box shows dev, alert and the LED/motor state as the firmware reports.
+(10°) and clear (7°) circles. The status box shows dev and the chair's
+decision, then what the body reports it applied: who decides (chair /
+fallback), the age of the decision it holds and whether it matches the chair
+row that made it (✓ / ≠; "unconfirmed" when that can't be checked), and the
+motor output (alert or motor test).
 
 Right: the chair seen from above with the backrest folded back (sitter's left
 on the left) — 4 seat + 4 backrest spots, each filled by its FSR's load
@@ -45,7 +49,12 @@ import chair_map as M  # noqa: E402
 
 CHAIR_PORT = "/dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00"
 ALERT_DEG, CLEAR_DEG = 10.0, 7.0            # keep in sync with firmware/libraries/PostureLink
+# Chair CSV columns before the FSRs. Taken from the header line the firmware
+# sends; until one is seen, the v1 layout (firmware before the body's report).
 FIELDS = ["t_ms", "cal", "dev", "alert", "led", "dpitch", "droll", "pitch", "roll", "seq"]
+CTL_NONE, CTL_CHAIR, CTL_FALLBACK = 0, 1, 2  # bctl; keep in sync with PostureLink.h
+AGE_MAX = 254                                # bage: 254 = 254 samples or more
+SEQ_MAX_GAP = 64
 R_FIXED, ADC_MAX, OPEN_RAW = 3300.0, 4095, 8  # keep in sync with firmware/chair ('u' raw mode)
 
 # status colours (state, not identity) — always paired with a text label
@@ -84,6 +93,7 @@ class ChairReader(threading.Thread):
         self.events: deque[str] = deque(maxlen=3)
         self.link = ""
         self.raw = False                              # firmware 'u': raw ADC counts, not ohms
+        self.fields = list(FIELDS)                    # data columns before c8..c15
         self.connected = False
         self.body_up = False                          # latest data row came from the body
 
@@ -105,6 +115,9 @@ class ChairReader(threading.Thread):
             try:
                 self.ser = serial.Serial(self.port, 115200, timeout=0.5)
                 self.connected, self.body_up, self.raw = True, False, False
+                with self.lock:
+                    self.rows.clear()                 # a new connection: no old decisions to match
+                    self.fields = list(FIELDS)
                 self.send("uu")                   # toggle twice: same mode, header re-sent
                 while True:
                     line = self.ser.readline().decode(errors="replace").strip()
@@ -130,17 +143,17 @@ class ChairReader(threading.Thread):
                 self.raw = line.startswith("# unit=raw")
             elif line.startswith("#"):
                 self.events.append(line[2:])
+            elif line.startswith("t_ms,"):
+                fields = header_fields(line)
+                if fields != self.fields:
+                    self.fields = fields
+                    self.rows.clear()                 # other columns: other firmware
             else:
-                parts = line.split(",")
-                if len(parts) < len(FIELDS) or not parts[0].isdigit():
+                parsed = parse_row(line, self.fields)
+                if parsed is None:
                     return
-                try:
-                    vals = [float(v) for v in parts]
-                except ValueError:
-                    return
-                row = dict(zip(FIELDS, vals))
-                fsr = vals[len(FIELDS):len(FIELDS) + len(M.CHANNELS)]
-                if len(fsr) == len(M.CHANNELS):
+                row, fsr = parsed
+                if fsr is not None:
                     self.fsr.append((time.monotonic(),
                                      {c: self._to_us(v) for c, v in zip(M.CHANNELS, fsr)}))
                 self.body_up = row["seq"] >= 0        # seq=-1: body silent, IMU fields void
@@ -151,6 +164,76 @@ class ChairReader(threading.Thread):
         with self.lock:
             return (list(self.rows), list(self.fsr), list(self.events), self.link,
                     self.body_up)
+
+
+def header_fields(line: str) -> list[str]:
+    """Data columns of a chair header line (those before the FSRs c8..c15)."""
+    cols = line.strip().split(",")
+    fsr = [f"c{c}" for c in M.CHANNELS]
+    return cols[:cols.index(fsr[0])] if fsr[0] in cols else cols
+
+
+def parse_row(line: str, fields: list[str]):
+    """(row dict, FSR values or None) for one CSV row of a chair with these
+    data columns; None if it isn't one."""
+    parts = line.strip().split(",")
+    if len(parts) < len(fields) or not parts[0].isdigit():
+        return None
+    try:
+        vals = [float(v) for v in parts]
+    except ValueError:
+        return None
+    fsr = vals[len(fields):len(fields) + len(M.CHANNELS)]
+    return dict(zip(fields, vals)), (fsr if len(fsr) == len(M.CHANNELS) else None)
+
+
+def decision_row(rows: list[dict], i: int):
+    """The chair row whose decision rows[i]'s body report holds (seq == bseq),
+    looking back only through the same body session with seq stepping
+    forward; None if it isn't there or can't be told apart (no basis, age
+    saturated, a gap, another boot, seq going back)."""
+    r = rows[i]
+    if r.get("bseq", -1) < 0 or not 0 <= r.get("bage", -1) < AGE_MAX:
+        return None
+    for j in range(i - 1, -1, -1):
+        prev, nxt = rows[j], rows[j + 1]
+        step = (int(nxt["seq"]) - int(prev["seq"])) & 0xFFFF
+        if prev["boot"] != r["boot"] or not 1 <= step <= SEQ_MAX_GAP:
+            return None
+        if prev["seq"] == r["bseq"]:
+            return prev
+    return None
+
+
+def body_lines(rows: list[dict]) -> list[str]:
+    """Status-box lines (3) for what the body reports in the latest row: who
+    decides + age, the check against the chair, the motor. Firmware v1 rows
+    have no report."""
+    r = rows[-1]
+    if "bctl" not in r:                               # v1: only the motor flag
+        return ["body  (old firmware)", "      no report",
+                f"motor {'● ON' if r.get('led') else '○ off'}"]
+    motor = "○ off"
+    if r["bmotor"]:
+        motor = "● ON test" if r["btest"] else "● ON alert" if r["balert"] else "● ON"
+    ctl = int(r["bctl"])
+    age = int(r["bage"])
+    age_txt = "?" if age < 0 else f"{age}+" if age >= AGE_MAX else f"{age}"
+    if ctl == CTL_NONE:
+        return ["body  no chair decision", "      yet", f"motor {motor}"]
+    if ctl == CTL_FALLBACK:                           # its own alert: nothing to confirm
+        ref = "ref = chair's" if r["bcalid"] == r["calid"] else "ref ≠ chair's"
+        if not r["bcal"]:
+            ref = "no ref: no alerts"
+        return ["body  FALLBACK (alone)", f"      {ref}", f"motor {motor}"]
+    d = decision_row(rows, len(rows) - 1)
+    if d is None:
+        check = "unconfirmed"
+    elif (r["bcal"], r["bcalid"], r["balert"]) == (d["cal"], d["calid"], d["alert"]):
+        check = "✓ applied"
+    else:
+        check = "≠ applied"
+    return [f"body  chair, age {age_txt}", f"      {check}", f"motor {motor}"]
 
 
 def rx_summary(text: str) -> str:
@@ -428,8 +511,12 @@ def main() -> int:
     def update(_):
         rows, fsr, events, link, body_up = reader.snapshot()
         chair.update(fsr)
+        bad = next((w for w in link.split() if w.startswith("bad=")), "")
         if not reader.connected:
             banner.set_text(f"waiting for {Path(args.port).name} …")
+        elif not body_up and bad:
+            banner.set_text(f"BODY PACKETS REJECTED ({bad})\nother firmware version? "
+                            "flash both boards")
         elif not body_up:
             banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" if rows
                             else "connected, waiting for the body …")
@@ -455,7 +542,7 @@ def main() -> int:
         tail = (f"chair {link.removeprefix('rx ') or '—'}\n"
                 + "\nlast events\n" + "\n".join(f"· {e[:26]}" for e in events) + keys)
         if not rows or not body_up:
-            status.set_text("dev     —\nstate — body silent\nLED     —\n" + tail)
+            status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\n" + tail)
         else:
             r = rows[-1]
             if r["alert"]:
@@ -468,8 +555,7 @@ def main() -> int:
             dot.set_edgecolor("white")
             status.set_text(
                 f"dev   {r['dev']:5.1f}°\n"
-                f"state {state}\n"
-                f"LED   {'● ON ' if r['led'] else '○ off'}\n" + tail)
+                f"chair {state}\n" + "\n".join(body_lines(rows)) + "\n" + tail)
 
     _anim = FuncAnimation(fig, update, interval=50, cache_frame_data=False)  # noqa: F841
     plt.show()

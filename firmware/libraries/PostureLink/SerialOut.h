@@ -35,7 +35,7 @@ namespace posture {
 // One output line, built in place. Too long -> marked bad, never truncated.
 class Line {
  public:
-  static const uint8_t CAP = 160;              // content bytes; longest row ~120
+  static const uint8_t CAP = 160;              // content bytes; longest row 149 (chair)
 
   Line() { clear(); }
   void clear() { len_ = 0; bad_ = false; }
@@ -95,6 +95,11 @@ class Line {
   uint8_t len_;
   bool bad_;
 };
+
+// TinyUSB's CDC TX FIFO on this core (CFG_TUD_CDC_TX_BUFSIZE): put() needs
+// the whole line free in it at once, so a longer line could never go out.
+const int USB_TX_FIFO = 256;
+static_assert(Line::CAP + 2 <= USB_TX_FIFO, "a full Line must fit the USB TX FIFO");
 
 // Header line i (0, 1, ...) into l; false = no line i (end of header).
 // Leaving l empty skips line i (e.g. an init failure that didn't happen).

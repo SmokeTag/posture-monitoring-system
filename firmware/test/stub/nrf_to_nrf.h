@@ -16,6 +16,10 @@ struct FakeRadio {
   std::vector<uint8_t> txAck;                  // ACK payload delivered with an ok write
   std::vector<std::vector<uint8_t>> sent;
   bool ackPending = false;
+  // Linked (test_system): write() puts the packet in `peer`'s rx and returns
+  // the ACK payload `peer` has preloaded at that moment — as ESB does.
+  FakeRadio *peer = nullptr;
+  bool upOk = true, downOk = true;             // packet reaches the peer / its ACK comes back
 
   bool begin() { return true; }
   void setChannel(uint8_t) {}
@@ -44,6 +48,13 @@ struct FakeRadio {
   }
   bool write(const void *b, uint8_t n) {
     sent.emplace_back((const uint8_t *)b, (const uint8_t *)b + n);
+    if (peer) {
+      if (upOk) peer->rx.push_back(sent.back());
+      if (upOk && !downOk) peer->rx.push_back(sent.back());   // a retry: the chair sees a dup
+      txOk = upOk && downOk;
+      txArc = txOk ? 0 : 15;
+      txAck = txOk ? peer->ackPayload : std::vector<uint8_t>();
+    }
     ackPending = txOk && !txAck.empty();       // empty ACK: nothing to read
     return txOk;
   }

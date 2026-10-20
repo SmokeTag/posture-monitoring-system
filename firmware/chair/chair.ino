@@ -37,17 +37,35 @@
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
- *   t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq,c8,...,c15
+ *   t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
+ *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8,...,c15
+ *   t_ms  = this board's millis() when the row was written (sample received);
+ *           never compare it with the body's t_ms
+ *   cal / calid / alert = the chair's decision after this sample: reference
+ *           valid / its id (new on every capture and clear) / alert. This is
+ *           exactly the ChairAck now preloaded, with basis boot/seq of this row
  *   dev   = sqrt(dpitch^2 + droll^2), degrees from upright (0 if uncalibrated)
- *   alert = 1 while in alert (dev held above threshold)
- *   led   = body's motor/LED state, as of its last packet
- *   seq   = body packet seq; -1 (IMU fields 0) while the body is silent
+ *   boot / seq = the body sample (boot id, packet seq); -1 / -1 (IMU fields 0,
+ *           b* -1) while the body is silent
+ *   b*    = what the body reports it was doing when it sent this sample (the
+ *           state it applied at sample seq-1; motor/test at send time):
+ *     bctl   = 1 chair decides, 2 fallback (body decides alone), 0 none yet
+ *     bcal / bcalid = reference held by the body and its id (0 = none)
+ *     balert = alert in effect on the body (in bctl 2 it is its own decision)
+ *     bmotor = motor output commanded on (not a measurement); btest = a
+ *              motor-test buzz is running (motor on, but not a posture alert)
+ *     bseq   = the seq of the chair row whose decision the body holds: join
+ *              on seq == bseq (same boot); -1 = unknown (none held, or not
+ *              made on a sample: chair boot, link timeout, calibration cleared)
+ *     bage   = seq - bseq, in body samples: 2 with no loss (decided on N,
+ *              applied with the ACK of N+1, reported in N+2); 254 = 254 or
+ *              more; -1 = unknown
  *   c8..c15 = FSRs, ohms (-1 = open) or raw ADC counts ('u')
- * Events: "# alert ON/OFF", "# calibrat...", "# body link up/lost",
+ * Events: "# alert ON/OFF", "# calibrat... calid=N", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
- *   # rx pkts=N lost=L dup=D old=O rst=R sdrop=S edrop=E dt=T
+ *   # rx pkts=N lost=L dup=D old=O rst=R bad=B sdrop=S edrop=E dt=T
  *   pkts  = body samples accepted (dup/old excluded)
  *   lost  = seq numbers skipped between packets < LINK_TIMEOUT_MS apart, same
  *           body session. Not the body's noack: a packet can arrive and only
@@ -56,6 +74,8 @@
  *           link up: "# body link lost" comes 1 s after the last NEW sample)
  *   rst   = body restarts seen (boot id changed, or seq went back/jumped;
  *           best effort — see SeqTracker in PostureLink.h)
+ *   bad   = packets rejected: other protocol version/size (a body running
+ *           older firmware: flash both boards) or incoherent contents
  *   sdrop / edrop = CSV rows / '#' events dropped because the USB host was not
  *           reading (firmware/libraries/PostureLink/SerialOut.h); the header is
  *           re-sent whenever a host opens the port.
@@ -70,6 +90,7 @@
 #include <nrf_to_nrf.h>
 #include <PostureLink.h>
 #include <SerialOut.h>
+#include <RandomId.h>
 
 using namespace posture;
 
@@ -102,6 +123,7 @@ BodyPacket body;
 bool bodyUp = false;
 unsigned long lastBodyAt = 0;
 SeqTracker seqs;                               // pkts/lost/dup/old/rst, reported once per second
+uint32_t badPkts = 0;                          // rejected packets, since the last stats line
 unsigned long lastReport = 0;
 ChairAck ack = {};                             // preloaded as the ESB ACK payload
 bool radioFailed = false;                      // reported in the header
@@ -115,6 +137,7 @@ bool  calibrated = false;
 int   calLeft = 0;                             // >0 while capturing the reference
 float calPSum = 0, calRSum = 0;
 float pitchRef = 0, rollRef = 0;
+uint8_t calId = 0;                             // ChairAck.calId: random at boot, new on every capture/clear
 
 AlertGate gate;
 
@@ -147,7 +170,8 @@ bool chairHeader(uint8_t i, Line &l) {
     case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
     case HDR_UNIT: l.str(rawMode ? "# unit=raw" : "# unit=ohms (-1 = open)"); return true;
     case HDR_UNIT + 1:
-      l.str("t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq");
+      l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
+            "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
       return true;
   }
@@ -167,12 +191,22 @@ void updateLed() {
 }
 
 // Preload the ACK payload: the body gets it with its next packet.
-void updateAck() {
+void writeAck() { radio.writeAckPayload(RF_PIPE, &ack, sizeof(ack)); }
+
+// New decision state into the ACK. onSample: made on the body sample in `body`
+// (its basis); otherwise (boot, link timeout, calibration cleared) no basis.
+void updateAck(bool onSample) {
+  ack.ver = PROTO_VER;
   ack.flags = (calibrated ? CF_CAL : 0) | (gate.alert ? CF_ALERT : 0);
+  ack.calId = calId;
   ack.pitchRef = pitchRef;
   ack.rollRef = rollRef;
-  radio.writeAckPayload(RF_PIPE, &ack, sizeof(ack));
+  ack.basisBoot = onSample ? body.boot : 0;
+  ack.basisSeq = onSample ? body.seq : 0;
+  writeAck();
 }
+
+void newCalId() { calId = calId == 255 ? 1 : calId + 1; }
 
 void setAlert(bool on, float dev) {
   gate.alert = on;
@@ -196,10 +230,13 @@ void startCalibration(const char *src) {
 
 void clearCalibration() {
   calibrated = false; calLeft = 0;
+  newCalId();
   if (gate.alert) setAlert(false, 0);
   gate.reset();
-  updateAck();
-  event("# calibration cleared");
+  updateAck(false);
+  Line l;
+  l.str("# calibration cleared calid=").u32(calId);
+  out.event(l);
 }
 
 void pollButton() {
@@ -224,21 +261,30 @@ void pollSerial() {
       clearCalibration();
     } else if (c == 'm' || c == 'M') {
       if (!bodyUp) { event("# motor test ignored (no body data)"); continue; }
-      ack.buzz++;
-      updateAck();
+      ack.buzz++;                              // same decision (and basis), new request
+      writeAck();
       event("# motor test requested");
     }
   }
 }
 
-// t_ms,cal,dev,alert,led,dpitch,droll,pitch,roll,seq,c8..c15
+// t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
+// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8..c15
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   Line l;
-  l.u32(t).chr(',').u32(calibrated).chr(',').fix(dev, 1).chr(',').u32(gate.alert).chr(',')
-   .u32(bodyUp && (body.flags & BF_MOTOR)).chr(',')
-   .fix(dPitch, 1).chr(',').fix(dRoll, 1).chr(',')
-   .fix(bodyUp ? body.pitch : 0, 1).chr(',').fix(bodyUp ? body.roll : 0, 1).chr(',')
-   .i32(bodyUp ? (int32_t)body.seq : -1);
+  l.u32(t).chr(',').u32(calibrated).chr(',').u32(calId).chr(',').fix(dev, 1).chr(',')
+   .u32(gate.alert).chr(',').fix(dPitch, 1).chr(',').fix(dRoll, 1).chr(',')
+   .fix(bodyUp ? body.pitch : 0, 1).chr(',').fix(bodyUp ? body.roll : 0, 1);
+  if (bodyUp) {
+    bool known = body.age != AGE_NONE;
+    l.chr(',').u32(body.boot).chr(',').u32(body.seq).chr(',').u32(body.ctl)
+     .chr(',').u32(!!(body.flags & BF_CAL)).chr(',').u32(body.calId)
+     .chr(',').u32(!!(body.flags & BF_ALERT)).chr(',').u32(!!(body.flags & BF_MOTOR))
+     .chr(',').u32(!!(body.flags & BF_TEST))
+     .chr(',').i32(known ? (int32_t)body.ackSeq : -1).chr(',').i32(known ? (int32_t)body.age : -1);
+  } else {
+    for (int i = 0; i < 10; i++) l.str(",-1");   // boot,seq,bctl..bage: no sample
+  }
   for (int i = 0; i < N_FSR; i++) {
     l.chr(',');
     if (rawMode) l.i32(fsr[i]);
@@ -255,11 +301,13 @@ void onBodySample(unsigned long t) {
       pitchRef = calPSum / CAL_SAMPLES;
       rollRef  = calRSum / CAL_SAMPLES;
       calibrated = true;
+      newCalId();
       if (gate.alert) setAlert(false, 0);
       gate.reset();
       flashLed();
       Line l;
-      l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1);
+      l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
+       .str(" calid=").u32(calId);
       out.event(l);
     }
   }
@@ -268,7 +316,7 @@ void onBodySample(unsigned long t) {
   float dev = calibrated ? deviation(body.pitch, body.roll, pitchRef, rollRef) : 0;
   if (calibrated && calLeft == 0 && gate.update(dev, t)) setAlert(gate.alert, dev);
 
-  updateAck();
+  updateAck(true);
   printRow(t, dev, dPitch, dRoll);
 }
 
@@ -278,16 +326,18 @@ void checkBodyLink(unsigned long t) {
   calLeft = 0;                                 // an interrupted capture is discarded
   if (gate.alert) setAlert(false, 0);
   gate.reset();
-  updateAck();
+  updateAck(false);
   event("# body link lost");
 }
 
 void pollRadio() {
   if (!radio.available()) return;              // also sends the ACK (+ payload)
-  BodyPacket pkt;
+  uint8_t buf[32];                             // = the DPL max payload
   uint8_t len = radio.getDynamicPayloadSize();
-  radio.read(&pkt, sizeof(pkt));
-  if (len != sizeof(pkt)) return;
+  if (len > sizeof(buf)) len = sizeof(buf);
+  radio.read(buf, len);
+  BodyPacket pkt;
+  if (!parseBodyPacket(buf, len, pkt)) { badPkts++; return; }   // not a sample at all
 
   unsigned long t = millis();
   checkBodyLink(t);                            // a timed-out link is declared lost (alert
@@ -339,7 +389,8 @@ void setup() {
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
   radio.openReadingPipe(RF_PIPE, RF_ADDR);
-  updateAck();                                 // preload before the first packet
+  calId = randomId();                          // a chair reboot shouldn't reuse old ids
+  updateAck(false);                            // preload before the first packet
   radio.startListening();                      // RX role
 
   out.poll();                                  // header goes out once a host is there
@@ -349,11 +400,13 @@ void report(unsigned long t) {
   Line l;
   l.str("# rx pkts=").u32(seqs.pkts).str(" lost=").u32(seqs.lost)
    .str(" dup=").u32(seqs.dup).str(" old=").u32(seqs.old).str(" rst=").u32(seqs.rst)
+   .str(" bad=").u32(badPkts)
    .str(" sdrop=").u32(out.rowDrops()).str(" edrop=").u32(out.eventDrops())
    .str(" dt=").u32(t - lastReport);
   if (!out.stats(l)) return;                   // host not reading: keep counting
   lastReport = t;
   seqs.clearCounts();
+  badPkts = 0;
   out.clearDrops();
 }
 
