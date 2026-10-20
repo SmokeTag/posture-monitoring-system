@@ -106,7 +106,7 @@ static void testHeaderAndRows() {
   auto v = outLines();
   CHECK(v.size() >= 3);
   CHECK_STR(v[0].substr(0, 22), "# chair unit (brain): ");
-  CHECK_STR(v[1], "# unit=ohms (-1 = open)");
+  CHECK_STR(v[1], "# unit=raw");
   CHECK_STR(v[2], "t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
                   "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8,c9,c10,c11,c12,c13,c14,c15");
   // a body-silent row: boot..bage all -1 ("no sample"), 27 fields
@@ -114,6 +114,23 @@ static void testHeaderAndRows() {
   CHECK_EQ(f.size(), 27u);
   CHECK_STR(f[2], std::to_string(calId));      // chair's reference id, even with no body
   for (int i = 9; i <= 18; i++) CHECK_STR(f[i], "-1");
+}
+
+// A header request never changes the FSR unit, including legacy clients' 'uu'.
+static void testFixedRawUnits() {
+  const int values[] = {0, 7, 8, 2048, 4095};
+  const char *commands[] = {"", "u", "uu", "U", "u"};
+  for (int n = 0; n < 5; n++) {
+    sim::adc = values[n];
+    Serial.in = commands[n];
+    runFor(100);
+    auto f = split(outLines().back());
+    CHECK_EQ(f.size(), 27u);
+    for (int i = 19; i < 27; i++) CHECK_STR(f[i], std::to_string(values[n]));
+  }
+  CHECK_EQ(count("# unit=ohms"), 0);
+  CHECK(count("# unit=raw") >= 4);
+  sim::adc = 0;
 }
 
 // Only duplicates / stale packets for > 1 s: no new sample, so the link must
@@ -348,7 +365,7 @@ static void testRejectedPackets() {
   CHECK_EQ(rxSum("bad") - bad0, 55);
 }
 
-// Widest possible row, at t_ms = UINT32_MAX, ohms and raw: every field at its
+// Widest possible row, at t_ms = UINT32_MAX: every field at its
 // longest, it must still go out whole through the real 256-byte USB FIFO.
 static void testWidestRow() {
   const uint8_t B = 255;
@@ -358,55 +375,48 @@ static void testWidestRow() {
   for (int i = 0; i < CAL_SAMPLES + 1; i++) { push(B, s++, 90, 180); runFor(50); }
   CHECK(calibrated);
   calId = 255;
-  sim::adc = OPEN_RAW;                         // 1685888 ohms: the longest FSR value
-  for (int raw = 0; raw < 2; raw++) {
-    lastScan = 0xFFFFFFF0u;                    // no scan row in between
-    lastReport = 0xFFFFFFF0u;
-    gate.alert = true;
-    BodyPacket p = {};
-    p.ver = PROTO_VER; p.boot = B; p.seq = 65535; p.pitch = -90; p.roll = -180;
-    p.ctl = CTL_FALLBACK; p.flags = BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST; p.calId = 255;
-    p.age = 254; p.ackSeq = 10000;
-    if (raw) { Serial.in = "u"; runFor(1); }
-    for (int i = 0; i < 8; i++) fsr[i] = OPEN_RAW;
-    if (raw) for (int i = 0; i < 8; i++) fsr[i] = 4095;
-    sim::adc = raw ? 4095 : OPEN_RAW;
-    sim::now = 0xFFFFFFFEu;
-    seqs = SeqTracker();                       // a fresh body session (seq 65535 not a dup)
-    bodyUp = true;
-    lastBodyAt = sim::now - 50;
-    pushPkt(p);
-    Serial.hostReads();
-    uint32_t d0 = out.rowDrops();
-    sim::now++;
-    loop();
-    auto v = outLines();
-    std::string row = v.back();
-    printf("  widest row, %s (%zu bytes): %s\n", raw ? "raw" : "ohms", row.size(), row.c_str());
-    CHECK_EQ(out.rowDrops(), d0);
-    CHECK(row.size() <= Line::CAP);
-    std::string fsrs;
-    for (int i = 0; i < 8; i++) fsrs += raw ? ",4095" : ",1685888";
-    CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
-                   "2,1,255,1,1,1,10000,254" + fsrs);
-    if (!raw) CHECK_EQ(row.size(), 149u);
-    seqs.clearCounts();
-    s = 0;
-    runFor(1);
-  }
-  Serial.in = "u";                             // back to ohms
+  lastScan = 0xFFFFFFF0u;                      // no scan row in between
+  lastReport = 0xFFFFFFF0u;
+  gate.alert = true;
+  BodyPacket p = {};
+  p.ver = PROTO_VER; p.boot = B; p.seq = 65535; p.pitch = -90; p.roll = -180;
+  p.ctl = CTL_FALLBACK; p.flags = BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST; p.calId = 255;
+  p.age = 254; p.ackSeq = 10000;
+  for (int i = 0; i < 8; i++) fsr[i] = 4095;
+  sim::adc = 4095;
+  sim::now = 0xFFFFFFFEu;
+  seqs = SeqTracker();                         // a fresh body session (seq 65535 not a dup)
+  bodyUp = true;
+  lastBodyAt = sim::now - 50;
+  pushPkt(p);
+  Serial.hostReads();
+  uint32_t d0 = out.rowDrops();
+  sim::now++;
+  loop();
+  auto v = outLines();
+  std::string row = v.back();
+  printf("  widest row (%zu bytes): %s\n", row.size(), row.c_str());
+  CHECK_EQ(out.rowDrops(), d0);
+  CHECK(row.size() <= Line::CAP);
+  std::string fsrs;
+  for (int i = 0; i < 8; i++) fsrs += ",4095";
+  CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
+                 "2,1,255,1,1,1,10000,254" + fsrs);
+  CHECK_EQ(row.size(), 125u);
+  seqs.clearCounts();
+  s = 0;
   runFor(1);
   sim::adc = 0;
 
   // stats line with every counter at its maximum (sdrop/edrop are 0 here:
   // 9 digits each of slack must remain for them)
-  runFor(5);                                   // the header re-sent by 'u' goes out first
+  runFor(5);
   seqs.pkts = seqs.lost = seqs.dup = seqs.old = seqs.rst = badPkts = 0xFFFFFFFFu;
   Serial.hostReads();
   lastReport = sim::now + 2;                   // dt = UINT32_MAX
   sim::now++;
   report(sim::now);
-  auto v = outLines();
+  v = outLines();
   printf("  widest stats (%zu bytes + 18 for sdrop/edrop): %s\n", v.back().size(), v.back().c_str());
   CHECK_STR(v.back().substr(0, 16), "# rx pkts=429496");
   CHECK(v.back().size() + 18 <= Line::CAP);
@@ -415,9 +425,6 @@ static void testWidestRow() {
   for (auto &l : v) hdr += l.compare(0, 23, "# chair unit (brain): F") == 0;
   CHECK(hdr >= 1);
   for (uint8_t i = 0; i < 8; i++) { Line l; if (chairHeader(i, l)) CHECK(l.ok()); }
-  rawMode = true;
-  for (uint8_t i = 0; i < 8; i++) { Line l; if (chairHeader(i, l)) CHECK(l.ok()); }
-  rawMode = false;
 }
 
 int main() {
@@ -427,6 +434,7 @@ int main() {
   CHECK_EQ(calId, 200);                        // random start (RNG)
   runFor(200);                                 // body silent: rows with seq -1
   testHeaderAndRows();
+  testFixedRawUnits();
   testDupsDontKeepLinkUp();
   testRebootWrapAndStats();
   testStalledHost();

@@ -53,6 +53,13 @@ stops reading can't stall `loop()` (and, on the chair, the ESB ACKs). Dropped
 lines are counted in the stats line (`sdrop`/`edrop`); the header is re-sent
 whenever a host opens the port.
 
+The chair's `c8..c15` columns always contain raw 12-bit ADC counts (0..4095,
+open FSR ≈0), announced by `# unit=raw`. Command `u` re-sends the unit and CSV
+header; it does not change units. `analysis/live_posture.py` converts these
+counts to conductance/resistance with the 3.3 kΩ divider and still reads older
+firmware/logs in ohms. This serial-only change leaves ESB protocol v2 unchanged:
+only the chair needs updating if both boards already run v2.
+
 **ESB protocol v2 — flash both boards together.** Both payloads start with a
 version byte (`PROTO_VER`) and have a fixed size; a board running the older
 format (v1) is rejected in both directions (the chair counts it in `bad=`, the

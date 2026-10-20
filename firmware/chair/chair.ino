@@ -33,7 +33,7 @@
  * software debounce) or send 'c'. The reference is the mean of the next
  * CAL_SAMPLES body samples (1 s); the green LED flashes when it is captured.
  * 'r' clears it. No alerts until calibrated, and none while the body is silent.
- * 'm' asks the body for a motor test buzz. 'u' toggles the FSR unit.
+ * 'm' asks the body for a motor test buzz. 'u' re-sends the unit/CSV header.
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
@@ -60,7 +60,8 @@
  *     bage   = seq - bseq, in body samples: 2 with no loss (decided on N,
  *              applied with the ACK of N+1, reported in N+2); 254 = 254 or
  *              more; -1 = unknown
- *   c8..c15 = FSRs, ohms (-1 = open) or raw ADC counts ('u')
+ *   c8..c15 = FSRs, always raw 12-bit ADC counts (0..4095, open ~0).
+ *             Convert to resistance/conductance on the host.
  * Events: "# alert ON/OFF", "# calibrat... calid=N", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
@@ -99,9 +100,6 @@ const int   SEL_PINS[4] = {D10, D3, D2, D1};   // S0, S1, S2, S3
 const int   FIRST_CH    = 8;                   // FSRs on C8..C15
 const int   N_FSR       = 8;
 
-const float R_FIXED     = 3300.0;              // ohms (nominal; use measured if known)
-const int   ADC_MAX     = 4095;                // 12-bit
-const int   OPEN_RAW    = 8;                   // below this => open / no force (~6 mV)
 const int   SETTLE_US   = 50;                  // mux switch + SIG node settling
 const unsigned long SCAN_MS = 50;              // 20 Hz FSR scan rate
 
@@ -114,7 +112,6 @@ const int   LED_ON      = LOW;                 // RGB LED is active LOW (core's 
 const int   FLASH_MS    = 300;
 
 nrf_to_nrf radio;
-bool rawMode = false;                          // 'u' toggles ohms <-> raw counts
 int  fsr[N_FSR] = {};                          // last scan, raw ADC counts
 unsigned long lastScan = 0;
 
@@ -158,17 +155,12 @@ int readChannel(int ch) {
   return raw < 0 ? 0 : raw;
 }
 
-float rawToOhms(int raw) {
-  // raw/ADC_MAX = R_FIXED / (R_FIXED + R_FSR)  =>  R_FSR = R_FIXED * (ADC_MAX - raw) / raw
-  return (raw >= OPEN_RAW) ? R_FIXED * (ADC_MAX - raw) / raw : -1.0;
-}
-
 bool chairHeader(uint8_t i, Line &l) {
   switch (i) {
     case 0: l.str("# chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, "
-                  "'r' = clear, 'm' = motor test, 'u' = toggle ohms/raw"); return true;
+                  "'r' = clear, 'm' = motor test, 'u' = resend header"); return true;
     case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
-    case HDR_UNIT: l.str(rawMode ? "# unit=raw" : "# unit=ohms (-1 = open)"); return true;
+    case HDR_UNIT: l.str("# unit=raw"); return true;
     case HDR_UNIT + 1:
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
             "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage");
@@ -253,7 +245,6 @@ void pollSerial() {
   for (int n = 0; n < 16 && Serial.available() > 0; n++) {   // bounded per loop()
     char c = Serial.read();
     if (c == 'u' || c == 'U') {
-      rawMode = !rawMode;
       out.header(HDR_UNIT);
     } else if (c == 'c' || c == 'C') {
       startCalibration("serial");
@@ -285,11 +276,7 @@ void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   } else {
     for (int i = 0; i < 10; i++) l.str(",-1");   // boot,seq,bctl..bage: no sample
   }
-  for (int i = 0; i < N_FSR; i++) {
-    l.chr(',');
-    if (rawMode) l.i32(fsr[i]);
-    else         l.fix(rawToOhms(fsr[i]), 0);
-  }
+  for (int i = 0; i < N_FSR; i++) l.chr(',').i32(fsr[i]);
   out.row(l);
 }
 
@@ -379,7 +366,7 @@ void setup() {
   digitalWrite(CAL_LED, !LED_ON);
   analogReference(AR_VDD4);                    // full scale = VDD -> ratiometric
   analogReadResolution(12);
-  analogSampleTime(10);                        // us; source impedance <= R_FIXED
+  analogSampleTime(10);                        // us; source impedance <= 3.3 kOhm divider
 
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 2000) {}   // give the USB monitor a moment

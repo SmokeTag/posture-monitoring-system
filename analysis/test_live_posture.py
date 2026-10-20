@@ -186,6 +186,21 @@ class Confirmation(unittest.TestCase):
 
 
 class Parsing(unittest.TestCase):
+    def test_raw_fsr_conversion_and_legacy_units(self):
+        r = reader()
+        header = ",".join(V2_FIELDS + [f"c{c}" for c in LP.M.CHANNELS])
+        sample = ",".join(str(v) for v in row(100).values())
+        feed(r, ["# unit=raw", header, sample + ",0,7,8,1365,2048,4094,0,0"])
+        loads = r.fsr[-1][1]
+        self.assertEqual(loads[8], 0)
+        self.assertEqual(loads[9], 0)                  # below the open-FSR threshold
+        self.assertGreater(loads[10], 0)
+        self.assertAlmostEqual(loads[11], 1e6 / 6600) # raw 1365 = 1/3 full scale
+        self.assertGreater(loads[12], loads[11])
+        self.assertGreater(loads[13], loads[12])
+        feed(r, ["# unit=ohms (-1 = open)", header, sample + ",6600,-1,-1,-1,-1,-1,-1,-1"])
+        self.assertAlmostEqual(r.fsr[-1][1][8], loads[11])
+
     def test_header_fields(self):
         cols = V2_FIELDS + [f"c{c}" for c in LP.M.CHANNELS]
         self.assertEqual(LP.header_fields(",".join(cols)), V2_FIELDS)

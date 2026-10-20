@@ -46,6 +46,11 @@ Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
 
 ## Teclas (com a janela em foco)
 
+O CSV da cadeira registra `c8..c15` sempre em ADC bruto de 12 bits (0–4095,
+FSR aberto ≈0), com `# unit=raw` no cabeçalho. O painel converte os valores
+para resistência/condutância no computador; também lê o formato antigo em
+ohms. Na serial, `u` apenas reenvia o cabeçalho, sem alternar unidades.
+
 | tecla | ação |
 |---|---|
 | `c` | calibrar a postura ereta (manda `c` para a cadeira; o botão físico faz o mesmo) |
@@ -82,7 +87,7 @@ cadeira real, commite o `chair_map.json`: ele registra a fiação.
 |---|---|
 | "waiting for …" | cadeira desconectada ou porta ocupada (feche o monitor serial) |
 | "no FSR data yet (old chair firmware?)" | firmware da cadeira sem as colunas `c8..c15` — regrave `firmware/chair` |
-| todos os círculos cinza | nada pressionado (FSR solto lê `-1` = aberto) |
+| todos os círculos cinza | nada pressionado (FSR solto lê ≈0 no ADC; em logs antigos em ohms, `-1` = aberto) |
 | o mapeamento não reconhece o toque | aperte com mais força (precisa < ~20 kΩ); ou clique no gráfico do canal |
 | "BODY SILENT" | unidade corporal desligada ou fora de alcance — os FSRs continuam |
 | "BODY PACKETS REJECTED (bad=N)" | corpo e cadeira com versões diferentes do protocolo ESB — grave as **duas** placas |

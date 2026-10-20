@@ -55,7 +55,7 @@ FIELDS = ["t_ms", "cal", "dev", "alert", "led", "dpitch", "droll", "pitch", "rol
 CTL_NONE, CTL_CHAIR, CTL_FALLBACK = 0, 1, 2  # bctl; keep in sync with PostureLink.h
 AGE_MAX = 254                                # bage: 254 = 254 samples or more
 SEQ_MAX_GAP = 64
-R_FIXED, ADC_MAX, OPEN_RAW = 3300.0, 4095, 8  # keep in sync with firmware/chair ('u' raw mode)
+R_FIXED, ADC_MAX, OPEN_RAW = 3300.0, 4095, 8  # chair: 3.3 kOhm divider, 12-bit ADC; <8 = open
 
 # status colours (state, not identity) — always paired with a text label
 C_OK, C_OVER, C_ALERT = "#444444", "#e69f00", "#d62728"
@@ -92,7 +92,7 @@ class ChairReader(threading.Thread):
         self.fsr: deque[tuple[float, dict[int, float]]] = deque(maxlen=int(TRACE_S * 20) + 20)
         self.events: deque[str] = deque(maxlen=3)
         self.link = ""
-        self.raw = False                              # firmware 'u': raw ADC counts, not ohms
+        self.raw = False                              # legacy default; # unit=raw selects ADC counts
         self.fields = list(FIELDS)                    # data columns before c8..c15
         self.connected = False
         self.body_up = False                          # latest data row came from the body
@@ -118,7 +118,7 @@ class ChairReader(threading.Thread):
                 with self.lock:
                     self.rows.clear()                 # a new connection: no old decisions to match
                     self.fields = list(FIELDS)
-                self.send("uu")                   # toggle twice: same mode, header re-sent
+                self.send("uu")                   # request header; legacy toggles twice, preserving units
                 while True:
                     line = self.ser.readline().decode(errors="replace").strip()
                     if line:
