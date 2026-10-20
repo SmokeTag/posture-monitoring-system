@@ -121,7 +121,7 @@ class RealFirmwareStream(unittest.TestCase):
     def test_header_drives_columns(self):
         r = reader()
         feed(r, self.lines)
-        self.assertEqual(r.fields, V2_FIELDS)
+        self.assertEqual(r.fields, V2_FIELDS + ["imu", "binh"])
         self.assertTrue(r.rows)
         self.assertEqual(len(r.fsr[-1][1]), 8)          # c8..c15 found after the new columns
 
@@ -240,6 +240,43 @@ class Confirmation(unittest.TestCase):
     def test_none_yet(self):
         rows = [row(0, bctl=0, bcal=0, bcalid=0, bage=-1)]
         self.assertEqual(LP.body_lines(rows)[0], "body  no chair decision")
+
+
+class ImuHealth(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        RealFirmwareStream.setUpClass()
+
+    def test_old_firmware_health_is_unknown(self):
+        self.assertEqual(LP.imu_text(row(10)), "IMU ? (old firmware)")
+        self.assertTrue(LP.imu_valid(row(10)))          # historical posture data remains readable
+
+    def test_invalid_sample_has_no_confirmation(self):
+        rows = [row(s) for s in range(100, 110)]
+        for code in range(1, 5):
+            rows[-1]["imu"] = code
+            self.assertFalse(LP.imu_valid(rows[-1]))
+            self.assertNotIn("✓", " ".join(LP.body_lines(rows)))
+            self.assertNotEqual(LP.imu_text(rows[-1]), "IMU OK")
+
+    def test_inhibited_decision_is_explicit_not_a_mismatch(self):
+        rows = [row(s) for s in range(100, 110)]
+        rows[-3]["alert"] = 1
+        rows[-1].update(imu=0, binh=1, balert=0)
+        self.assertEqual(LP.body_lines(rows)[1].strip(), "IMU guard (inhibited)")
+        rows[-1]["bcalid"] = 8
+        self.assertEqual(LP.body_lines(rows)[1].strip(), "≠ applied")
+
+    def test_real_stream_contains_invalid_and_inhibited_samples(self):
+        r = reader()
+        invalid, inhibited = 0, 0
+        for line in RealFirmwareStream.lines:
+            r._handle(line)
+            if r.rows and "imu" in r.rows[-1]:
+                invalid += not LP.imu_valid(r.rows[-1])
+                inhibited += r.rows[-1].get("binh", 0) == 1
+        self.assertGreater(invalid, 20)
+        self.assertGreater(inhibited, 0)
 
 
 class Parsing(unittest.TestCase):
