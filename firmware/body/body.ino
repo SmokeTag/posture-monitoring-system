@@ -105,6 +105,7 @@ SerialOut<decltype(Serial)> out(Serial, bodyHeader);
 // alert state
 AlertGate localGate;                           // only used in fallback
 bool alert = false, ledState = false;
+bool outputInitialized = false;
 unsigned long alertStart = 0;
 unsigned long lastSample = 0;
 unsigned long testUntil = 0;                   // motor test buzz; 0 = idle
@@ -116,6 +117,10 @@ void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
 }
 
 void setLed(bool on) {
+  // analogWrite restarts a hardware PWM sequence even for the same duty.
+  // Do not flood the peripheral from the idle loop; always initialize it once.
+  if (outputInitialized && on == ledState) return;
+  outputInitialized = true;
   ledState = on;
   analogWrite(MOTOR_PIN, on ? MOTOR_DUTY : 0);
   digitalWrite(LED_PIN, on ? LOW : HIGH);

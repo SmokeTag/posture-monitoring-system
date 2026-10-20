@@ -225,6 +225,10 @@ int main(int argc, char **) {
   for (int &p : sim::pin) p = HIGH;
   setup();
   runFor(100);
+  uint32_t idleWrites = analogWriteCalls();
+  CHECK(idleWrites > 0);                      // setup must explicitly command motor off
+  runFor(250);
+  CHECK_EQ(analogWriteCalls(), idleWrites);   // idle loop and I2C guard never restart PWM at duty zero
   auto v = outLines();
   CHECK(v.size() >= 2);
   CHECK(v[0].find("boot=5a") != std::string::npos);
