@@ -110,19 +110,34 @@ class ChairReader(threading.Thread):
             self.log.write(f"# {line}\n")
             self.log.flush()
 
+    def _open_port(self):
+        # pyserial flushes input during open(). Keep DTR low until that is
+        # done, then let the firmware see a fresh connection and send headers.
+        port = serial.Serial(port=None, baudrate=115200, timeout=0.5)
+        port.dtr = False
+        port.port = self.port
+        try:
+            port.open()
+            time.sleep(0.05)                         # let loop() observe DTR low, including on reconnect
+            port.dtr = True
+        except (serial.SerialException, OSError):
+            port.close()
+            raise
+        return port
+
     def run(self):
         while True:
             try:
-                self.ser = serial.Serial(self.port, 115200, timeout=0.5)
-                self.connected, self.body_up, self.raw = True, False, False
-                with self.lock:
-                    self.rows.clear()                 # a new connection: no old decisions to match
-                    self.fields = list(FIELDS)
-                self.send("uu")                   # request header; legacy toggles twice, preserving units
-                while True:
-                    line = self.ser.readline().decode(errors="replace").strip()
-                    if line:
-                        self._handle(line)
+                with self._open_port() as port:
+                    self.ser = port
+                    self.connected, self.body_up, self.raw = True, False, False
+                    with self.lock:
+                        self.rows.clear()             # a new connection: no old decisions to match
+                        self.fields = list(FIELDS)
+                    while True:
+                        line = port.readline().decode(errors="replace").strip()
+                        if line:
+                            self._handle(line)
             except (serial.SerialException, OSError):
                 self.connected, self.ser = False, None
                 time.sleep(1.0)

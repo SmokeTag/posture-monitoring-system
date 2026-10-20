@@ -116,7 +116,7 @@ static void testHeaderAndRows() {
   for (int i = 9; i <= 18; i++) CHECK_STR(f[i], "-1");
 }
 
-// A header request never changes the FSR unit, including legacy clients' 'uu'.
+// FSR units stay raw; the removed 'u'/'U' commands cannot inject headers.
 static void testFixedRawUnits() {
   const int values[] = {0, 7, 8, 2048, 4095};
   const char *commands[] = {"", "u", "uu", "U", "u"};
@@ -129,7 +129,13 @@ static void testFixedRawUnits() {
     for (int i = 19; i < 27; i++) CHECK_STR(f[i], std::to_string(values[n]));
   }
   CHECK_EQ(count("# unit=ohms"), 0);
-  CHECK(count("# unit=raw") >= 4);
+  CHECK_EQ(count("# unit=raw"), 1);
+  Serial.dtrOn = false;
+  runFor(100);
+  Serial.dtrOn = true;
+  runFor(100);
+  CHECK_EQ(count("# unit=raw"), 2);           // reconnect automatically sends the header
+  CHECK_EQ(count("t_ms,"), 2);
   sim::adc = 0;
 }
 

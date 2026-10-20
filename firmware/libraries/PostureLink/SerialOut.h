@@ -14,7 +14,7 @@
  *   - events ('#' lines): small FIFO queue (QN lines), sent before any later
  *     row; queue full -> the new event is dropped and counted in eventDrops.
  *   - header (banner, init failures, column names): re-sent from the start
- *     whenever a host opens the port (DTR rises), and on request; rows wait
+ *     whenever a host opens the port (DTR rises); rows wait
  *     (and count as dropped) until it is out.
  *   - stats: sent like a row but not counted when it can't go; the caller keeps
  *     accumulating and retries (see stats()).
@@ -131,9 +131,6 @@ class SerialOut {
       qCount_--;
     }
   }
-
-  // Re-send the header from line `from` (e.g. after a unit change).
-  void header(uint8_t from = 0) { if (hdr_ == NO_HEADER || from < hdr_) hdr_ = from; }
 
   // '#' event: queued behind earlier ones, ahead of later rows.
   void event(const Line &l) {

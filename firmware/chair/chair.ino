@@ -33,7 +33,7 @@
  * software debounce) or send 'c'. The reference is the mean of the next
  * CAL_SAMPLES body samples (1 s); the green LED flashes when it is captured.
  * 'r' clears it. No alerts until calibrated, and none while the body is silent.
- * 'm' asks the body for a motor test buzz. 'u' re-sends the unit/CSV header.
+ * 'm' asks the body for a motor test buzz. Headers are sent on USB connection.
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
@@ -127,7 +127,6 @@ bool radioFailed = false;                      // reported in the header
 
 bool chairHeader(uint8_t i, Line &l);
 SerialOut<decltype(Serial)> out(Serial, chairHeader);
-const uint8_t HDR_UNIT = 2;                    // chairHeader(): first line re-sent by 'u'
 
 // calibration
 bool  calibrated = false;
@@ -158,10 +157,10 @@ int readChannel(int ch) {
 bool chairHeader(uint8_t i, Line &l) {
   switch (i) {
     case 0: l.str("# chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, "
-                  "'r' = clear, 'm' = motor test, 'u' = resend header"); return true;
+                  "'r' = clear, 'm' = motor test"); return true;
     case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
-    case HDR_UNIT: l.str("# unit=raw"); return true;
-    case HDR_UNIT + 1:
+    case 2: l.str("# unit=raw"); return true;
+    case 3:
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
             "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
@@ -244,9 +243,7 @@ void pollButton() {
 void pollSerial() {
   for (int n = 0; n < 16 && Serial.available() > 0; n++) {   // bounded per loop()
     char c = Serial.read();
-    if (c == 'u' || c == 'U') {
-      out.header(HDR_UNIT);
-    } else if (c == 'c' || c == 'C') {
+    if (c == 'c' || c == 'C') {
       startCalibration("serial");
     } else if (c == 'r' || c == 'R') {
       clearCalibration();

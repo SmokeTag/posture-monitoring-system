@@ -54,8 +54,10 @@ lines are counted in the stats line (`sdrop`/`edrop`); the header is re-sent
 whenever a host opens the port.
 
 The chair's `c8..c15` columns always contain raw 12-bit ADC counts (0..4095,
-open FSR ≈0), announced by `# unit=raw`. Command `u` re-sends the unit and CSV
-header; it does not change units. `analysis/live_posture.py` converts these
+open FSR ≈0), announced by `# unit=raw`. Headers are sent automatically on
+connection/reconnection; there is no header command. The live view opens the
+port with DTR low, then raises it after pyserial's initial input flush so the
+header is not discarded. `analysis/live_posture.py` converts these
 counts to conductance/resistance with the 3.3 kΩ divider and still reads older
 firmware/logs in ohms. This serial-only change leaves ESB protocol v2 unchanged:
 only the chair needs updating if both boards already run v2.

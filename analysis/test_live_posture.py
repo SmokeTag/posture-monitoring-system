@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import live_posture as LP
 
@@ -46,6 +47,56 @@ def row(seq, *, boot=0x5a, cal=1, calid=7, alert=0, bctl=1, bcal=1, bcalid=7, ba
     return dict(t_ms=0, cal=cal, calid=calid, dev=0, alert=alert, dpitch=0, droll=0, pitch=0,
                 roll=0, boot=boot, seq=seq, bctl=bctl, bcal=bcal, bcalid=bcalid, balert=balert,
                 bmotor=bmotor, btest=btest, bseq=bseq, bage=bage)
+
+
+class Connection(unittest.TestCase):
+    def test_header_survives_open_and_reconnect_without_commands(self):
+        class Port:
+            def __init__(self, **kwargs):
+                self.is_open, self._dtr = False, True
+                self.lines, self.actions = [], []
+
+            @property
+            def dtr(self):
+                return self._dtr
+
+            @dtr.setter
+            def dtr(self, value):
+                self._dtr = value
+                self.actions.append(("dtr", value))
+                if self.is_open and value:
+                    self.lines.append("# unit=raw")
+
+            def open(self):
+                self.is_open = True
+                self.actions.append(("open", self.dtr))
+                if self.dtr:
+                    self.lines.append("# unit=raw")
+                self.lines.clear()                   # pyserial's input flush during open
+
+            def close(self):
+                self.is_open = False
+
+            def write(self, value):
+                raise AssertionError("opening the port must not send commands")
+
+        r = reader()
+        with patch.object(LP.serial, "Serial", side_effect=Port), patch.object(LP.time, "sleep") as sleep:
+            for _ in range(2):                      # opening and reconnecting use the same handshake
+                port = r._open_port()
+                self.assertEqual(port.port, r.port)
+                self.assertEqual(port.actions, [("dtr", False), ("open", False), ("dtr", True)])
+                self.assertEqual(port.lines, ["# unit=raw"])
+                port.close()
+            self.assertEqual(sleep.call_count, 2)
+
+    def test_failed_open_closes_port(self):
+        port = Mock()
+        port.open.side_effect = LP.serial.SerialException("device disappeared")
+        with patch.object(LP.serial, "Serial", return_value=port):
+            with self.assertRaises(LP.serial.SerialException):
+                reader()._open_port()
+        port.close.assert_called_once()
 
 
 class RealFirmwareStream(unittest.TestCase):

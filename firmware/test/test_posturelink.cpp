@@ -479,10 +479,6 @@ static void testSerialHeaderOnConnect() {
   CHECK_STR(v[2], "10,1");
   CHECK_STR(v[3], "# ev");
   CHECK_STR(v[4], "20,1");
-  // re-request from line 2 (chair 'u')
-  out.header(2);
-  out.poll();
-  CHECK_STR(lines(P.got).back(), "H2");
   // host closes and reopens: header again, drop counts restart
   P.dtrOn = false; out.poll();
   P.dtrOn = true; P.got.clear(); P.hostReads(); out.poll();

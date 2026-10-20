@@ -49,7 +49,8 @@ Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
 O CSV da cadeira registra `c8..c15` sempre em ADC bruto de 12 bits (0–4095,
 FSR aberto ≈0), com `# unit=raw` no cabeçalho. O painel converte os valores
 para resistência/condutância no computador; também lê o formato antigo em
-ohms. Na serial, `u` apenas reenvia o cabeçalho, sem alternar unidades.
+ohms. O cabeçalho sai automaticamente na conexão/reconexão USB; o painel
+abre a porta com DTR baixo e o ativa após a abertura, sem enviar comandos.
 
 | tecla | ação |
 |---|---|
