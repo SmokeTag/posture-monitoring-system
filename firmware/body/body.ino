@@ -321,6 +321,13 @@ void setup() {
   Wire1.begin();
   imuReady = imu.begin() == IMU_OK;
   lastImuInit = millis();
+#if defined(NRF52840_XXAA) && defined(USE_TINYUSB)
+  // This core otherwise implements micros() with 1024-Hz RTOS ticks (~977 us),
+  // coarser than nrf_to_nrf's ~800-us ACK timeout. The checked burst read shifts
+  // TX into a phase where that rounded clock can expire before the ACK arrives.
+  // Use the core's cycle clock for the radio; application timing stays on millis().
+  dwt_enable();
+#endif
   radioFailed = !radio.begin();
   radio.setChannel(RF_CHANNEL);
   radio.enableDynamicPayloads();

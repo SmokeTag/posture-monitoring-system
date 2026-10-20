@@ -118,6 +118,16 @@ version 3. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
 buffer (still within TinyUSB's 256-byte FIFO): widest chair row 129 bytes,
 body row 63; maximum synthetic stats plus drop counters fit (159/161 bytes).
 
+On Seeeduino:nrf52 1.1.13 the body enables the core's DWT cycle clock before
+starting the radio. Without it, `micros()` uses 1024-Hz RTOS ticks (~977 µs),
+coarser than the driver's ~800 µs ACK timeout. Changing the IMU read duration
+exposed a TX phase where that clock expired before ACKs arrived. This changes
+the timeout clock, not the protocol, retries or sampling/alert timing (which
+use `millis()`). The core divides the 32-bit cycle counter by 64: its `micros()`
+resets about every 67 s, rather than wrapping at UINT32_MAX. A radio wait that
+crosses that reset can end early; the next retry starts on the new counter.
+This clock is not used for link freshness, calibration, holds or motor pulses.
+
 Limits: the installed Wire implementation has unbounded waits if a bus is
 wedged without an error event. PWM is switched off before every I2C operation
 and restored after it returns, so that failure leaves the motor off, but the

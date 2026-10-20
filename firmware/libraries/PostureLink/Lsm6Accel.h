@@ -3,11 +3,11 @@
  * -------------------------------------------------------------------
  * Why not the Seeed Arduino LSM6DS3 driver (2.0.5): readRegisterRegion()
  * returns IMU_SUCCESS even when Wire.requestFrom() delivered fewer bytes than
- * asked (it never checks the count); readRawAccel*() then return an
- * uninitialized value on failure, and readFloatAccel*() hide the status
- * altogether. beginCore() checks WHO_AM_I into an uninitialized byte without
- * the read's status, and begin() ignores every config write. So a sample from
- * it can be invented or old with nothing saying so.
+ * asked (it never checks the count); readRegisterInt16() zero-pads missing
+ * bytes, and readRawAccel*()/readFloatAccel*() hide the status. A partial word
+ * can still look plausible. beginCore() also ignores the WHO_AM_I read status,
+ * and begin() ignores every config write. So a sample can be incomplete or
+ * old with nothing saying so.
  *
  * What this does instead (registers: ST AN5130 / DS LSM6DS3TR-C):
  *   begin(): WHO_AM_I == 0x6A, then CTRL3_C = 0x44 (BDU: output registers
