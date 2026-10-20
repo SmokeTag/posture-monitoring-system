@@ -44,6 +44,20 @@ Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
   todos; o título diz a posição mapeada. Continuam funcionando com o corpo
   desligado.
 
+## Saúde da IMU
+
+No protocolo v3, o painel mostra `IMU OK`, `initializing`, `I2C error`,
+`no fresh data` ou `invalid gravity vector`. São estados da amostra atual:
+rádio conectado não implica amostra válida. Com dados inválidos, o ponto e o
+rastro de postura somem; os FSRs continuam funcionando. A referência de
+calibração é preservada, mas uma captura incompleta é abortada e alertas
+posturais são interrompidos. O teste manual do motor permanece separado.
+
+`IMU guard (inhibited)` indica que o corpo suprimiu uma decisão de alerta
+anterior à falha; isso não é falha de aplicação. Logs v1/v2 continuam legíveis,
+mas a saúde aparece como `IMU ? (old firmware)`. Um vetor inválido também pode
+vir de movimento/queda livre; não é diagnóstico de sensor quebrado.
+
 ## Teclas (com a janela em foco)
 
 O CSV da cadeira registra `c8..c15` sempre em ADC bruto de 12 bits (0–4095,
@@ -91,4 +105,6 @@ cadeira real, commite o `chair_map.json`: ele registra a fiação.
 | todos os círculos cinza | nada pressionado (FSR solto lê ≈0 no ADC; em logs antigos em ohms, `-1` = aberto) |
 | o mapeamento não reconhece o toque | aperte com mais força (precisa < ~20 kΩ); ou clique no gráfico do canal |
 | "BODY SILENT" | unidade corporal desligada ou fora de alcance — os FSRs continuam |
-| "BODY PACKETS REJECTED (bad=N)" | corpo e cadeira com versões diferentes do protocolo ESB — grave as **duas** placas |
+| "BODY PROTOCOL MISMATCH (ver=N)" | versões de protocolo diferentes — grave as **duas** placas com v3 |
+| "BODY PACKETS REJECTED (bad=N)" | payloads malformados/incoerentes; não é o contador de falhas da IMU |
+| "IMU … / posture sample unavailable" | rádio pode estar ativo, mas não há amostra de orientação válida |

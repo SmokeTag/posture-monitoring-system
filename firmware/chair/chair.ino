@@ -38,15 +38,15 @@
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
  *   t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
- *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8,...,c15
+ *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8,...,c15
  *   t_ms  = this board's millis() when the row was written (sample received);
  *           never compare it with the body's t_ms
  *   cal / calid / alert = the chair's decision after this sample: reference
  *           valid / its id (new on every capture and clear) / alert. This is
  *           exactly the ChairAck now preloaded, with basis boot/seq of this row
  *   dev   = sqrt(dpitch^2 + droll^2), degrees from upright (0 if uncalibrated)
- *   boot / seq = the body sample (boot id, packet seq); -1 / -1 (IMU fields 0,
- *           b* -1) while the body is silent
+ *   boot / seq = the body sample (boot id, packet seq); -1 / -1 (IMU fields nan,
+ *           b* -1, angles nan) while the body is silent
  *   b*    = what the body reports it was doing when it sent this sample (the
  *           state it applied at sample seq-1; motor/test at send time):
  *     bctl   = 1 chair decides, 2 fallback (body decides alone), 0 none yet
@@ -62,11 +62,14 @@
  *              more; -1 = unknown
  *   c8..c15 = FSRs, always raw 12-bit ADC counts (0..4095, open ~0).
  *             Convert to resistance/conductance on the host.
+ *   imu = 0 valid, 1 init, 2 I2C/short read, 3 no new data, 4 invalid vector;
+ *         -1 when body silent. Invalid/silent angles and deviations are nan.
+ *   binh = body's previous applied state inhibited a chair alert (BF_INH).
  * Events: "# alert ON/OFF", "# calibrat... calid=N", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
- *   # rx pkts=N lost=L dup=D old=O rst=R bad=B sdrop=S edrop=E dt=T
+ *   # rx pkts=N lost=L dup=D old=O rst=R bad=B ver=V sdrop=S edrop=E dt=T
  *   pkts  = body samples accepted (dup/old excluded)
  *   lost  = seq numbers skipped between packets < LINK_TIMEOUT_MS apart, same
  *           body session. Not the body's noack: a packet can arrive and only
@@ -75,8 +78,7 @@
  *           link up: "# body link lost" comes 1 s after the last NEW sample)
  *   rst   = body restarts seen (boot id changed, or seq went back/jumped;
  *           best effort — see SeqTracker in PostureLink.h)
- *   bad   = packets rejected: other protocol version/size (a body running
- *           older firmware: flash both boards) or incoherent contents
+ *   bad   = malformed/incoherent payloads; ver = incompatible format (flash both boards)
  *   sdrop / edrop = CSV rows / '#' events dropped because the USB host was not
  *           reading (firmware/libraries/PostureLink/SerialOut.h); the header is
  *           re-sent whenever a host opens the port.
@@ -120,6 +122,9 @@ BodyPacket body;
 bool bodyUp = false;
 unsigned long lastBodyAt = 0;
 SeqTracker seqs;                               // pkts/lost/dup/old/rst, reported once per second
+uint32_t versionPkts = 0;
+bool versionNoted = false;
+int lastImuState = -1;
 uint32_t badPkts = 0;                          // rejected packets, since the last stats line
 unsigned long lastReport = 0;
 ChairAck ack = {};                             // preloaded as the ESB ACK payload
@@ -160,9 +165,10 @@ bool chairHeader(uint8_t i, Line &l) {
                   "'r' = clear, 'm' = motor test"); return true;
     case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
     case 2: l.str("# unit=raw"); return true;
+    case 4: l.str("# proto=").u32(PROTO_VER); return true;
     case 3:
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
-            "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage");
+            "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
       return true;
   }
@@ -208,8 +214,8 @@ void setAlert(bool on, float dev) {
 
 void startCalibration(const char *src) {
   Line l;
-  if (!bodyUp) {
-    l.str("# calibrate ignored (no body data), from ").str(src);
+  if (!bodyUp || body.imu != IMU_OK) {
+    l.str("# calibrate ignored (no valid IMU), from ").str(src);
     out.event(l);
     return;
   }
@@ -257,12 +263,12 @@ void pollSerial() {
 }
 
 // t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
-// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8..c15
+// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8..c15
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   Line l;
   l.u32(t).chr(',').u32(calibrated).chr(',').u32(calId).chr(',').fix(dev, 1).chr(',')
    .u32(gate.alert).chr(',').fix(dPitch, 1).chr(',').fix(dRoll, 1).chr(',')
-   .fix(bodyUp ? body.pitch : 0, 1).chr(',').fix(bodyUp ? body.roll : 0, 1);
+   .fix(bodyUp ? body.pitch : NAN, 1).chr(',').fix(bodyUp ? body.roll : NAN, 1);
   if (bodyUp) {
     bool known = body.age != AGE_NONE;
     l.chr(',').u32(body.boot).chr(',').u32(body.seq).chr(',').u32(body.ctl)
@@ -273,12 +279,27 @@ void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   } else {
     for (int i = 0; i < 10; i++) l.str(",-1");   // boot,seq,bctl..bage: no sample
   }
+  l.chr(',').i32(bodyUp ? body.imu : -1).chr(',')
+   .i32(bodyUp ? !!(body.flags & BF_INH) : -1);
   for (int i = 0; i < N_FSR; i++) l.chr(',').i32(fsr[i]);
   out.row(l);
 }
 
 // One body sample: calibration capture, alert decision, ACK, CSV row.
 void onBodySample(unsigned long t) {
+  if (body.imu != lastImuState) {
+    Line e; e.str("# body IMU state=").u32(body.imu); out.event(e);
+    lastImuState = body.imu;
+  }
+  if (body.imu != IMU_OK) {
+    if (calLeft) event("# calibration aborted (invalid IMU)");
+    calLeft = 0;
+    if (gate.alert) setAlert(false, NAN);
+    gate.reset();
+    updateAck(false);                         // health heartbeat is not a posture decision
+    printRow(t, NAN, NAN, NAN);
+    return;
+  }
   if (calLeft > 0) {
     calPSum += body.pitch; calRSum += body.roll;
     if (--calLeft == 0) {
@@ -321,7 +342,17 @@ void pollRadio() {
   if (len > sizeof(buf)) len = sizeof(buf);
   radio.read(buf, len);
   BodyPacket pkt;
-  if (!parseBodyPacket(buf, len, pkt)) { badPkts++; return; }   // not a sample at all
+  PacketStatus status = classifyBodyPacket(buf, len, pkt);
+  if (status == PACKET_VERSION) {
+    versionPkts++;
+    if (!versionNoted) {
+      versionNoted = true;
+      Line e; e.str("# body protocol v").u32(payloadVersion(buf, len))
+               .str(" != v").u32(PROTO_VER).str(": flash both boards"); out.event(e);
+    }
+    return;
+  }
+  if (status != PACKET_OK) { badPkts++; return; }   // not a sample at all
 
   unsigned long t = millis();
   checkBodyLink(t);                            // a timed-out link is declared lost (alert
@@ -384,13 +415,13 @@ void report(unsigned long t) {
   Line l;
   l.str("# rx pkts=").u32(seqs.pkts).str(" lost=").u32(seqs.lost)
    .str(" dup=").u32(seqs.dup).str(" old=").u32(seqs.old).str(" rst=").u32(seqs.rst)
-   .str(" bad=").u32(badPkts)
+   .str(" bad=").u32(badPkts).str(" ver=").u32(versionPkts)
    .str(" sdrop=").u32(out.rowDrops()).str(" edrop=").u32(out.eventDrops())
    .str(" dt=").u32(t - lastReport);
   if (!out.stats(l)) return;                   // host not reading: keep counting
   lastReport = t;
   seqs.clearCounts();
-  badPkts = 0;
+  badPkts = versionPkts = 0;
   out.clearDrops();
 }
 
@@ -406,7 +437,7 @@ void loop() {
   if (t - lastScan >= SCAN_MS) {
     lastScan = t;
     scanFsrs();
-    if (!bodyUp) printRow(t, 0, 0, 0);
+    if (!bodyUp) printRow(t, NAN, NAN, NAN);
   }
 
   if (t - lastReport >= 1000) report(t);

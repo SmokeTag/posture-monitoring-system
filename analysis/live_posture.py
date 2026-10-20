@@ -221,6 +221,19 @@ def decision_row(rows: list[dict], i: int):
     return None
 
 
+IMU_STATES = {0: "OK", 1: "initializing", 2: "I2C error", 3: "no fresh data", 4: "invalid gravity vector"}
+
+
+def imu_text(row: dict) -> str:
+    status = int(row.get("imu", -1))
+    return "IMU ? (old firmware)" if status < 0 else "IMU " + IMU_STATES.get(status, "unknown status")
+
+
+def imu_valid(row: dict) -> bool:
+    # Old logs lack health metadata, but their posture data remains readable.
+    return row.get("imu", 0) == 0
+
+
 def body_lines(rows: list[dict]) -> list[str]:
     """Status-box lines (3) for what the body reports in the latest row: who
     decides + age, the check against the chair, the motor. Firmware v1 rows
@@ -243,7 +256,13 @@ def body_lines(rows: list[dict]) -> list[str]:
             ref = "no ref: no alerts"
         return ["body  FALLBACK (alone)", f"      {ref}", f"motor {motor}"]
     d = decision_row(rows, len(rows) - 1)
-    if d is None:
+    if not imu_valid(r):
+        check = "sample invalid"
+    elif r.get("binh", 0):
+        check = "IMU guard (unconfirmed)" if d is None else (
+            "IMU guard (inhibited)" if (r["bcal"], r["bcalid"], r["balert"]) ==
+            (d["cal"], d["calid"], 0) and d["alert"] else "≠ applied")
+    elif d is None:
         check = "unconfirmed"
     elif (r["bcal"], r["bcalid"], r["balert"]) == (d["cal"], d["calid"], d["alert"]):
         check = "✓ applied"
@@ -526,16 +545,22 @@ def main() -> int:
 
     def update(_):
         rows, fsr, events, link, body_up = reader.snapshot()
+        body_up = body_up and bool(rows)
         chair.update(fsr)
+        version = next((w for w in link.split() if w.startswith("ver=")), "")
         bad = next((w for w in link.split() if w.startswith("bad=")), "")
         if not reader.connected:
             banner.set_text(f"waiting for {Path(args.port).name} …")
-        elif not body_up and bad:
-            banner.set_text(f"BODY PACKETS REJECTED ({bad})\nother firmware version? "
+        elif not body_up and version:
+            banner.set_text(f"BODY PROTOCOL MISMATCH ({version})\nother firmware version? "
                             "flash both boards")
+        elif not body_up and bad:
+            banner.set_text(f"BODY PACKETS REJECTED ({bad})\nmalformed payloads")
         elif not body_up:
             banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" if rows
                             else "connected, waiting for the body …")
+        elif not imu_valid(rows[-1]):
+            banner.set_text(imu_text(rows[-1]) + "\nposture sample unavailable")
         elif not rows[-1]["cal"]:
             banner.set_text("NOT CALIBRATED\nsit upright, press the chair button "
                             "(or 'c' here)")
@@ -543,7 +568,7 @@ def main() -> int:
             banner.set_text("")
         banner.set_visible(bool(banner.get_text()))
 
-        cal_rows = [r for r in rows if r["cal"]]
+        cal_rows = [r for r in rows if r["cal"] and imu_valid(r)] if rows and imu_valid(rows[-1]) else []
         if cal_rows:
             x = np.array([r["dpitch"] for r in cal_rows])
             y = np.array([r["droll"] for r in cal_rows])
@@ -561,16 +586,18 @@ def main() -> int:
             status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\n" + tail)
         else:
             r = rows[-1]
-            if r["alert"]:
+            if not imu_valid(r):
+                colour, state = C_OVER, "— sample invalid"
+            elif r["alert"]:
                 colour, state = C_ALERT, "▲ ALERT"
             elif r["cal"] and r["dev"] > ALERT_DEG:
                 colour, state = C_OVER, "● over thresh."
             else:
-                colour, state = C_OK, "✓ ok" if r["cal"] else "— uncalibrated"
+                colour, state = C_OK, ("✓ ok" if "imu" in r else "ok (IMU ?)") if r["cal"] else "— uncalibrated"
             dot.set_color(colour)
             dot.set_edgecolor("white")
             status.set_text(
-                f"dev   {r['dev']:5.1f}°\n"
+                f"{imu_text(r)}\ndev   {r['dev']:5.1f}°\n"
                 f"chair {state}\n" + "\n".join(body_lines(rows)) + "\n" + tail)
 
     _anim = FuncAnimation(fig, update, interval=50, cache_frame_data=False)  # noqa: F841

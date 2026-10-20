@@ -12,6 +12,8 @@
 #include "stub/LSM6DS3.h"
 #include "stub/Wire.h"
 #include "stub/nrf_to_nrf.h"
+#include "stub/Wire.h"
+FakeWire Wire1;
 #include <PostureLink.h>
 #include <RandomId.h>
 #include <SerialOut.h>
@@ -114,7 +116,7 @@ static int checkJoins(const std::vector<Row> &c) {
     n++;
     CHECK_EQ(r.at("bcal"), d->at("cal"));
     CHECK_EQ(r.at("bcalid"), d->at("calid"));
-    if (r.at("bctl") == CTL_CHAIR) CHECK_EQ(r.at("balert"), d->at("alert"));
+    if (r.at("bctl") == CTL_CHAIR) CHECK_EQ(r.at("balert"), d->at("alert") && !r.at("binh"));
   }
   return n;
 }
@@ -123,6 +125,7 @@ int main(int argc, char **argv) {
   for (int &p : sim::pin) p = HIGH;
   rng.VALUE = 0x30; chairfw::setup();
   rng.VALUE = 0x5a; bodyfw::setup();
+  chairSerial.hostReads(); bodySerial.hostReads();  // host drains startup headers
   bodyfw::radio.peer = &chairfw::radio;
   tilt(0);
 
@@ -249,6 +252,74 @@ int main(int argc, char **argv) {
       CHECK_EQ(b[k].at("aseq"), -1);
       CHECK_EQ(b[k + 1].at("age"), 1);
     }
+  }
+
+  // A sensor failure interrupts a partial capture without losing the last
+  // valid reference or the radio link. A new capture is refused while invalid.
+  uint8_t savedCal = chairfw::calId;
+  chairSerial.in = "c"; runFor(250);
+  CHECK(chairfw::calLeft > 0);
+  Wire1.forceStale = true; runFor(1100);
+  CHECK(chairfw::bodyUp);
+  CHECK_EQ(chairfw::body.imu, IMU_STALE);
+  CHECK_EQ(chairfw::calLeft, 0);
+  CHECK_EQ(chairfw::calId, savedCal);
+  CHECK(chairfw::calibrated);
+  CHECK(!chairfw::gate.alert && !bodyfw::alert);
+  CHECK_EQ(bodyfw::chairLink.control(), CTL_CHAIR);
+  CHECK(isnan(chairfw::body.pitch) && isnan(chairfw::body.roll));
+  chairSerial.in = "c"; runFor(100);
+  CHECK_EQ(chairfw::calLeft, 0);
+
+  // Manual motor testing is still possible, explicitly distinct from posture.
+  chairSerial.in = "m"; runFor(150);
+  CHECK(bodyfw::testRunning(sim::now + BODY_CLOCK));
+  CHECK(bodyfw::ledState && !bodyfw::alert);
+  runFor(600);
+  CHECK(!bodyfw::ledState);
+  Wire1.forceStale = false;
+  Wire1.reset(); runFor(1600);                 // brownout/config lost -> bounded retry -> recovery
+  CHECK_EQ(bodyfw::imuStatus, IMU_OK);
+  CHECK_EQ(chairfw::calId, savedCal);
+  CHECK(!bodyfw::alert);
+
+  tilt(20); runFor(3500);
+  CHECK(chairfw::gate.alert && bodyfw::alert);
+  bodyfw::radio.downOk = false;               // retain the pre-fault alert ACK
+  Wire1.nackAll = true; runFor(50);
+  CHECK_EQ(bodyfw::imuStatus, IMU_BUS);
+  CHECK(!bodyfw::alert && !bodyfw::ledState);
+  CHECK(!chairfw::gate.alert);
+  Wire1.nackAll = false; runFor(350);
+  CHECK_EQ(bodyfw::imuStatus, IMU_OK);
+  CHECK(bodyfw::inhibited && !bodyfw::alert);  // a healthy vector cannot authorize an old decision
+  bodyfw::radio.downOk = true; runFor(500);
+  CHECK(!bodyfw::alert);
+  runFor(3000);
+  CHECK(bodyfw::alert && chairfw::gate.alert); // chair hold restarted from healthy samples
+
+  bodyfw::radio.downOk = false; runFor(4400);
+  CHECK_EQ(bodyfw::chairLink.control(), CTL_FALLBACK);
+  CHECK(bodyfw::alert);
+  Wire1.forceStale = true; runFor(100);
+  CHECK(!bodyfw::alert && !bodyfw::ledState);
+  CHECK_EQ(bodyfw::chairLink.ack.calId, savedCal);
+  Wire1.forceStale = false; runFor(2900);
+  CHECK(!bodyfw::alert);
+  runFor(300);
+  CHECK(bodyfw::alert);
+  bodyfw::radio.downOk = true; runFor(150);
+  CHECK_EQ(bodyfw::chairLink.control(), CTL_CHAIR);
+  Wire1.useRaw = true; Wire1.raw[0] = Wire1.raw[1] = Wire1.raw[2] = 0;
+  runFor(100);
+  CHECK_EQ(bodyfw::imuStatus, IMU_RANGE);
+  CHECK(!bodyfw::alert && !chairfw::gate.alert);
+  CHECK_EQ(chairfw::calId, savedCal);
+  Wire1.useRaw = false; tilt(0); runFor(200);
+  CHECK_EQ(bodyfw::imuStatus, IMU_OK);
+  for (const auto &bytes : bodyfw::radio.sent) {
+    BodyPacket parsed;
+    CHECK(parseBodyPacket(bytes.data(), bytes.size(), parsed));
   }
 
   // every decision the body reported is the one the chair row made

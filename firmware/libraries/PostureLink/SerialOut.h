@@ -29,13 +29,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include "FloatBits.h"
 
 namespace posture {
 
 // One output line, built in place. Too long -> marked bad, never truncated.
 class Line {
  public:
-  static const uint8_t CAP = 160;              // content bytes; longest row 149 (chair)
+  static const uint8_t CAP = 176;              // content bytes; includes maximum v3 stats counters
 
   Line() { clear(); }
   void clear() { len_ = 0; bad_ = false; }
@@ -58,8 +59,9 @@ class Line {
   // Same text as Print::print(float, digits) on this core (snprintf "%.*f",
   // round half to even on the exact value), without printf: digits <= 4.
   Line &fix(float v, uint8_t digits) {
-    if (v != v) return str("nan");
-    bool neg = __builtin_signbit(v);
+    if (floatIsNan(v)) return str("nan");
+    bool neg = (floatBits(v) >> 31) != 0;
+    if (!floatIsFinite(v)) return str(neg ? "-inf" : "inf");
     double x = neg ? -(double)v : (double)v;
     if (x > 1e15) return str(neg ? "-inf" : "inf");   // inf, or far beyond any value here
     static const uint32_t P10[] = {1, 10, 100, 1000, 10000};

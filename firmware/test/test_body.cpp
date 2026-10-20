@@ -4,6 +4,8 @@
 #include "check.h"
 #include "stub/Arduino.h"
 #include "stub/nrf_to_nrf.h"
+#include "stub/Wire.h"
+FakeWire Wire1;
 
 #include <vector>
 
@@ -25,6 +27,7 @@ static void tilt(float deg) {
 static void ackWith(uint8_t flags, uint8_t buzz = 0) {
   ChairAck a = {};
   a.ver = PROTO_VER; a.calId = 9;
+  a.basisBoot = bootId; a.basisSeq = (uint16_t)n;
   a.flags = flags; a.buzz = buzz; a.pitchRef = 0; a.rollRef = 0;
   const uint8_t *b = (const uint8_t *)&a;
   radio.txOk = true; radio.txArc = 1;
@@ -111,15 +114,16 @@ static void testWidestRow() {
   testUntil = sim::now + 400;
   ledState = true;
   sim::now++;
-  loop();
+  imuStatus = IMU_OK; inhibited = false; alert = ledState = true;
+  printBodyRow(sim::now, -90, -180, 402.5, true);
   std::string row = lastRow();
   printf("  widest row (%zu bytes): %s\n", row.size(), row.c_str());
-  CHECK_STR(row, "4294967295,65535,2,1,255,402.5,1,1,1,65235,254,-90.0,-180.0");
+  CHECK_STR(row, "4294967295,65535,2,1,255,402.5,1,1,1,65235,254,-90.0,-180.0,0,0");
   CHECK(row.size() + 2 <= (size_t)Line::CAP + 2);
   CHECK_EQ(out.rowDrops(), 0u);
   // stats line with every counter at its maximum (+ 9 digits each of slack
   // for ack/sdrop/edrop, 0 here); header lines all fit
-  chairLink.sent = chairLink.acked = chairLink.retx = chairLink.ctl = chairLink.bad = 0xFFFFFFFFu;
+  chairLink.sent = chairLink.acked = chairLink.retx = chairLink.ctl = chairLink.bad = chairLink.ver = 0xFFFFFFFFu;
   chairLink.acked = 0;                         // noack = sent: 10 digits too
   lastReport = sim::now + 1;
   report(sim::now);
@@ -127,19 +131,108 @@ static void testWidestRow() {
   printf("  widest stats (%zu bytes + 27 for ack/sdrop/edrop): %s\n", v.back().size(), v.back().c_str());
   CHECK_STR(v.back().substr(0, 16), "# tx sent=429496");
   CHECK(v.back().size() + 27 <= Line::CAP);
-  imuFailed = radioFailed = true;
+  imuReady = false; radioFailed = true;
   for (uint8_t i = 0; i < 8; i++) { Line l; if (bodyHeader(i, l)) CHECK(l.ok()); }
 }
 
-int main() {
+static void testImuFailureAndRecovery() {
+  tilt(20);
+  ackWith(CF_CAL | CF_ALERT);
+  runFor(100);
+  CHECK(alert);
+  uint8_t savedId = chairLink.ack.calId;
+  Wire1.nackAll = true;
+  runFor(50);
+  CHECK_EQ(imuStatus, IMU_BUS);
+  CHECK(!alert && !ledState);
+  CHECK_EQ(chairLink.control(), CTL_CHAIR);
+  CHECK_EQ(chairLink.ack.calId, savedId);
+  BodyPacket p;
+  memcpy(&p, radio.sent.back().data(), sizeof p);
+  CHECK_EQ(p.imu, IMU_BUS);
+  CHECK(isnan(p.pitch) && isnan(p.roll));
+  CHECK(parseBodyPacket(&p, sizeof p, p));
+  Wire1.nackAll = false;
+  runFor(200);
+  CHECK_EQ(imuStatus, IMU_OK);
+  CHECK(!alert && inhibited);                 // the ACK still names the pre-fault sample
+  runFor(1000);
+  CHECK(!alert && inhibited);
+  ackWith(CF_CAL | CF_ALERT);
+  runFor(50);
+  CHECK(alert && !inhibited);                 // a new decision releases the guard
+
+  txFail(); runFor(4300);
+  CHECK_EQ(chairLink.control(), CTL_FALLBACK);
+  CHECK(alert);
+  Wire1.forceStale = true; runFor(50);
+  CHECK(!alert && !ledState);
+  CHECK_EQ(imuStatus, IMU_STALE);
+  Wire1.forceStale = false; runFor(2900);
+  CHECK(!alert);                              // fallback hold starts over, not at pre-fault time
+  runFor(250);
+  CHECK(alert);
+
+  Wire1.forceStale = true; runFor(50);
+  Serial.in = "m"; runFor(60);
+  CHECK(testRunning(sim::now) && ledState && !alert);
+  runFor(650);
+  CHECK(!ledState && !testRunning(sim::now));
+  Wire1.forceStale = false;
+  Wire1.reset(); runFor(1600);                // sensor brownout -> checked reconfiguration
+  CHECK_EQ(imuStatus, IMU_OK);
+  CHECK_EQ(chairLink.ack.calId, savedId);
+  CHECK_EQ(Wire1.unbegun, 0);
+}
+
+static void assertMotorOffDuringI2c() { CHECK_EQ(sim::pin[MOTOR_PIN], 0); }
+
+static int testInitFailure() {
+  rng.VALUE = 0x5a;
+  for (int &pin : sim::pin) pin = HIGH;
+  Wire1.nackAll = true;
+  Wire1.onTransaction = assertMotorOffDuringI2c;
+  setup();
+  runFor(3200);                              // boot failed, radio heartbeat still crosses millis wrap
+  CHECK(!imuReady);
+  CHECK_EQ(imuStatus, IMU_INIT);
+  CHECK(n >= 63 && n <= 65);
+  CHECK(Wire1.tx <= 5);                       // reinitialization is at most once per second
+  CHECK(!alert && !ledState);
+  CHECK_EQ(rowField(F_CAL), 0);
+  BodyPacket p;
+  memcpy(&p, radio.sent.back().data(), sizeof p);
+  CHECK_EQ(p.imu, IMU_INIT);
+  CHECK(isnan(p.pitch) && isnan(p.roll));
+  CHECK(parseBodyPacket(&p, sizeof p, p));
+  Wire1.nackAll = false;
+  Wire1.regs[0x0F] = 0x00;
+  runFor(1100);
+  CHECK(!imuReady);
+  Wire1.regs[0x0F] = 0x6a;
+  runFor(1200);
+  CHECK(imuReady);
+  CHECK_EQ(imuStatus, IMU_OK);
+  CHECK(!alert && !ledState);
+  CHECK_EQ(Wire1.unbegun, 0);
+  return report("body.ino boot failure");
+}
+
+int main(int argc, char **) {
+  if (argc > 1) return testInitFailure();
+  Wire1.onTransaction = assertMotorOffDuringI2c;
   rng.VALUE = 0x5a;
   for (int &p : sim::pin) p = HIGH;
   setup();
   runFor(100);
+  uint32_t idleWrites = analogWriteCalls();
+  CHECK(idleWrites > 0);                      // setup must explicitly command motor off
+  runFor(250);
+  CHECK_EQ(analogWriteCalls(), idleWrites);   // idle loop and I2C guard never restart PWM at duty zero
   auto v = outLines();
   CHECK(v.size() >= 2);
   CHECK(v[0].find("boot=5a") != std::string::npos);
-  CHECK_STR(v[1], "t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll");
+  CHECK_STR(v[1], "t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh");
   CHECK(!radio.sent.empty());
   BodyPacket p0, chk;
   CHECK_EQ(radio.sent.back().size(), sizeof(BodyPacket));
@@ -205,10 +298,10 @@ int main() {
   int mixed = 0;
   for (auto &l : outLines()) {
     if (l.compare(0, 4, "# tx")) continue;
-    long sent, ack, noack, retx, ctl, bad;
-    CHECK_EQ(sscanf(l.c_str(), "# tx sent=%ld ack=%ld noack=%ld retx=%ld ctl=%ld bad=%ld",
-                    &sent, &ack, &noack, &retx, &ctl, &bad), 6);
-    CHECK_EQ(ack, ctl + bad);
+    long sent, ack, noack, retx, ctl, bad, ver;
+    CHECK_EQ(sscanf(l.c_str(), "# tx sent=%ld ack=%ld noack=%ld retx=%ld ctl=%ld bad=%ld ver=%ld",
+                    &sent, &ack, &noack, &retx, &ctl, &bad, &ver), 7);
+    CHECK_EQ(ack, ctl + bad + ver);
     CHECK_EQ(noack, sent - ack);
     mixed += ctl > 0 && bad > 0;
   }
@@ -230,13 +323,14 @@ int main() {
   runFor(600);
   CHECK_EQ(rowField(F_MOTOR), 0);
   CHECK_EQ(rowField(F_TEST), 0);
-  // every packet sent in this run is a well-formed v2 packet
+  // every packet sent in this run is a well-formed v3 packet
   int badSent = 0;
   for (auto &b : radio.sent) badSent += !parseBodyPacket(b.data(), (uint8_t)b.size(), chk);
   CHECK_EQ(badSent, 0);
   CHECK(sim::now < 0xFFFFFFFFu - 3000);        // the run crossed the millis() wrap
   CHECK_EQ(Serial.blocked, 0);
   outLines();
+  testImuFailureAndRecovery();
   testWidestRow();
   CHECK_EQ(Serial.blocked, 0);
   return report("body.ino");

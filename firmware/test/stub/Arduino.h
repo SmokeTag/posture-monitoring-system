@@ -26,7 +26,8 @@ inline void delayMicroseconds(unsigned) {}
 inline void pinMode(int, int) {}
 inline void digitalWrite(int p, int v) { sim::pin[p] = v; }
 inline int digitalRead(int p) { return sim::pin[p]; }
-inline void analogWrite(int p, int v) { sim::pin[p] = v; }
+inline uint32_t &analogWriteCalls() { static uint32_t count = 0; return count; }
+inline void analogWrite(int p, int v) { analogWriteCalls()++; sim::pin[p] = v; }
 inline int analogRead(int) { return sim::adc; }
 inline void analogReference(int) {}
 inline void analogReadResolution(int) {}

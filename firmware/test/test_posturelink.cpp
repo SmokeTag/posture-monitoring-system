@@ -102,7 +102,7 @@ static void testParseBodyPacket() {
   CHECK(!parseBodyPacket(&good, sizeof good - 1, out));       // size
   uint8_t v1[12] = {5, 0, 0, 0x5a};                           // v1: seq, flags, boot, pitch, roll
   CHECK(!parseBodyPacket(v1, sizeof v1, out));
-  BodyPacket p = good; p.ver = 3;
+  BodyPacket p = good; p.ver = 4;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.boot = 0;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
@@ -112,7 +112,7 @@ static void testParseBodyPacket() {
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.ctl = 3;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
-  p = good; p.flags = 0x10;
+  p = good; p.flags = 0x20;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.flags = BF_ALERT;                               // alert with no reference
   CHECK(!parseBodyPacket(&p, sizeof p, out));
@@ -127,6 +127,57 @@ static void testParseBodyPacket() {
   p = good; p.age = AGE_NONE;                                 // unknown age with an ackSeq
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   CHECK_EQ(out.seq, 0);                                       // failures left `out` alone
+}
+
+static void testImuTelemetryAndGuard() {
+  CHECK_EQ(sizeof(BodyPacket), 19u);
+  CHECK_EQ(sizeof(ChairAck), 15u);
+  BodyPacket p = mkPkt(CTL_CHAIR, BF_CAL, 7, 2), out = {};
+  for (uint8_t status = IMU_INIT; status <= IMU_RANGE; status++) {
+    p.imu = status; p.pitch = p.roll = NAN;
+    CHECK_EQ(classifyBodyPacket(&p, sizeof p, out), PACKET_OK);
+    p.pitch = 0;
+    CHECK(!parseBodyPacket(&p, sizeof p, out));
+  }
+  p.imu = IMU_RANGE + 1; p.pitch = p.roll = NAN;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p.imu = IMU_OK; p.pitch = p.roll = NAN;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = mkPkt(CTL_CHAIR, BF_CAL | BF_INH, 7, 2);
+  CHECK(parseBodyPacket(&p, sizeof p, out));
+  p.flags |= BF_ALERT;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p.flags = BF_CAL | BF_INH; p.ctl = CTL_FALLBACK;
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = mkPkt(CTL_CHAIR, BF_CAL, 7, 2); p.ver = 2;
+  CHECK_EQ(classifyBodyPacket(&p, sizeof p, out), PACKET_VERSION);
+  ChairAck a = mkAck(CF_CAL), parsed;
+  a.ver = 2;
+  CHECK_EQ(classifyChairAck(&a, sizeof a, parsed), PACKET_VERSION);
+  BodyLink link;
+  auto r = tx(link, 1, true, 0, &a);
+  CHECK(r.version);
+  CHECK_EQ(link.ver, 1u);
+  CHECK_EQ(link.bad + link.ctl, 0u);
+  CHECK(!link.watch.up);
+
+  // Guard comparisons across the sample counter's UINT32 wrap. A repeated
+  // pre-fault decision cannot re-enable an alert; a post-fault one can.
+  ImuControlGuard guard;
+  link.basisOk = true;
+  link.basisN = 0xFFFFFFFDu;
+  guard.observe(0xFFFFFFFEu, false);
+  CHECK(!guard.allows(link, 1));
+  link.basisN = 0xFFFFFFFFu;
+  CHECK(guard.allows(link, 1));
+  guard.observe(2, false);
+  CHECK(!guard.allows(link, 3));
+  link.basisN = 2;
+  CHECK(!guard.allows(link, 3));
+  link.basisN = 3;
+  CHECK(guard.allows(link, 3));
+  link.basisOk = false;
+  CHECK(!guard.allows(link, 4));
 }
 
 // Age of the held ChairAck, in body samples (BodyLink::age).
@@ -548,6 +599,7 @@ static void testSerialRowsWaitForEventsAndHeader() {
 int main() {
   testParseChairAck();
   testParseBodyPacket();
+  testImuTelemetryAndGuard();
   testAge();
   testFreshnessNeedsValidAck();
   testTxFailuresAndRecovery();
