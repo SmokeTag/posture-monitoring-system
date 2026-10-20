@@ -32,3 +32,4 @@ firmware/test/test_posturelink
 firmware/test/test_chair
 firmware/test/test_body
 firmware/test/test_system
+firmware/test/test_lsm6

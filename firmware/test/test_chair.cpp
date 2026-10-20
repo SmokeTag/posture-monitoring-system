@@ -108,10 +108,10 @@ static void testHeaderAndRows() {
   CHECK_STR(v[0].substr(0, 22), "# chair unit (brain): ");
   CHECK_STR(v[1], "# unit=raw");
   CHECK_STR(v[2], "t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
-                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,c8,c9,c10,c11,c12,c13,c14,c15");
-  // a body-silent row: boot..bage all -1 ("no sample"), 27 fields
+                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8,c9,c10,c11,c12,c13,c14,c15");
+  // a body-silent row: boot..bage all -1 ("no sample"), 29 fields
   auto f = split(v.back());
-  CHECK_EQ(f.size(), 27u);
+  CHECK_EQ(f.size(), 29u);
   CHECK_STR(f[2], std::to_string(calId));      // chair's reference id, even with no body
   for (int i = 9; i <= 18; i++) CHECK_STR(f[i], "-1");
 }
@@ -125,8 +125,8 @@ static void testFixedRawUnits() {
     Serial.in = commands[n];
     runFor(100);
     auto f = split(outLines().back());
-    CHECK_EQ(f.size(), 27u);
-    for (int i = 19; i < 27; i++) CHECK_STR(f[i], std::to_string(values[n]));
+    CHECK_EQ(f.size(), 29u);
+    for (int i = 21; i < 29; i++) CHECK_STR(f[i], std::to_string(values[n]));
   }
   CHECK_EQ(count("# unit=ohms"), 0);
   CHECK_EQ(count("# unit=raw"), 1);
@@ -250,7 +250,7 @@ static std::vector<std::string> lastRowFields() {
 }
 // chair CSV columns
 enum { C_CAL = 1, C_CALID, C_DEV, C_ALERT, C_BOOT = 9, C_SEQ, C_BCTL, C_BCAL, C_BCALID,
-       C_BALERT, C_BMOTOR, C_BTEST, C_BSEQ, C_BAGE, C_FSR };
+       C_BALERT, C_BMOTOR, C_BTEST, C_BSEQ, C_BAGE, C_IMU, C_BINH, C_FSR };
 
 // The ACK preloaded after each sample carries the decision of the row just
 // printed, with that row's boot/seq as its basis; other rewrites say so.
@@ -342,7 +342,7 @@ static void testBodyReportColumns() {
 static void testRejectedPackets() {
   const uint8_t B = 0x44;
   runFor(1000);
-  long bad0 = rxSum("bad");
+  long bad0 = rxSum("bad"), ver0 = rxSum("ver");
   CHECK(!bodyUp);
   // a v1 body (12 bytes: seq, flags, boot, pitch, roll) is never accepted
   for (int i = 0; i < 30; i++) {
@@ -352,7 +352,7 @@ static void testRejectedPackets() {
   }
   CHECK(!bodyUp);
   CHECK_EQ(count("# body link up boot=5a"), 0);
-  // wrong version / incoherent v2 while linked: the link still times out
+  // wrong version / incoherent v3 while linked: the link still times out
   sample(B, s++, 0);
   CHECK(bodyUp);
   int lost0 = count("# body link lost");
@@ -368,7 +368,8 @@ static void testRejectedPackets() {
   CHECK(!bodyUp);
   CHECK_EQ(count("# body link lost"), lost0 + 1);
   runFor(1000);
-  CHECK_EQ(rxSum("bad") - bad0, 55);
+  CHECK_EQ(rxSum("bad") - bad0, 16);
+  CHECK_EQ(rxSum("ver") - ver0, 39);
 }
 
 // Widest possible row, at t_ms = UINT32_MAX: every field at its
@@ -407,8 +408,8 @@ static void testWidestRow() {
   std::string fsrs;
   for (int i = 0; i < 8; i++) fsrs += ",4095";
   CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
-                 "2,1,255,1,1,1,10000,254" + fsrs);
-  CHECK_EQ(row.size(), 125u);
+                 "2,1,255,1,1,1,10000,254,0,0" + fsrs);
+  CHECK_EQ(row.size(), 129u);
   seqs.clearCounts();
   s = 0;
   runFor(1);
@@ -417,7 +418,7 @@ static void testWidestRow() {
   // stats line with every counter at its maximum (sdrop/edrop are 0 here:
   // 9 digits each of slack must remain for them)
   runFor(5);
-  seqs.pkts = seqs.lost = seqs.dup = seqs.old = seqs.rst = badPkts = 0xFFFFFFFFu;
+  seqs.pkts = seqs.lost = seqs.dup = seqs.old = seqs.rst = badPkts = versionPkts = 0xFFFFFFFFu;
   Serial.hostReads();
   lastReport = sim::now + 2;                   // dt = UINT32_MAX
   sim::now++;

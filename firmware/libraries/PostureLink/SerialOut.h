@@ -35,7 +35,7 @@ namespace posture {
 // One output line, built in place. Too long -> marked bad, never truncated.
 class Line {
  public:
-  static const uint8_t CAP = 160;              // content bytes; longest row 149 (chair)
+  static const uint8_t CAP = 176;              // content bytes; includes maximum v3 stats counters
 
   Line() { clear(); }
   void clear() { len_ = 0; bad_ = false; }

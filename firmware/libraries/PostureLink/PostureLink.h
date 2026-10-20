@@ -53,7 +53,18 @@ const uint16_t SEQ_MAX_GAP = 64;               // samples, ~3 s at 20 Hz; while 
 // Protocol version: byte 0 of both payloads; with the exact size it rejects a
 // peer running another format (v1, before this field, was 12 + 12 bytes).
 // Both boards must run the same version.
-const uint8_t PROTO_VER = 2;
+const uint8_t PROTO_VER = 3;
+
+// Per-sample validity, independent of the radio link. RANGE also includes
+// motion with too little gravity to estimate posture; it is not a chip diagnosis.
+enum ImuStatus : uint8_t { IMU_OK = 0, IMU_INIT, IMU_BUS, IMU_STALE, IMU_RANGE };
+enum PacketStatus : uint8_t { PACKET_OK, PACKET_VERSION, PACKET_BAD };
+inline uint8_t payloadVersion(const void *buf, uint8_t len) {
+  return len == 12 ? 1 : len ? *(const uint8_t *)buf : 0;
+}
+inline bool otherVersion(const void *buf, uint8_t len) {
+  return len && payloadVersion(buf, len) != PROTO_VER;
+}
 
 // Body -> chair, one per IMU sample. Besides the sample, it reports what the
 // body was actually doing when it sent it: the control it applied at its
@@ -68,6 +79,7 @@ enum : uint8_t {                               // BodyPacket.flags
   BF_ALERT = 1 << 1,                           // alert in effect (from the chair or local, see ctl)
   BF_MOTOR = 1 << 2,                           // motor/LED output commanded on now (not measured)
   BF_TEST  = 1 << 3,                           // a motor-test buzz is running (not a posture alert)
+  BF_INH   = 1 << 4,                           // chair alert suppressed by local IMU guard
 };
 const uint8_t AGE_MAX = 254;                   // BodyPacket.age: 254 = 254 samples or more
 const uint8_t AGE_NONE = 255;                  //   unknown: no ChairAck held, or not based on a
@@ -76,11 +88,12 @@ struct __attribute__((packed)) BodyPacket {
   uint8_t  ver;                                // PROTO_VER
   uint8_t  boot;                               // random 1..255 per body boot (never 0)
   uint16_t seq;                                // +1 per sample (wraps 65535 -> 0)
-  float    pitch, roll;                        // degrees, from the accelerometer
+  float    pitch, roll;                        // degrees if IMU_OK, both NaN otherwise
   uint8_t  ctl;                                // CTL_*
   uint8_t  flags;                              // BF_*
   uint8_t  calId;                              // ChairAck.calId of the ChairAck held; 0 = none
   uint8_t  age;                                // seq - ackSeq (samples); AGE_MAX, AGE_NONE
+  uint8_t  imu;                                // ImuStatus of THIS sample (report flags are previous state)
   uint16_t ackSeq;                             // basisSeq of the ChairAck held (if age != AGE_NONE)
 };
 
@@ -102,6 +115,8 @@ struct __attribute__((packed)) ChairAck {
   uint8_t  basisBoot;                          // ...and its boot id; 0 = not made on a sample
                                                // (chair boot, body link timeout, calibration cleared)
 };
+
+static_assert(sizeof(BodyPacket) == 19 && sizeof(ChairAck) == 15, "v3 payload ABI");
 
 // --- Posture alert ---
 const float ALERT_DEG = 10.0f;                 // analysis/archive/VALIDATION.md: upright p95 6.4°, bad p05 18.6°
@@ -157,6 +172,11 @@ inline bool parseChairAck(const void *buf, uint8_t len, ChairAck &out) {
   return true;
 }
 
+inline PacketStatus classifyChairAck(const void *buf, uint8_t len, ChairAck &out) {
+  if (otherVersion(buf, len)) return PACKET_VERSION;
+  return parseChairAck(buf, len, out) ? PACKET_OK : PACKET_BAD;
+}
+
 // Same for the chair: a packet of another format, or whose report doesn't add
 // up, is rejected before it can count as a sample (or keep the link up).
 inline bool parseBodyPacket(const void *buf, uint8_t len, BodyPacket &out) {
@@ -164,16 +184,24 @@ inline bool parseBodyPacket(const void *buf, uint8_t len, BodyPacket &out) {
   BodyPacket p;
   memcpy(&p, buf, sizeof(p));
   if (p.ver != PROTO_VER || p.boot == 0) return false;
-  if (!anglesOk(p.pitch, p.roll)) return false;
+  if (p.imu > IMU_RANGE) return false;
+  if (p.imu == IMU_OK ? !anglesOk(p.pitch, p.roll)
+                      : !(isnan(p.pitch) && isnan(p.roll))) return false;
   if (p.ctl > CTL_FALLBACK) return false;
-  if (p.flags & ~(BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST)) return false;
+  if (p.flags & ~(BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST | BF_INH)) return false;
   if ((p.flags & BF_ALERT) && !(p.flags & BF_CAL)) return false;
+  if ((p.flags & BF_INH) && (p.ctl != CTL_CHAIR || !(p.flags & BF_CAL) || (p.flags & BF_ALERT))) return false;
   if (p.ctl == CTL_NONE && (p.calId || (p.flags & BF_CAL) || p.age != AGE_NONE)) return false;
   if (p.ctl != CTL_NONE && !p.calId) return false;
   if (p.age == AGE_NONE ? p.ackSeq != 0
                         : p.age < AGE_MAX && (uint16_t)(p.seq - p.ackSeq) != p.age) return false;
   out = p;
   return true;
+}
+
+inline PacketStatus classifyBodyPacket(const void *buf, uint8_t len, BodyPacket &out) {
+  if (otherVersion(buf, len)) return PACKET_VERSION;
+  return parseBodyPacket(buf, len, out) ? PACKET_OK : PACKET_BAD;
 }
 
 // Up while fresh control data keeps arriving; down LINK_TIMEOUT_MS after the
@@ -215,23 +243,24 @@ struct BodyLink {
   LinkWatch watch;
   bool basisOk = false;                        // ack.basis* is a sample of this session...
   uint32_t basisN = 0;                         // ...namely sample number basisN
-  // since clearCounts(); noack = sent - acked; acked = ctl + bad
-  uint32_t sent = 0, acked = 0, retx = 0, ctl = 0, bad = 0;
+  // since clearCounts(); noack = sent - acked; acked = ctl + bad + ver
+  uint32_t sent = 0, acked = 0, retx = 0, ctl = 0, bad = 0, ver = 0;
 
-  struct Result { bool ctl, buzz, linkChanged; };
+  struct Result { bool ctl, buzz, linkChanged, version; };
 
   // n/boot: this write's sample number and the body's boot id.
   // ok/arc: radio.write() result and getARC() (retransmissions of this write,
   // also when it ran out of retries). payload/len: the ACK payload (len 0 if none).
   Result onTx(uint32_t t, uint32_t n, uint8_t boot, bool ok, uint8_t arc,
               const void *payload, uint8_t len) {
-    Result r = {false, false, false};
+    Result r = {false, false, false, false};
     sent++;
     retx += arc;
     ChairAck a;
     if (ok) {
       acked++;
-      if (parseChairAck(payload, len, a)) {
+      PacketStatus status = classifyChairAck(payload, len, a);
+      if (status == PACKET_OK) {
         ctl++;
         r.ctl = true;
         r.buzz = watch.up && a.buzz != lastBuzz;   // a fresh link only syncs the counter
@@ -239,6 +268,8 @@ struct BodyLink {
         takeBasis(a, n, boot);
         ack = a;
         haveAck = true;
+      } else if (status == PACKET_VERSION) {
+        ver++; r.version = true;
       } else {
         bad++;
       }
@@ -258,7 +289,7 @@ struct BodyLink {
     return d < AGE_MAX ? (uint8_t)d : AGE_MAX;
   }
 
-  void clearCounts() { sent = acked = retx = ctl = bad = 0; }
+  void clearCounts() { sent = acked = retx = ctl = bad = ver = 0; }
 
  private:
   void takeBasis(const ChairAck &a, uint32_t n, uint8_t boot) {
@@ -267,6 +298,20 @@ struct BodyLink {
     uint16_t d = (uint16_t)n - a.basisSeq;
     basisOk = a.basisBoot && a.basisBoot == boot && d <= SEQ_MAX_GAP && d <= n;
     basisN = basisOk ? n - d : 0;
+  }
+};
+
+// After an invalid sample, only a decision made after that sample may
+// re-enable a chair alert. Compare distances from n, so UINT32 wrap is safe;
+// release the latch on recovery instead of retaining a timestamp indefinitely.
+struct ImuControlGuard {
+  bool blocked = false;
+  uint32_t faultN = 0;
+  void observe(uint32_t n, bool valid) { if (!valid) { blocked = true; faultN = n; } }
+  bool allows(const BodyLink &link, uint32_t n) {
+    if (!link.basisOk) return false;
+    if (blocked && (uint32_t)(n - link.basisN) < (uint32_t)(n - faultN)) blocked = false;
+    return !blocked;
   }
 };
 

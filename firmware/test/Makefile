@@ -5,12 +5,13 @@
 CXX      ?= g++
 CXXFLAGS ?= -std=gnu++11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined
 LIB      := ../libraries/PostureLink
-DEPS     := check.h $(LIB)/PostureLink.h $(LIB)/SerialOut.h $(LIB)/RandomId.h
+DEPS     := check.h $(LIB)/PostureLink.h $(LIB)/SerialOut.h $(LIB)/RandomId.h $(LIB)/Lsm6Accel.h
 STUBS    := $(wildcard stub/*.h)
-TESTS    := test_posturelink test_chair test_body test_system
+TESTS    := test_lsm6 test_posturelink test_chair test_body test_system
 
 test: $(TESTS)
 	@for t in $(TESTS); do ./$$t || exit 1; done
+	./test_body init
 
 test_posturelink: test_posturelink.cpp $(DEPS)
 	$(CXX) $(CXXFLAGS) -I$(LIB) -o $@ $<
@@ -28,3 +29,6 @@ clean:
 	rm -f $(TESTS)
 
 .PHONY: test clean
+
+test_lsm6: test_lsm6.cpp $(DEPS) stub/Wire.h
+	$(CXX) $(CXXFLAGS) -I$(LIB) -o $@ $<
