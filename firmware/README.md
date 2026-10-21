@@ -31,8 +31,8 @@ power** (its mux S0 is the body's motor pin D10).
 | body  | `3B4A158C694F1777` |
 
 ```bash
-CHAIR=$(readlink -f /dev/serial/by-id/*2C7FE46C8E63BDA0*)
-BODY=$(readlink -f /dev/serial/by-id/*3B4A158C694F1777*)
+CHAIR=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00)
+BODY=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_3B4A158C694F1777-if00)
 arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/chair
 arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p "$CHAIR" firmware/chair
 arduino-cli monitor -p "$CHAIR" -c baudrate=115200
