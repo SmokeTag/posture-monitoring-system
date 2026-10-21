@@ -64,8 +64,9 @@
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/body
- *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM1 firmware/body
- *   arduino-cli monitor -p /dev/ttyACM1 -c baudrate=115200
+ *   BODY=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_3B4A158C694F1777-if00)
+ *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p "$BODY" firmware/body
+ *   arduino-cli monitor -p "$BODY" -c baudrate=115200
  */
 
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core

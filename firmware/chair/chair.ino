@@ -90,8 +90,9 @@
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/chair
- *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/chair
- *   arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
+ *   CHAIR=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00)
+ *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p "$CHAIR" firmware/chair
+ *   arduino-cli monitor -p "$CHAIR" -c baudrate=115200
  */
 
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core
