@@ -440,6 +440,9 @@ int main() {
   setup();
   CHECK_EQ(calId, 200);                        // random start (RNG)
   runFor(200);                                 // body silent: rows with seq -1
+  CHECK_EQ(sim::pin[LED_RED], 0);              // orange, active LOW: duty = lit fraction inverted
+  CHECK_EQ(sim::pin[LED_GREEN], 255 - RGB_ORANGE.g);
+  CHECK_EQ(sim::pin[LED_BLUE], 255);
   testHeaderAndRows();
   testFixedRawUnits();
   testDupsDontKeepLinkUp();

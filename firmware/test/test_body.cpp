@@ -112,9 +112,9 @@ static void testWidestRow() {
   lastSample = sim::now - SAMPLE_MS;
   lastReport = sim::now;
   testUntil = sim::now + 400;
-  ledState = true;
+  motorOn = true;
   sim::now++;
-  imuStatus = IMU_OK; inhibited = false; alert = ledState = true;
+  imuStatus = IMU_OK; inhibited = false; alert = motorOn = true;
   printBodyRow(sim::now, -90, -180, 402.5, true);
   std::string row = lastRow();
   printf("  widest row (%zu bytes): %s\n", row.size(), row.c_str());
@@ -144,7 +144,7 @@ static void testImuFailureAndRecovery() {
   Wire1.nackAll = true;
   runFor(50);
   CHECK_EQ(imuStatus, IMU_BUS);
-  CHECK(!alert && !ledState);
+  CHECK(!alert && !motorOn);
   CHECK_EQ(chairLink.control(), CTL_CHAIR);
   CHECK_EQ(chairLink.ack.calId, savedId);
   BodyPacket p;
@@ -166,7 +166,7 @@ static void testImuFailureAndRecovery() {
   CHECK_EQ(chairLink.control(), CTL_FALLBACK);
   CHECK(alert);
   Wire1.forceStale = true; runFor(50);
-  CHECK(!alert && !ledState);
+  CHECK(!alert && !motorOn);
   CHECK_EQ(imuStatus, IMU_STALE);
   Wire1.forceStale = false; runFor(2900);
   CHECK(!alert);                              // fallback hold starts over, not at pre-fault time
@@ -175,9 +175,9 @@ static void testImuFailureAndRecovery() {
 
   Wire1.forceStale = true; runFor(50);
   Serial.in = "m"; runFor(60);
-  CHECK(testRunning(sim::now) && ledState && !alert);
+  CHECK(testRunning(sim::now) && motorOn && !alert);
   runFor(650);
-  CHECK(!ledState && !testRunning(sim::now));
+  CHECK(!motorOn && !testRunning(sim::now));
   Wire1.forceStale = false;
   Wire1.reset(); runFor(1600);                // sensor brownout -> checked reconfiguration
   CHECK_EQ(imuStatus, IMU_OK);
@@ -198,7 +198,7 @@ static int testInitFailure() {
   CHECK_EQ(imuStatus, IMU_INIT);
   CHECK(n >= 63 && n <= 65);
   CHECK(Wire1.tx <= 5);                       // reinitialization is at most once per second
-  CHECK(!alert && !ledState);
+  CHECK(!alert && !motorOn);
   CHECK_EQ(rowField(F_CAL), 0);
   BodyPacket p;
   memcpy(&p, radio.sent.back().data(), sizeof p);
@@ -213,7 +213,7 @@ static int testInitFailure() {
   runFor(1200);
   CHECK(imuReady);
   CHECK_EQ(imuStatus, IMU_OK);
-  CHECK(!alert && !ledState);
+  CHECK(!alert && !motorOn);
   CHECK_EQ(Wire1.unbegun, 0);
   return report("body.ino boot failure");
 }

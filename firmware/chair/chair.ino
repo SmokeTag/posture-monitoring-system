@@ -31,9 +31,14 @@
  *
  * Calibration: sit upright and press the button (D9 -> GND, INPUT_PULLUP,
  * software debounce) or send 'c'. The reference is the mean of the next
- * CAL_SAMPLES body samples (1 s); the green LED flashes when it is captured.
- * 'r' clears it. No alerts until calibrated, and none while the body is silent.
- * 'm' asks the body for a motor test buzz. Headers are sent on USB connection.
+ * CAL_SAMPLES body samples (1 s). 'r' clears it. No alerts until calibrated,
+ * and none while the body is silent. 'm' asks the body for a motor test buzz.
+ * Headers are sent on USB connection.
+ *
+ * Status LED (onboard RGB; colours in PostureLink/StatusLed.h): red fast =
+ * radio fault or the body's IMU not delivering, orange = no body, blue =
+ * linked, green fast = capturing the reference, green = calibrated, red
+ * slow = posture alert (same 300 ms / 1 s rhythm as the body's motor).
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
@@ -94,6 +99,7 @@
 #include <PostureLink.h>
 #include <SerialOut.h>
 #include <RandomId.h>
+#include <StatusLed.h>
 
 using namespace posture;
 
@@ -109,11 +115,11 @@ const int   CAL_SAMPLES = 20;                  // 1 s of body samples averaged i
 
 const int   BTN_PIN     = D9;                  // calibrate button to GND
 const int   DEBOUNCE_MS = 25;                  // input must be stable this long
-const int   CAL_LED     = LED_GREEN;           // flashes when the reference is captured
-const int   LED_ON      = LOW;                 // RGB LED is active LOW (core's LED_STATE_ON is wrong)
-const int   FLASH_MS    = 300;
+const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;   // alert LED, as the body's motor
+const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid this long = fault
 
 nrf_to_nrf radio;
+StatusLed led(LED_RED, LED_GREEN, LED_BLUE, 255);   // USB powered: full brightness
 int  fsr[N_FSR] = {};                          // last scan, raw ADC counts
 unsigned long lastScan = 0;
 
@@ -121,6 +127,7 @@ unsigned long lastScan = 0;
 BodyPacket body;
 bool bodyUp = false;
 unsigned long lastBodyAt = 0;
+unsigned long imuOkAt = 0;                     // last body sample with a valid IMU
 SeqTracker seqs;                               // pkts/lost/dup/old/rst, reported once per second
 uint32_t versionPkts = 0;
 bool versionNoted = false;
@@ -141,11 +148,10 @@ float pitchRef = 0, rollRef = 0;
 uint8_t calId = 0;                             // ChairAck.calId: random at boot, new on every capture/clear
 
 AlertGate gate;
+unsigned long alertAt = 0;                     // alert ON time: LED pulse phase
 
 bool btnRaw = HIGH, btnState = HIGH;           // last read / debounced level
 unsigned long btnChangedAt = 0;
-unsigned long ledOnAt = 0;
-bool ledLit = false;
 
 void selectChannel(int ch) {
   for (int b = 0; b < 4; b++) digitalWrite(SEL_PINS[b], (ch >> b) & 1);
@@ -177,14 +183,13 @@ bool chairHeader(uint8_t i, Line &l) {
 
 void event(const char *s) { Line l; l.str(s); out.event(l); }
 
-void flashLed() {
-  digitalWrite(CAL_LED, LED_ON);
-  ledLit = true;
-  ledOnAt = millis();
-}
-
-void updateLed() {
-  if (ledLit && millis() - ledOnAt >= FLASH_MS) { digitalWrite(CAL_LED, !LED_ON); ledLit = false; }
+void updateStatusLed(unsigned long t) {
+  bool fast = phaseOn(t, 0, 2 * BLINK_FAST_MS, BLINK_FAST_MS);
+  if (radioFailed || (bodyUp && t - imuOkAt >= IMU_FAULT_MS)) led.set(fast ? RGB_RED : RGB_OFF);
+  else if (!bodyUp) led.set(RGB_ORANGE);
+  else if (calLeft > 0) led.set(fast ? RGB_GREEN : RGB_OFF);
+  else if (gate.alert) led.set(phaseOn(t, alertAt, PULSE_PERIOD_MS, PULSE_ON_MS) ? RGB_RED : RGB_OFF);
+  else led.set(calibrated ? RGB_GREEN : RGB_BLUE);
 }
 
 // Preload the ACK payload: the body gets it with its next packet.
@@ -207,6 +212,7 @@ void newCalId() { calId = calId == 255 ? 1 : calId + 1; }
 
 void setAlert(bool on, float dev) {
   gate.alert = on;
+  if (on) alertAt = millis();
   Line l;
   l.str(on ? "# alert ON  dev=" : "# alert OFF dev=").fix(dev, 1);
   out.event(l);
@@ -300,6 +306,7 @@ void onBodySample(unsigned long t) {
     printRow(t, NAN, NAN, NAN);
     return;
   }
+  imuOkAt = t;
   if (calLeft > 0) {
     calPSum += body.pitch; calRSum += body.roll;
     if (--calLeft == 0) {
@@ -309,7 +316,6 @@ void onBodySample(unsigned long t) {
       newCalId();
       if (gate.alert) setAlert(false, 0);
       gate.reset();
-      flashLed();
       Line l;
       l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
        .str(" calid=").u32(calId);
@@ -390,8 +396,7 @@ void setup() {
   Serial.begin(115200);
   for (int b = 0; b < 4; b++) pinMode(SEL_PINS[b], OUTPUT);
   pinMode(BTN_PIN, INPUT_PULLUP);
-  pinMode(CAL_LED, OUTPUT);
-  digitalWrite(CAL_LED, !LED_ON);
+  led.begin();
   analogReference(AR_VDD4);                    // full scale = VDD -> ratiometric
   analogReadResolution(12);
   analogSampleTime(10);                        // us; source impedance <= 3.3 kOhm divider
@@ -430,10 +435,10 @@ void loop() {
   out.poll();
   pollSerial();
   pollButton();
-  updateLed();
 
   unsigned long t = millis();
   checkBodyLink(t);
+  updateStatusLed(t);
   if (t - lastScan >= SCAN_MS) {
     lastScan = t;
     scanFsrs();
