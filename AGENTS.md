@@ -34,19 +34,26 @@ no further prompting. Defaults:
 - A **second XIAO nRF52840 Sense** reads the FSRs and is the system's
   **"brain"**: it receives the body unit's IMU over Nordic ESB, decides the
   alert and sends it back. A laptop on its USB sees the whole system in one CSV.
-- **Chair PCB is BUILT (Sept 2026):** XIAO + CD74HC4067 + 3.3 kΩ dividers + FSR
-  connectors on mux channels **C8–C15 (8 FSRs)**; the FSRs themselves are still
-  loose (not yet placed in the chair). 4 spare FSR402s on hand.
+- **Chair electronics FINISHED (Oct 2026):** XIAO + CD74HC4067 + a single
+  3.3 kΩ pull-down on SIG + FSR connectors on mux channels **C8–C15 (8 FSRs)**;
+  the FSRs themselves are still loose (not yet placed in the chair). 4 spare
+  FSR402s on hand. Powered by a 1S LiPo with the **same circuit as the body
+  unit** — battery not yet tested on the chair.
   - **Pin map (mux → XIAO):** SIG → **D0 (A0)** · S0 → **D10** · S1 → **D3** ·
     S2 → **D2** · S3 → **D1** · EN → GND · VCC → 3V3 out · GND → GND.
     Calibrate button **D9 → GND** (`INPUT_PULLUP`, software debounce).
-  - **Divider per channel:** `GND — 3.3 kΩ — Cn (sense node) — FSR402 — 3V3`.
-    Pull-down topology: the ADC voltage **rises** with force
-    (V = 3.3 V · R_fixed / (R_fixed + R_FSR)); open FSR reads ≈0 V.
-  - **Mux on the SENSE side, never in the divider current path:** the HC4067's
-    ~100 Ω R_on at 3.3 V is comparable to the 158–180 Ω loaded-FSR floor.
-  - **R_fixed = 3.3 kΩ:** centered on the chair's contact range and within
-    FSR402's ~1 mA/cm² current guideline.
+  - **One shared divider on SIG:** `3V3 — FSR402 — Cn —(mux, R_on)— SIG — 3.3 kΩ — GND`,
+    SIG → A0. Pull-down topology: the ADC voltage **rises** with force
+    (V = 3.3 V · R_fixed / (R_fixed + R_FSR + R_on)); open FSR reads ≈0 V.
+    Unselected FSR nodes float to ~3V3 (no load); no cap on SIG, so the
+    firmware's 50 µs settle + discarded read is enough.
+  - **Mux R_on (~100 Ω at 3.3 V) is in the divider current path**, in series
+    with the FSR. Accepted: its fixed per-channel part is absorbed by the
+    per-user calibration, it is far below the FSR402's own spread/creep, and
+    the measured floor under body load is ≥ 400 Ω. Subtract ~100 Ω only when
+    absolute ohms are needed.
+  - **R_fixed = 3.3 kΩ:** ≈ √(R_min · R_max) of the contact range (best
+    resolution) and within FSR402's ~1 mA/cm² current guideline.
 - Mounting layout **4 seat + 4 backrest**
 
 ### Body unit (sensing the upper body)
@@ -58,6 +65,7 @@ no further prompting. Defaults:
   off) → System OFF; boot needs ≥ 3.40 V; never on USB; wakes on reset or USB
   plug-in. 4 s watchdog. VBAT goes to the chair CSV (`vbat`, ESB proto v4).
   **Never drive P0.14 or P0.13 HIGH.** Details: `firmware/README.md`.
+  Unit FINISHED (Oct 2026), battery connected and working.
 - Drives a **vibration motor** that activates when problematic posture is
   detected. Coin motor 2.5–4 V / ≤90 mA (too much for a GPIO): **D10 → 1 kΩ →
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;

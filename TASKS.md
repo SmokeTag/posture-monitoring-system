@@ -25,7 +25,9 @@ em sessões gravadas.
 ### [ ] 5. Integração, montagem e validação
 
 FSRs fixados na cadeira (4 assento + 4 encosto), botão físico de calibração
-na unidade da cadeira, unidade corporal na bateria (validar o corte por
+na unidade da cadeira, testar a bateria da cadeira (mesmo circuito do corpo;
+antes, levar `VBAT_ENABLE` (P0.14) a LOW no `chair.ino` como no `body.ino`),
+unidade corporal na bateria (validar o corte por
 bateria baixa na bancada: tensão no multímetro, corrente em System OFF, wake
 pelo USB; ver `firmware/README.md`). Reajustar o limiar do IMU (10°/3 s pareceu
 leniente) já no invólucro, medindo no `analysis/live_posture.py` onde cai uma

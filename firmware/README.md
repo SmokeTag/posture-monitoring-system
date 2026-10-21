@@ -76,7 +76,8 @@ open FSR ≈0), announced by `# unit=raw`. Headers are sent automatically on
 connection/reconnection; there is no header command. The live view opens the
 port with DTR low, then raises it after pyserial's initial input flush so the
 header is not discarded. `analysis/live_posture.py` converts these
-counts to conductance/resistance with the 3.3 kΩ divider and still reads older
+counts to conductance/resistance with the shared 3.3 kΩ pull-down on SIG
+(the result includes the mux's ~100 Ω R_on) and still reads older
 firmware/logs in ohms.
 
 **ESB protocol v4 — flash both boards together.** Both payloads start with a

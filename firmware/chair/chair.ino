@@ -13,16 +13,17 @@
  * from inside radio.available(), so loop() must never block (the body retries
  * for ~20 ms before giving up) — hence millis()-scheduled work, no delay().
  *
- * Per-channel divider (pull-down; mux sits on the SENSE side only):
+ * One shared divider (pull-down on SIG; the mux is in the current path):
  *
- *     3V3 ----[ FSR402 ]----+----[ R_FIXED 3.3k ]---- GND
- *                           |
- *                          Cn --(mux)--> SIG --> A0
+ *     3V3 ----[ FSR402 ]---- Cn --(mux, R_on ~100R)--+--[ R_FIXED 3.3k ]-- GND
+ *                                                    |
+ *                                                   SIG --> A0
  *
- *   V = VDD * R_FIXED / (R_FIXED + R_FSR): rises with force, open FSR ~0 V.
+ *   V = VDD * R_FIXED / (R_FIXED + R_FSR + R_on): rises with force, open FSR
+ *   ~0 V. R_on is absorbed by the per-user calibration (see AGENTS.md).
  *
  * The ADC uses reference AR_VDD4 (full scale = VDD), i.e. it is RATIOMETRIC
- * with the divider supply, so R_FSR = R_FIXED * (ADC_MAX - raw) / raw holds
+ * with the divider supply, so R_FSR + R_on = R_FIXED * (ADC_MAX - raw) / raw holds
  * without knowing the exact 3V3 rail voltage.
  *
  * Mux pins: S0=D10  S1=D3  S2=D2  S3=D1  (EN tied to GND, always on).
