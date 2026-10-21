@@ -26,7 +26,7 @@ const Rgb RGB_OFF    = {0, 0, 0};
 const Rgb RGB_RED    = {255, 0, 0};
 const Rgb RGB_GREEN  = {0, 255, 0};
 const Rgb RGB_BLUE   = {0, 0, 255};
-const Rgb RGB_ORANGE = {255, 40, 0};           // green is much brighter: keep it low
+const Rgb RGB_ORANGE = {255, 100, 0};          // tuned by eye: {255, 40, 0} looked red
 
 const unsigned long BLINK_FAST_MS = 100;       // fault / capturing: 100 ms on, 100 off
 
