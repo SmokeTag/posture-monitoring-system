@@ -307,6 +307,13 @@ void setup() {
   pinMode(PIN_CHARGING_CURRENT, OUTPUT);
   digitalWrite(PIN_CHARGING_CURRENT, LOW);
 #endif
+#if defined(VBAT_ENABLE)
+  // The core drives P0.14 HIGH at boot, which leaves P0.31 (VBAT sense,
+  // 1 MΩ / 510 kΩ divider) near 3.6 V, above the pin's limit, mostly while
+  // charging. LOW keeps it at ~Vbat/3 (≤1.4 V) and enables reading VBAT on
+  // P0.31 (~2.8 µA through the divider). Never drive it HIGH.
+  digitalWrite(VBAT_ENABLE, LOW);
+#endif
 
   Serial.begin(115200);
   unsigned long t0 = millis();
