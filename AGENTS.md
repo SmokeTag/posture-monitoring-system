@@ -36,8 +36,7 @@ no further prompting. Defaults:
   alert and sends it back. A laptop on its USB sees the whole system in one CSV.
 - **Chair electronics FINISHED (Oct 2026):** XIAO + CD74HC4067 + a single
   3.3 kΩ pull-down on SIG + FSR connectors on mux channels **C8–C15 (8 FSRs)**;
-  the FSRs themselves are still loose (not yet placed in the chair). 4 spare
-  FSR402s on hand. Powered by a 1S LiPo with the **same circuit as the body
+  FSRs placed in the chair (Oct 2026). 4 spare FSR402s on hand. Powered by a 1S LiPo with the **same circuit as the body
   unit** — battery not yet tested on the chair.
   - **Pin map (mux → XIAO):** SIG → **D0 (A0)** · S0 → **D10** · S1 → **D3** ·
     S2 → **D2** · S3 → **D1** · EN → GND · VCC → 3V3 out · GND → GND.
