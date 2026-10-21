@@ -296,6 +296,17 @@ void report(unsigned long t) {
   out.clearDrops();
 }
 
+// TinyUSB stops the 16 MHz crystal when USB is unplugged (dcd_nrf5x.c,
+// USB_EVT_REMOVED -> hfclk_disable); nrf_to_nrf starts it only in begin().
+// On the internal RC clock the radio is off frequency: unplugging USB while
+// on the LiPo would drop the link until a reset. Restart it whenever it stops.
+void keepCrystal() {
+#if defined(NRF52840_XXAA)
+  const uint32_t xtalOn = CLOCK_HFCLKSTAT_SRC_Msk | CLOCK_HFCLKSTAT_STATE_Msk;
+  if ((NRF_CLOCK->HFCLKSTAT & xtalOn) != xtalOn) NRF_CLOCK->TASKS_HFCLKSTART = 1;
+#endif
+}
+
 void setup() {
   pinMode(MOTOR_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
@@ -354,6 +365,7 @@ void setup() {
 }
 
 void loop() {
+  keepCrystal();
   out.poll();
   pollSerial();
 
