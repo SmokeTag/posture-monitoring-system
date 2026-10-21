@@ -26,11 +26,22 @@
  * Status LED (onboard RGB, dimmed to LED_LEVEL for the battery; colours in
  * PostureLink/StatusLed.h): red while the motor runs; otherwise red fast =
  * radio/IMU fault, orange = no link, blue = linked, green = linked and
- * calibrated (off between alert pulses while linked).
+ * calibrated (off between alert pulses while linked); 3 magenta blinks =
+ * battery low, powering off.
+ *
+ * Battery protection (rule and calibration: PostureLink/Battery.h): VBAT is
+ * read every 2 s while the motor rests and reported to the chair (vbat). On
+ * battery, 3 readings in a row below 3.30 V stop motor + radio, blink, and
+ * enter System OFF (~µA, RAM lost). A boot on battery below 3.40 V goes
+ * straight back to System OFF. Never cuts off while USB VBUS is present.
+ * Wake: the reset button, or plugging USB in (VBUS detect is an nRF52840
+ * System OFF wake source, always on; an unplug may wake it too, and the boot
+ * check sends it back). A watchdog (WDT_TIMEOUT_S, fed every loop()) resets
+ * the board if anything hangs, so a hang can't leave the cutoff dead.
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one
  * row per sample (20 Hz), written AFTER that sample's ACK was digested:
- *   t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh
+ *   t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat
  *   t_ms  = this board's millis() (never compare it with the chair's)
  *   seq   = BodyPacket.seq sent for this sample (boot id: header line 0)
  *   ctl   = who decides: 1 = chair (valid ChairAcks arriving), 2 = fallback
@@ -47,8 +58,12 @@
  *           alert/aseq to the chair (its age one higher), see PostureLink.h.
  *   imu = 0 valid, 1 init, 2 bus/short read, 3 no fresh data, 4 invalid vector
  *   inh = a chair alert was inhibited locally (invalid IMU or old decision)
+ *   vbat = battery mV, last reading (0 = none yet; on USB: the charger output)
  *   Invalid samples have nan dev/pitch/roll. Saved calibration is retained.
- * Events: "# link up/lost", "# alert ON/OFF", "# motor test (...)".
+ * Events: "# link up/lost", "# alert ON/OFF", "# motor test (...)",
+ * "# battery low (...)" just before System OFF (only seen if a host is there).
+ * Header: "# resetreas=0x..." (POWER->RESETREAS at boot: 1 pin, 2 watchdog,
+ * 4 soft reset, 0x100000 VBUS wake) and "# vbat=... usb=...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
  *   # tx sent=N ack=A noack=F retx=R ctl=C bad=B ver=V sdrop=S edrop=E dt=T
@@ -76,6 +91,7 @@
 #include <RandomId.h>
 #include <Lsm6Accel.h>
 #include <StatusLed.h>
+#include <Battery.h>
 #include "Wire.h"
 #include <math.h>
 
@@ -90,6 +106,8 @@ const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;
 const unsigned long MOTOR_TEST_MS   = 500;
+const unsigned long LOWBAT_BLINK_MS = 150;     // battery-low blink: 3 x (on, off)
+const uint32_t WDT_TIMEOUT_S = 4;              // >> a radio.write() with all retries (~20 ms)
 
 const float RAD_TO_DEGF = 57.2957795f;
 
@@ -110,6 +128,7 @@ uint32_t imuOkAt = 0;                          // last valid IMU sample (status 
 ImuControlGuard imuGuard;
 
 bool bodyHeader(uint8_t i, Line &l);
+bool usbPresent();
 SerialOut<decltype(Serial)> out(Serial, bodyHeader);
 
 // alert state
@@ -119,6 +138,10 @@ bool outputInitialized = false;
 unsigned long alertStart = 0;
 unsigned long lastSample = 0;
 unsigned long testUntil = 0;                   // motor test buzz; 0 = idle
+
+// battery
+BatteryMonitor battery;
+uint32_t motorOffAt = 0;                       // millis() the motor last went off
 
 // Axis mapping for this mounting (see archive/xiao_imu_test): pitch = forward/back.
 void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
@@ -131,6 +154,7 @@ void setMotor(bool on) {
   // Do not flood the peripheral from the idle loop; always initialize it once.
   if (outputInitialized && on == motorOn) return;
   outputInitialized = true;
+  if (motorOn && !on) motorOffAt = millis();
   motorOn = on;
   analogWrite(MOTOR_PIN, on ? MOTOR_DUTY : 0);
 }
@@ -151,8 +175,14 @@ bool bodyHeader(uint8_t i, Line &l) {
              .hex8(bootId); return true;
     case 1: if (!imuReady) l.str("# IMU not initialized"); return true;
     case 2: if (radioFailed) l.str("# radio init FAILED"); return true;
-    case 3: l.str("t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh"); return true;
+    case 3: l.str("t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat"); return true;
     case 4: l.str("# proto=").u32(PROTO_VER); return true;
+    case 5: {
+      uint32_t r = readResetReason();
+      l.str("# resetreas=0x").hex8(r >> 16).hex8(r >> 8).hex8(r);
+      return true;
+    }
+    case 6: l.str("# vbat=").u32(battery.mv).str(" mV usb=").u32(usbPresent()); return true;
   }
   return false;
 }
@@ -205,6 +235,7 @@ void sendSample(unsigned long t, float pitch, float roll) {
   }
   pkt.age = chairLink.age(n);
   pkt.ackSeq = pkt.age == AGE_NONE ? 0 : held.basisSeq;
+  pkt.vbat = battery.mv;
 
   bool ok = radio.write(&pkt, sizeof(pkt));
   uint8_t arc = radio.getARC();                // retransmissions, also when !ok
@@ -265,7 +296,8 @@ void printBodyRow(unsigned long t, float pitch, float roll, float dev, bool cal)
    .u32(cal).chr(',').u32(chairLink.haveAck ? ack.calId : 0).chr(',').fix(dev, 1).chr(',')
    .u32(alert).chr(',').u32(motorOn).chr(',').u32(testRunning(t)).chr(',')
    .i32(known ? (int32_t)ack.basisSeq : -1).chr(',').i32(known ? (int32_t)age : -1).chr(',')
-   .fix(pitch, 1).chr(',').fix(roll, 1).chr(',').u32(imuStatus).chr(',').u32(inhibited);
+   .fix(pitch, 1).chr(',').fix(roll, 1).chr(',').u32(imuStatus).chr(',').u32(inhibited)
+   .chr(',').u32(battery.mv);
   out.row(l);
 }
 
@@ -327,6 +359,85 @@ void keepCrystal() {
 #endif
 }
 
+bool usbPresent() { return NRF_POWER->USBREGSTATUS & POWER_USBREGSTATUS_VBUSDETECT_Msk; }
+
+// Watchdog: a hang anywhere (e.g. Wire's unbounded waits on a wedged bus)
+// resets the board instead of leaving the battery cutoff dead; the next boot
+// runs the battery check before anything that could hang again. Fed every
+// loop() and in setup()'s USB wait. Runs while the CPU sleeps, pauses under a
+// debugger. Once started it can't be stopped and survives soft resets (the
+// bootloader feeds it during DFU); a running one is only fed.
+void feedWatchdog() { NRF_WDT->RR[0] = WDT_RR_RR_Reload; }
+
+void startWatchdog() {
+  if (!(NRF_WDT->RUNSTATUS & WDT_RUNSTATUS_RUNSTATUS_Msk)) {
+    NRF_WDT->CONFIG = (WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos)
+                    | (WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos);
+    NRF_WDT->CRV = WDT_TIMEOUT_S * 32768 - 1;  // 32.768 kHz ticks
+    NRF_WDT->RREN = WDT_RREN_RR0_Msk;
+    NRF_WDT->TASKS_START = 1;
+  }
+  feedWatchdog();
+}
+
+#if defined(PIN_VBAT)
+uint16_t readVbatMv() {
+  uint32_t sum = 0;
+  for (uint8_t i = 0; i < VBAT_SAMPLES; i++) sum += analogRead(PIN_VBAT);
+  return vbatMv(sum, VBAT_SAMPLES);
+}
+#endif
+
+// End of the battery protection: motor + radio off, a brief dim blink, then
+// System OFF. GPIO latches hold there: motor LOW, LED HIGH (off), IMU power
+// LOW, P0.14 stays LOW (the divider's ~2.8 µA; HIGH could harm P0.31). The
+// SoftDevice is never enabled (nrf_to_nrf owns the RADIO), so SYSTEMOFF is
+// written directly. Waking is a reset: setup() checks the battery again.
+void powerOff(const char *why) {
+  setMotor(false);
+  digitalWrite(MOTOR_PIN, LOW);
+  Line l;
+  l.str("# battery low (").str(why).str("): vbat=").u32(battery.mv).str(" mV, System OFF");
+  out.event(l);
+  radio.powerDown();
+  for (int i = 0; i < 3; i++) {
+    led.set(RGB_MAGENTA); delay(LOWBAT_BLINK_MS);
+    led.set(RGB_OFF);     delay(LOWBAT_BLINK_MS);
+  }
+  led.shutdown();
+  Wire1.end();                                 // release SDA/SCL: no back-powering the IMU
+#if defined(PIN_LSM6DS3TR_C_POWER)
+  digitalWrite(PIN_LSM6DS3TR_C_POWER, LOW);
+#endif
+  NRF_POWER->SYSTEMOFF = 1;
+  for (;;) {}                                  // not reached
+}
+
+// Boot check, before anything that could hang or draw much: on battery and
+// already low -> back to System OFF (a reset or an unplug wake can't run the
+// cell flat). Also takes the first reading reported.
+void checkBatteryAtBoot() {
+#if defined(PIN_VBAT)
+  analogReference(AR_INTERNAL_1_8);            // 0..1.8 V, internal 0.6 V reference
+  analogReadResolution(12);
+  analogSampleTime(40);                        // us; ~340 kOhm divider source impedance
+  delay(5);                                    // P0.31 settles after P0.14 went LOW
+  uint16_t mv = readVbatMv();
+  bool usb = usbPresent();
+  battery.update(millis(), mv, usb);
+  if (bootLow(mv, usb)) powerOff("at boot");
+#endif
+}
+
+void checkBattery(uint32_t t) {
+#if defined(PIN_VBAT)
+  if (battery.due(t, motorOn, motorOffAt) && battery.update(t, readVbatMv(), usbPresent()))
+    powerOff("cutoff");
+#else
+  (void)t;
+#endif
+}
+
 void setup() {
   pinMode(MOTOR_PIN, OUTPUT);
   led.begin();
@@ -345,10 +456,12 @@ void setup() {
   // P0.31 (~2.8 µA through the divider). Never drive it HIGH.
   digitalWrite(VBAT_ENABLE, LOW);
 #endif
+  checkBatteryAtBoot();                        // may not return (System OFF)
+  startWatchdog();
 
   Serial.begin(115200);
   unsigned long t0 = millis();
-  while (!Serial && millis() - t0 < 2000) {}   // give the USB monitor a moment
+  while (!Serial && millis() - t0 < 2000) feedWatchdog();   // give the USB monitor a moment
 
   bootId = randomId();
 #if defined(PIN_LSM6DS3TR_C_POWER)
@@ -385,6 +498,7 @@ void setup() {
 }
 
 void loop() {
+  feedWatchdog();
   keepCrystal();
   out.poll();
   pollSerial();
@@ -400,6 +514,7 @@ void loop() {
     testUntil = 0;
     setMotor(alert && phaseOn(t, alertStart, PULSE_PERIOD_MS, PULSE_ON_MS));
   }
+  checkBattery(t);                             // motor state for this loop is final here
   updateStatusLed(t);
 
   if (t - lastReport >= 1000) report(t);

@@ -108,12 +108,12 @@ static void testHeaderAndRows() {
   CHECK_STR(v[0].substr(0, 22), "# chair unit (brain): ");
   CHECK_STR(v[1], "# unit=raw");
   CHECK_STR(v[2], "t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
-                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8,c9,c10,c11,c12,c13,c14,c15");
-  // a body-silent row: boot..bage all -1 ("no sample"), 29 fields
+                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,c9,c10,c11,c12,c13,c14,c15");
+  // a body-silent row: boot..bage, imu, binh, vbat all -1 ("no sample"), 30 fields
   auto f = split(v.back());
-  CHECK_EQ(f.size(), 29u);
+  CHECK_EQ(f.size(), 30u);
   CHECK_STR(f[2], std::to_string(calId));      // chair's reference id, even with no body
-  for (int i = 9; i <= 18; i++) CHECK_STR(f[i], "-1");
+  for (int i = 9; i <= 21; i++) CHECK_STR(f[i], "-1");
 }
 
 // FSR units stay raw; the removed 'u'/'U' commands cannot inject headers.
@@ -125,8 +125,8 @@ static void testFixedRawUnits() {
     Serial.in = commands[n];
     runFor(100);
     auto f = split(outLines().back());
-    CHECK_EQ(f.size(), 29u);
-    for (int i = 21; i < 29; i++) CHECK_STR(f[i], std::to_string(values[n]));
+    CHECK_EQ(f.size(), 30u);
+    for (int i = 22; i < 30; i++) CHECK_STR(f[i], std::to_string(values[n]));
   }
   CHECK_EQ(count("# unit=ohms"), 0);
   CHECK_EQ(count("# unit=raw"), 1);
@@ -388,7 +388,7 @@ static void testWidestRow() {
   BodyPacket p = {};
   p.ver = PROTO_VER; p.boot = B; p.seq = 65535; p.pitch = -90; p.roll = -180;
   p.ctl = CTL_FALLBACK; p.flags = BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST; p.calId = 255;
-  p.age = 254; p.ackSeq = 10000;
+  p.age = 254; p.ackSeq = 10000; p.vbat = 65535;
   for (int i = 0; i < 8; i++) fsr[i] = 4095;
   sim::adc = 4095;
   sim::now = 0xFFFFFFFEu;
@@ -408,8 +408,8 @@ static void testWidestRow() {
   std::string fsrs;
   for (int i = 0; i < 8; i++) fsrs += ",4095";
   CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
-                 "2,1,255,1,1,1,10000,254,0,0" + fsrs);
-  CHECK_EQ(row.size(), 129u);
+                 "2,1,255,1,1,1,10000,254,0,0,65535" + fsrs);
+  CHECK_EQ(row.size(), 135u);
   seqs.clearCounts();
   s = 0;
   runFor(1);

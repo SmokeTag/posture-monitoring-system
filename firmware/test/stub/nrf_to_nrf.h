@@ -21,7 +21,9 @@ struct FakeRadio {
   FakeRadio *peer = nullptr;
   bool upOk = true, downOk = true;             // packet reaches the peer / its ACK comes back
 
+  bool poweredDown = false;
   bool begin() { return true; }
+  void powerDown() { poweredDown = true; }
   void setChannel(uint8_t) {}
   void enableDynamicPayloads() {}
   void enableAckPayload() {}
