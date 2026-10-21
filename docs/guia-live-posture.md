@@ -97,6 +97,13 @@ O mapa fica em **`analysis/chair_map.json`** e é carregado ao abrir o app. Com
 `--log`, a captura ganha uma linha `# fsr map c8=… c15=…`. Depois de mapear a
 cadeira real, commite o `chair_map.json`: ele registra a fiação.
 
+## Bateria do corpo
+
+A linha `batt` mostra a tensão da bateria do corpo (coluna `vbat`, protocolo
+v4), lida a cada 2 s; `LOW` abaixo de 3,4 V. Abaixo de 3,3 V o corpo desliga
+sozinho (System OFF) e só volta com reset ou ligando o USB. No USB, o valor é
+a saída do carregador.
+
 ## Problemas comuns
 
 | sintoma | causa provável |
@@ -106,6 +113,7 @@ cadeira real, commite o `chair_map.json`: ele registra a fiação.
 | todos os círculos cinza | nada pressionado (FSR solto lê ≈0 no ADC; em logs antigos em ohms, `-1` = aberto) |
 | o mapeamento não reconhece o toque | aperte com mais força (precisa < ~20 kΩ); ou clique no gráfico do canal |
 | "BODY SILENT" | unidade corporal desligada ou fora de alcance — os FSRs continuam |
-| "BODY PROTOCOL MISMATCH (ver=N)" | versões de protocolo diferentes — grave as **duas** placas com v3 |
+| "BODY SILENT … low-battery cutoff?" | a última leitura da bateria do corpo era < 3,4 V: provavelmente desligou por bateria baixa (< 3,3 V); recarregue pelo USB |
+| "BODY PROTOCOL MISMATCH (ver=N)" | versões de protocolo diferentes — grave as **duas** placas com a mesma versão (v4) |
 | "BODY PACKETS REJECTED (bad=N)" | payloads malformados/incoerentes; não é o contador de falhas da IMU |
 | "IMU … / posture sample unavailable" | rádio pode estar ativo, mas não há amostra de orientação válida |
