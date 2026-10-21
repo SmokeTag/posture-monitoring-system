@@ -8,7 +8,9 @@ Left: the current (dpitch, droll) point with a short trail, with the alert
 decision, then what the body reports it applied: who decides (chair /
 fallback), the age of the decision it holds and whether it matches the chair
 row that made it (✓ / ≠; "unconfirmed" when that can't be checked), and the
-motor output (alert or motor test).
+motor output (alert or motor test), and the body's battery voltage (a body
+that goes silent right after a low reading most likely hit its low-battery
+cutoff).
 
 Right: the chair seen from above with the backrest folded back (sitter's left
 on the left) — 4 seat + 4 backrest spots, each filled by its FSR's load
@@ -61,6 +63,7 @@ FIELDS = ["t_ms", "cal", "dev", "alert", "led", "dpitch", "droll", "pitch", "rol
 CTL_NONE, CTL_CHAIR, CTL_FALLBACK = 0, 1, 2  # bctl; keep in sync with PostureLink.h
 AGE_MAX = 254                                # bage: 254 = 254 samples or more
 SEQ_MAX_GAP = 64
+VBAT_CUTOFF_MV, VBAT_LOW_MV = 3300, 3400     # body cutoff (PostureLink/Battery.h); "low" below 3.4 V
 R_FIXED, ADC_MAX, OPEN_RAW = 3300.0, 4095, 8  # chair: 3.3 kOhm divider, 12-bit ADC; <8 = open
 
 # status colours (state, not identity) — always paired with a text label
@@ -252,6 +255,23 @@ def imu_text(row: dict) -> str:
 def imu_valid(row: dict) -> bool:
     # Old logs lack health metadata, but their posture data remains readable.
     return row.get("imu", 0) == 0
+
+
+def battery_text(row: dict) -> str:
+    """Status-box line for the body's battery (vbat, mV)."""
+    mv = int(row.get("vbat", -1))
+    if mv < 0:
+        return "batt  ? (old firmware)"
+    if mv == 0:
+        return "batt  — no reading yet"
+    low = f"  LOW (off < {VBAT_CUTOFF_MV / 1000:.2f} V)" if mv < VBAT_LOW_MV else ""
+    return f"batt  {mv / 1000:.2f} V{low}"
+
+
+def cutoff_hint(rows: list[dict]) -> str:
+    """Banner suffix for a silent body whose last battery reading was low."""
+    mv = int(rows[-1].get("vbat", -1)) if rows else -1
+    return f"\nlast battery {mv / 1000:.2f} V: low-battery cutoff?" if 0 < mv < VBAT_LOW_MV else ""
 
 
 def body_lines(rows: list[dict]) -> list[str]:
@@ -584,8 +604,8 @@ def main() -> int:
         elif not body_up and bad:
             banner.set_text(f"BODY PACKETS REJECTED ({bad})\nmalformed payloads")
         elif not body_up:
-            banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" if rows
-                            else "connected, waiting for the body …")
+            banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" + cutoff_hint(rows)
+                            if rows else "connected, waiting for the body …")
         elif not imu_valid(rows[-1]):
             banner.set_text(imu_text(rows[-1]) + "\nposture sample unavailable")
         elif not rows[-1]["cal"]:
@@ -612,7 +632,7 @@ def main() -> int:
         tail = (f"{tag}\nchair {link.removeprefix('rx ') or '—'}\n"
                 + "\nlast events\n" + "\n".join(f"· {e[:26]}" for e in events) + keys)
         if not rows or not body_up:
-            status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\n" + tail)
+            status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\nbatt  —\n" + tail)
         else:
             r = rows[-1]
             if not imu_valid(r):
@@ -627,7 +647,7 @@ def main() -> int:
             dot.set_edgecolor("white")
             status.set_text(
                 f"{imu_text(r)}\ndev   {r['dev']:5.1f}°\n"
-                f"chair {state}\n" + "\n".join(body_lines(rows)) + "\n" + tail)
+                f"chair {state}\n" + "\n".join(body_lines(rows)) + "\n" + battery_text(r) + "\n" + tail)
 
     _anim = FuncAnimation(fig, update, interval=50, cache_frame_data=False)  # noqa: F841
     plt.show()
