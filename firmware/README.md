@@ -44,6 +44,15 @@ DFU mode"). That message also shows up now and then on a plain port: just run
 the upload again. The XIAO is native USB CDC, so the baud rate is
 ignored; serial input is line-buffered (type, then Enter).
 
+**Capture build (motor muted):** the buzz shakes the IMU, so for data
+captures flash the body with the motor PWM held off. Everything else (alert,
+red LED, `motor` column) behaves as usual. Flash the normal build afterwards.
+
+```bash
+arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries \
+  --build-property "compiler.cpp.extra_flags=-DMOTOR_MUTED=1" firmware/body
+```
+
 ## Tests (host, no board)
 
 ```bash

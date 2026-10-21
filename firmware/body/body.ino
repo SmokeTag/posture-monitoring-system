@@ -102,6 +102,9 @@ const unsigned long SAMPLE_MS = 50;            // 20 Hz
 // Alert output: motor driver (active HIGH, PWM)
 const int MOTOR_PIN  = D10;
 const int MOTOR_DUTY = 255;                    // 0..255 (255 = always on); lower = weaker buzz
+#ifndef MOTOR_MUTED
+#define MOTOR_MUTED 0                          // 1 = capture build: PWM held at 0 (the buzz shakes
+#endif                                         // the IMU); alert logic, LED and `motor` column unchanged
 const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (LiPo: ~1/8)
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;
@@ -156,7 +159,7 @@ void setMotor(bool on) {
   outputInitialized = true;
   if (motorOn && !on) motorOffAt = millis();
   motorOn = on;
-  analogWrite(MOTOR_PIN, on ? MOTOR_DUTY : 0);
+  analogWrite(MOTOR_PIN, on && !MOTOR_MUTED ? MOTOR_DUTY : 0);
 }
 
 void updateStatusLed(unsigned long t) {
