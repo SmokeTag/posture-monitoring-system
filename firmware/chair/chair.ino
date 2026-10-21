@@ -399,7 +399,26 @@ void scanFsrs() {
   }
 }
 
+// TinyUSB stops the 16 MHz crystal when USB is unplugged (dcd_nrf5x.c,
+// USB_EVT_REMOVED -> hfclk_disable); nrf_to_nrf starts it only in begin().
+// On the internal RC clock the radio is off frequency: unplugging USB while
+// on the LiPo would drop the link until a reset. Restart it whenever it stops
+// (same as body.ino).
+void keepCrystal() {
+#if defined(NRF52840_XXAA)
+  const uint32_t xtalOn = CLOCK_HFCLKSTAT_SRC_Msk | CLOCK_HFCLKSTAT_STATE_Msk;
+  if ((NRF_CLOCK->HFCLKSTAT & xtalOn) != xtalOn) NRF_CLOCK->TASKS_HFCLKSTART = 1;
+#endif
+}
+
 void setup() {
+#if defined(PIN_CHARGING_CURRENT)
+  // BQ25101 charge current: P0.13 LOW = 100 mA (the core leaves it floating =
+  // 50 mA). Never drive it HIGH. Same 1800 mAh LiPo as the body: the charger's
+  // ~10 h safety timer caps one USB session at ~55 % instead of ~28 %.
+  pinMode(PIN_CHARGING_CURRENT, OUTPUT);
+  digitalWrite(PIN_CHARGING_CURRENT, LOW);
+#endif
 #if defined(VBAT_ENABLE)
   // Same LiPo circuit as the body: the core drives P0.14 HIGH at boot, which
   // leaves P0.31 (VBAT sense, 1 MΩ / 510 kΩ divider) near 3.6 V, above the
@@ -445,6 +464,7 @@ void report(unsigned long t) {
 }
 
 void loop() {
+  keepCrystal();
   pollRadio();
   out.poll();
   pollSerial();
