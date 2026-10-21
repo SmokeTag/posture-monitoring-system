@@ -44,6 +44,10 @@ static void testBatteryCutoffRule() {
   CHECK(!b.due(t, false, t - VBAT_MOTOR_REST_MS + 1));   // just went off
   CHECK(b.due(t, false, t - VBAT_MOTOR_REST_MS));
   CHECK(!b.due(t, false, t + 1));                // off after a stale t: not rested, not a wrap
+  CHECK(!b.due(t, false, t + 1000));
+  CHECK(b.due(t, false, t - 0x80000001u));       // motor idle > 2^31 ms: still rested
+  CHECK(b.due(t, false, t - 0x80000000u));
+  CHECK(b.due(t, false, t - 0xFFFFF000u));
   CHECK(!b.update(t, 3800, false));
   CHECK_EQ(b.mv, 3800);
   CHECK(!b.due(t + VBAT_PERIOD_MS - 1, false, 0));

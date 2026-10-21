@@ -64,10 +64,12 @@ struct BatteryMonitor {
   bool have = false;
   uint32_t lastAt = 0;                         // millis() of the last reading
 
-  // A reading is due every VBAT_PERIOD_MS, once the motor has rested. Signed
-  // distance: a motorOffAt later than a stale t is "not rested", not a wrap.
+  // A reading is due every VBAT_PERIOD_MS, once the motor has rested. A
+  // motorOffAt up to 1 s AFTER t (a stale t) is "not rested" too, instead of
+  // wrapping into a huge rest; any longer distance is a long rest, whatever
+  // its sign (no blind spot after 2^31 ms without the motor).
   bool due(uint32_t t, bool motorOn, uint32_t motorOffAt) const {
-    if (motorOn || (int32_t)(t - motorOffAt) < (int32_t)VBAT_MOTOR_REST_MS) return false;
+    if (motorOn || t - motorOffAt < VBAT_MOTOR_REST_MS || motorOffAt - t <= 1000) return false;
     return !have || t - lastAt >= VBAT_PERIOD_MS;
   }
 
