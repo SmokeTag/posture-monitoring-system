@@ -116,7 +116,7 @@ const int   CAL_SAMPLES = 20;                  // 1 s of body samples averaged i
 const int   BTN_PIN     = D9;                  // calibrate button to GND
 const int   DEBOUNCE_MS = 25;                  // input must be stable this long
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;   // alert LED, as the body's motor
-const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid this long = fault
+const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid over this span of samples = fault
 
 nrf_to_nrf radio;
 StatusLed led(LED_RED, LED_GREEN, LED_BLUE, 255);   // USB powered: full brightness
@@ -185,7 +185,9 @@ void event(const char *s) { Line l; l.str(s); out.event(l); }
 
 void updateStatusLed(unsigned long t) {
   bool fast = phaseOn(t, 0, 2 * BLINK_FAST_MS, BLINK_FAST_MS);
-  if (radioFailed || (bodyUp && t - imuOkAt >= IMU_FAULT_MS)) led.set(fast ? RGB_RED : RGB_OFF);
+  // IMU fault = invalid across received samples; a silent radio is not an IMU fault
+  bool imuFault = bodyUp && lastBodyAt - imuOkAt >= IMU_FAULT_MS;
+  if (radioFailed || imuFault) led.set(fast ? RGB_RED : RGB_OFF);
   else if (!bodyUp) led.set(RGB_ORANGE);
   else if (calLeft > 0) led.set(fast ? RGB_GREEN : RGB_OFF);
   else if (gate.alert) led.set(phaseOn(t, alertAt, PULSE_PERIOD_MS, PULSE_ON_MS) ? RGB_RED : RGB_OFF);

@@ -283,7 +283,9 @@ int main(int argc, char **argv) {
   tilt(0);
   runFor(500);
   bodyfw::radio.upOk = false;
-  runFor(2300);
+  watchLeds(900, ledC, ledB);                  // silent, not yet timed out: a gap is no IMU fault
+  CHECK_LEDS(ledC, "G");
+  runFor(1400);
   watchLeds(200, ledC, ledB);
   CHECK(!chairfw::bodyUp);
   CHECK_LEDS(ledC, "O");            // no link, upright: orange on both
