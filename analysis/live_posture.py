@@ -574,6 +574,10 @@ def main() -> int:
     banner = ax.text(0.5, 0.5, "", transform=ax.transAxes, ha="center", va="center",
                      fontsize=13, color="#333",
                      bbox=dict(boxstyle="round", fc="white", ec="#ccc", alpha=0.9))
+    tag_badge = ax.text(0.02, 0.98, "", transform=ax.transAxes, ha="left", va="top",
+                        fontsize=16, weight="bold", zorder=7,
+                        bbox=dict(boxstyle="round,pad=0.5", lw=1.5))
+    tag_set_at = [0.0]                                # monotonic time of the last tag key
 
     def on_key(ev):
         if ev.key in ("c", "r"):
@@ -584,6 +588,7 @@ def main() -> int:
             chair.cancel()
         elif ev.key in tuple("0123456789"):
             reader.tag = int(ev.key)
+            tag_set_at[0] = time.monotonic()
     fig.canvas.mpl_connect("key_press_event", on_key)
     fig.canvas.mpl_connect("button_press_event", chair.on_click)
 
@@ -626,6 +631,15 @@ def main() -> int:
         else:
             trail.set_data([], [])
             dot.set_visible(False)
+
+        name = tags.get(reader.tag, "(undefined)")
+        flash = time.monotonic() - tag_set_at[0] < 0.6     # confirms the key press
+        tag_badge.set_text(f"TAG {reader.tag} · {name}" + ("" if args.log else "\nnot logging"))
+        tag_badge.set_color(INK if reader.tag == 0 else "white")
+        tag_badge.get_bbox_patch().set(
+            fc=OPEN_FC if reader.tag == 0 else "#2a78d6",
+            ec="#0ca30c" if flash else (C_ALERT if not args.log else PLATE_EC),
+            lw=4 if flash else 1.5)
 
         tag = (f"tag   {reader.tag} · {tags.get(reader.tag, '(undefined)')}"
                + ("" if args.log else "  (not logging)"))
