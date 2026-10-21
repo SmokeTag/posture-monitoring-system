@@ -13,24 +13,27 @@ do log.
 - **`0` = transição.** Pressione *antes* de começar a se mover e só troque para a
   postura depois de parado nela. É o estado inicial do log: tudo o que não foi
   rotulado de propósito é descartado na análise.
-- **`1`–`9` = posturas**, definidas na **run 1** e fixas a partir dela. Os nomes
-  ficam em `analysis/tags.json` (`{"1": "ereto", ...}`), que o painel mostra e
-  grava no cabeçalho do log (linha `# tag map`).
+- **`1`–`9` = posturas**, fixas a partir da run 1. Os nomes ficam em
+  `analysis/tags.json`, que o painel mostra e grava no cabeçalho do log (linha
+  `# tag map`).
 
-| tag | postura |
-|----:|---------|
-| `0` | transição / em movimento (descartada) |
-| `1`–`9` | *a definir na run 1* |
+| tag | postura | como fazer |
+|----:|---------|------------|
+| `0` | transição | em movimento (descartada) |
+| `1` | `ereto` | referência, a mesma da calibração |
+| `2` | `curvado_frente` | tronco curvado, costas fora do encosto |
+| `3` | `cabeca_frente` | tronco no encosto, cabeça/pescoço projetados à frente |
+| `4` | `escorregado` | quadril escorregado para frente, só as escápulas no encosto |
+| `5` | `inclinado_esq` | tronco inclinado para a esquerda (apoiado no braço) |
+| `6` | `inclinado_dir` | idem, para a direita |
+| `7` | `reclinado` | encosto inteiro, quadril atrás (postura aceitável) |
+| `8` | `perna_e_sobre_d` | tronco ereto, perna esquerda cruzada sobre a direita |
+| `9` | `perna_d_sobre_e` | tronco ereto, perna direita cruzada sobre a esquerda |
 
-Diretrizes para definir as posturas:
-- Uma tag deve ser a **postura ereta de referência** (a mesma da calibração).
-- Ponto de partida, do protocolo antigo: curvado para frente, inclinado E/D,
-  cabeça baixa, reclinado.
-- **Pernas** (cruzadas E sobre D, D sobre E, tornozelo sobre o joelho...): com o
-  **tronco ereto**, como posturas próprias. O IMU quase não as vê, quem vê é o
-  assento. Combinações (curvado + perna cruzada) multiplicam as tags; ficam
-  para o bloco livre.
-- Se 9 não bastarem, priorize o que o sistema precisa distinguir para alertar.
+- **Pernas** (`8`/`9`): o IMU quase não as vê, quem vê é o assento.
+  Combinações (curvado + perna cruzada) ficam para o bloco livre, assim como
+  posturas fora da tabela (sentado na ponta, tornozelo sobre o joelho).
+- Se as pernas cruzadas geram alerta ainda está em aberto.
 
 ## Antes de começar
 
@@ -67,10 +70,6 @@ parecidas (os FSR402 têm *creep*: a leitura sobe devagar sob carga constante).
 5. **Bloco livre (opcional, 3–5 min).** Uso normal (digitar, ler, celular),
    rotulando o que for reconhecível e `0` no resto. Inclui combinações
    tronco + pernas.
-
-Na **run 1**, anote o nome de cada tag à medida que definir. Depois crie o
-`analysis/tags.json` e corrija à mão a linha `# tag map` do log da run 1 (que
-só terá `0=transition`).
 
 ## Depois
 

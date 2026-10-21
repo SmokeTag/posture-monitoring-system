@@ -16,8 +16,8 @@ E/D) com o desvio do IMU; definir posturas-alvo, limiares e temporização
 (histerese, sem alertas em transições). Log serial CSV para ajustar
 limiares com dados reais.
 Capturas seguem `docs/protocolo-captura.md` (tag `0` = transição; posturas
-`1`–`9`, incluindo variações de pernas, definidas na run 1 e gravadas em
-`analysis/tags.json`). Essa captura também alimenta o overlay de referência do
+`1`–`9` em `analysis/tags.json`, incluindo pernas cruzadas; falta decidir se
+elas geram alerta). Essa captura também alimenta o overlay de referência do
 `analysis/live_posture.py`.
 **Pronto quando:** as posturas desse protocolo são classificadas corretamente
 em sessões gravadas.
