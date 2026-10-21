@@ -52,9 +52,9 @@ const unsigned long LINK_TIMEOUT_MS = 1000;   // no packet/ACK this long = link 
 const uint16_t SEQ_MAX_GAP = 64;               // samples, ~3 s at 20 Hz; while linked, gaps are < ~20
 
 // Protocol version: byte 0 of both payloads; with the exact size it rejects a
-// peer running another format (v1, before this field, was 12 + 12 bytes).
-// Both boards must run the same version.
-const uint8_t PROTO_VER = 3;
+// peer running another format (v1, before this field, was 12 + 12 bytes; v3
+// had no vbat: 19 + 15). Both boards must run the same version.
+const uint8_t PROTO_VER = 4;
 
 // Per-sample validity, independent of the radio link. RANGE also includes
 // motion with too little gravity to estimate posture; it is not a chip diagnosis.
@@ -96,6 +96,7 @@ struct __attribute__((packed)) BodyPacket {
   uint8_t  age;                                // seq - ackSeq (samples); AGE_MAX, AGE_NONE
   uint8_t  imu;                                // ImuStatus of THIS sample (report flags are previous state)
   uint16_t ackSeq;                             // basisSeq of the ChairAck held (if age != AGE_NONE)
+  uint16_t vbat;                               // battery mV, last reading (Battery.h); 0 = none yet
 };
 
 // Chair -> body, as the ESB ACK payload. Preloaded after the chair decides on
@@ -117,7 +118,7 @@ struct __attribute__((packed)) ChairAck {
                                                // (chair boot, body link timeout, calibration cleared)
 };
 
-static_assert(sizeof(BodyPacket) == 19 && sizeof(ChairAck) == 15, "v3 payload ABI");
+static_assert(sizeof(BodyPacket) == 21 && sizeof(ChairAck) == 15, "v4 payload ABI");
 
 // --- Posture alert ---
 const float ALERT_DEG = 10.0f;                 // analysis/archive/VALIDATION.md: upright p95 6.4°, bad p05 18.6°

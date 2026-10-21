@@ -79,19 +79,46 @@ header is not discarded. `analysis/live_posture.py` converts these
 counts to conductance/resistance with the 3.3 kΩ divider and still reads older
 firmware/logs in ohms.
 
-**ESB protocol v3 — flash both boards together.** Both payloads start with a
+**ESB protocol v4 — flash both boards together.** Both payloads start with a
 version byte (`PROTO_VER`) and have a fixed size; a board running the older
-formats (v1/v2) are rejected in both directions (`ver=` counts incompatible
-formats, `bad=` counts malformed payloads). Only valid v3 ACKs keep control
+formats (v1/v2/v3) are rejected in both directions (`ver=` counts incompatible
+formats, `bad=` counts malformed payloads). Only valid v4 ACKs keep control
 fresh; the body falls back after 1 s without one. Each USB header includes
-`# proto=3`. Besides pitch/roll, each body packet
+`# proto=4`. Besides pitch/roll, each body packet
 reports what the body applied (who decides, reference id, alert, motor/test)
-and the age of the chair decision it holds, counted in body samples — the
+the age of the chair decision it holds, counted in body samples, and (v4) its
+battery voltage (`vbat`, mV) — the
 boards' clocks are never compared. The chair CSV puts that next to its own
 decision; timeline and columns: `libraries/PostureLink/PostureLink.h` and the
 header of `chair/chair.ino`. Ids are best effort (1-byte body boot id and
 chair reference id: 1/255 collisions after a reboot, see `SeqTracker` and
 `BodyLink`).
+
+## Body battery protection
+
+Rule, thresholds and ADC calibration: `libraries/PostureLink/Battery.h`; wiring
+in `body/body.ino`. VBAT (P0.31, 1 MΩ/510 kΩ divider, P0.14 LOW — never HIGH)
+is read with the internal 0.6 V reference (0..1.8 V, 12 bit, 40 µs
+acquisition), 16 conversions averaged, every 2 s and only after the motor has
+been off 200 ms. On battery, 3 readings in a row below **3.30 V** (a reading
+above 3.35 V restarts the count) stop motor + radio, blink magenta 3×
+(dimmed), and enter **System OFF**. A boot on battery below **3.40 V** goes
+straight back to System OFF. Never while USB VBUS is present
+(`USBREGSTATUS.VBUSDETECT`). The divider factor is nominal (2.961): calibrate
+it against a multimeter (formula in `Battery.h`).
+
+**Waking:** reset button, or **plugging in USB** — VBUS detect is a System OFF
+wake source on the nRF52840 that needs no setup and cannot be disabled
+(Nordic DevZone; same in the nRF5340/nRF54 docs). Reported there: an *unplug*
+can wake it too; the boot check then sends a low cell back to System OFF.
+The body header shows `# resetreas=0x...` (0x100000 = VBUS wake, 0x2 =
+watchdog) and `# vbat=... usb=...`. Not yet bench-verified on this board.
+
+**Watchdog:** 4 s, fed every `loop()` (a `radio.write()` with all retries is
+~20 ms) and in setup's 2 s USB wait; started right after the boot check, so a
+hang (e.g. Wire on a wedged bus) resets into a fresh battery check. It cannot
+be stopped and survives soft resets; the Adafruit bootloader feeds it while in
+DFU, so uploads keep working.
 
 ## IMU validity (protocol v3)
 
@@ -131,10 +158,10 @@ invalid; FSR data remains available.
 
 After 20 consecutive failed samples, the body attempts checked reconfiguration
 at most once per second, while continuing its 20 Hz heartbeat. Startup failure
-also retries. `BodyPacket` is 19 bytes; `ChairAck` remains 15 bytes but requires
-version 3. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
-buffer (still within TinyUSB's 256-byte FIFO): widest chair row 129 bytes,
-body row 63; maximum synthetic stats plus drop counters fit (159/161 bytes).
+also retries. `BodyPacket` is 21 bytes (19 in v3, + `vbat` in v4); `ChairAck`
+remains 15 bytes but requires the same version. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
+buffer (still within TinyUSB's 256-byte FIFO): widest chair row 135 bytes,
+body row 69; maximum synthetic stats plus drop counters fit (159/161 bytes).
 
 On Seeeduino:nrf52 1.1.13 the body enables the core's DWT cycle clock before
 starting the radio. Without it, `micros()` uses 1024-Hz RTOS ticks (~977 µs),
@@ -160,7 +187,7 @@ is outside this change.
 ### Bench validation pending
 
 1. Flash **both** boards, verify `Device programmed` plus serial (DFU failure
-   may still exit 0). Reopen ports without commands: one v3 header per connect.
+   may still exit 0). Reopen ports without commands: one v4 header per connect.
 2. Baseline: `imu=0`, `inh/binh=0`, `ver=bad=0`, 20 Hz and decision/applied joins
    consistent. Compare retx with a baseline in the same RF conditions.
 3. Button/serial calibration, tilt/return, alert pulses and a manual motor test:

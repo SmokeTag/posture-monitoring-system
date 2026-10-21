@@ -4,6 +4,7 @@
 // (SeqTracker) and the non-blocking serial output (Line, SerialOut).
 #include <PostureLink.h>
 #include <SerialOut.h>
+#include <Battery.h>
 
 #include "check.h"
 
@@ -14,6 +15,69 @@
 #include <vector>
 
 using namespace posture;
+
+// ---------------------------------------------------------------- Battery
+
+static void testVbatConversion() {
+  // nominal: raw 4095 = 1.8 V at the pin = 5.33 V; 2997 counts = 3.90 V
+  CHECK_EQ(vbatMv(2997 * 16, 16), 3899);
+  CHECK_EQ(vbatMv(0, 16), 0);
+  CHECK_EQ(vbatMv(4095, 1), 5328);
+  CHECK_EQ(vbatMv(123, 0), 0);
+  CHECK_EQ(vbatMv(2534 * 15 + 2535, 16), 3297);  // the mean, not one sample
+}
+
+static void testBootCheck() {
+  CHECK(bootLow(3399, false));
+  CHECK(!bootLow(3400, false));
+  CHECK(!bootLow(3000, true));                   // USB: never
+  CHECK(bootLow(2750, false));                   // the cell's own cutoff: sleep
+  CHECK(!bootLow(1999, false));                  // implausible: measurement fault, not low
+  CHECK(!bootLow(0, false));
+}
+
+static void testBatteryCutoffRule() {
+  BatteryMonitor b;
+  uint32_t t = 0xFFFFFFFFu - 3000;               // across the millis() wrap
+  // due: first reading as soon as the motor rested, then every period
+  CHECK(!b.due(t, true, t - 10000));             // motor on
+  CHECK(!b.due(t, false, t - VBAT_MOTOR_REST_MS + 1));   // just went off
+  CHECK(b.due(t, false, t - VBAT_MOTOR_REST_MS));
+  CHECK(!b.due(t, false, t + 1));                // off after a stale t: not rested, not a wrap
+  CHECK(!b.due(t, false, t + 1000));
+  CHECK(b.due(t, false, t - 0x80000001u));       // motor idle > 2^31 ms: still rested
+  CHECK(b.due(t, false, t - 0x80000000u));
+  CHECK(b.due(t, false, t - 0xFFFFF000u));
+  CHECK(!b.update(t, 3800, false));
+  CHECK_EQ(b.mv, 3800);
+  CHECK(!b.due(t + VBAT_PERIOD_MS - 1, false, 0));
+  CHECK(b.due(t + VBAT_PERIOD_MS, false, t - 10000));
+  // debounce: needs VBAT_LOW_READS in a row below the cutoff
+  t += 4000;
+  CHECK(!b.update(t, 3299, false));
+  CHECK(!b.update(t, 3299, false));
+  CHECK(!b.update(t, 3400, false));              // above CLEAR: count restarts
+  CHECK_EQ(b.lows, 0);
+  CHECK(!b.update(t, 3290, false));
+  CHECK(!b.update(t, 3320, false));              // hysteresis band: holds (no reset, no count)
+  CHECK(!b.update(t, 3350, false));              // CLEAR itself still holds
+  CHECK_EQ(b.lows, 1);
+  CHECK(!b.update(t, 1500, false));              // measurement fault: ignored
+  CHECK_EQ(b.lows, 1);
+  CHECK(!b.update(t, 3280, false));
+  CHECK(b.update(t, 3270, false));               // third low reading: cut off
+  CHECK(b.update(t, 3270, false));               // stays tripped
+  // USB present: never trips, and the count restarts
+  BatteryMonitor u;
+  for (int i = 0; i < 10; i++) CHECK(!u.update(t, 3000, true));
+  CHECK_EQ(u.lows, 0);
+  CHECK(!u.update(t, 3000, false));
+  CHECK(!u.update(t, 3000, false));
+  CHECK(!u.update(t, 3000, true));               // plugged in again: count restarts
+  CHECK(!u.update(t, 3000, false));
+  CHECK(!u.update(t, 3000, false));
+  CHECK(u.update(t, 3000, false));
+}
 
 // ---------------------------------------------------------------- BodyLink
 
@@ -102,8 +166,14 @@ static void testParseBodyPacket() {
   CHECK(!parseBodyPacket(&good, sizeof good - 1, out));       // size
   uint8_t v1[12] = {5, 0, 0, 0x5a};                           // v1: seq, flags, boot, pitch, roll
   CHECK(!parseBodyPacket(v1, sizeof v1, out));
-  BodyPacket p = good; p.ver = 4;
+  BodyPacket p = good; p.ver = PROTO_VER + 1;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.ver = 3;                                        // a v3 body: 19 bytes, no vbat
+  CHECK_EQ(classifyBodyPacket(&p, 19, out), PACKET_VERSION);
+  p = good; p.vbat = 3712;                                    // vbat is reported, never judged
+  CHECK(parseBodyPacket(&p, sizeof p, out));
+  CHECK_EQ(out.vbat, 3712);
+  out = {};
   p = good; p.boot = 0;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.pitch = NAN;
@@ -130,7 +200,7 @@ static void testParseBodyPacket() {
 }
 
 static void testImuTelemetryAndGuard() {
-  CHECK_EQ(sizeof(BodyPacket), 19u);
+  CHECK_EQ(sizeof(BodyPacket), 21u);
   CHECK_EQ(sizeof(ChairAck), 15u);
   BodyPacket p = mkPkt(CTL_CHAIR, BF_CAL, 7, 2), out = {};
   for (uint8_t status = IMU_INIT; status <= IMU_RANGE; status++) {
@@ -597,6 +667,9 @@ static void testSerialRowsWaitForEventsAndHeader() {
 }
 
 int main() {
+  testVbatConversion();
+  testBootCheck();
+  testBatteryCutoffRule();
   testParseChairAck();
   testParseBodyPacket();
   testImuTelemetryAndGuard();

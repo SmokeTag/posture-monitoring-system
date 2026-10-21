@@ -25,9 +25,9 @@ em sessões gravadas.
 ### [ ] 5. Integração, montagem e validação
 
 FSRs fixados na cadeira (4 assento + 4 encosto), botão físico de calibração
-na unidade da cadeira, unidade corporal na bateria,
-leitura da tensão da bateria (P0.31; **nunca levar P0.14 a HIGH**, ver
-`docs/pesquisa-bateria-lipo.md`). Reajustar o limiar do IMU (10°/3 s pareceu
+na unidade da cadeira, unidade corporal na bateria (validar o corte por
+bateria baixa na bancada: tensão no multímetro, corrente em System OFF, wake
+pelo USB; ver `firmware/README.md`). Reajustar o limiar do IMU (10°/3 s pareceu
 leniente) já no invólucro, medindo no `analysis/live_posture.py` onde cai uma
 postura "levemente ruim". Validação final com sessões de uso para o
 relatório.

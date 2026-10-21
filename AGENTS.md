@@ -53,7 +53,11 @@ no further prompting. Defaults:
 - **Seeed Studio XIAO nRF52840 "Sense"** worn on the back, just below the neck.
 - Uses the onboard **6-axis IMU (LSM6DS3TR-C)** to detect spine curvature /
   slouching of the upper body (the part not in contact with the chair).
-- Powered by a **single-cell (1S) 3.7 V LiPo**
+- Powered by a **single-cell (1S) 3.7 V LiPo** (JYH LIP103450, 1800 mAh, cell
+  cutoff 2.75 V). Firmware cutoff: on battery, VBAT < 3.30 V (3 readings, motor
+  off) → System OFF; boot needs ≥ 3.40 V; never on USB; wakes on reset or USB
+  plug-in. 4 s watchdog. VBAT goes to the chair CSV (`vbat`, ESB proto v4).
+  **Never drive P0.14 or P0.13 HIGH.** Details: `firmware/README.md`.
 - Drives a **vibration motor** that activates when problematic posture is
   detected. Coin motor 2.5–4 V / ≤90 mA (too much for a GPIO): **D10 → 1 kΩ →
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
@@ -77,7 +81,8 @@ no further prompting. Defaults:
   Rationale: `docs/decisao-calibracao-vs-limiar-absoluto.md`.
 - **Status LED (both boards, RGB):** orange = no link, blue = linked,
   green = calibrated, red slow = alert, red fast = fault
-  (`PostureLink/StatusLed.h`; dimmed on the body for the LiPo).
+  (`PostureLink/StatusLed.h`; dimmed on the body for the LiPo); body only:
+  3 magenta blinks = battery low, powering off.
 
 ## Data Flow
 ```

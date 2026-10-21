@@ -53,6 +53,7 @@ struct FakeWire {
 
   // --- TwoWire API used by Lsm6Accel
   void begin() { begun = true; }
+  void end() { begun = false; }
   void beginTransmission(uint8_t a) { if (onTransaction) onTransaction(); txAddr_ = a; txLen_ = 0; txOn_ = true; }
   size_t write(uint8_t b) {
     if (!txOn_ || writeFails || txLen_ >= sizeof txBuf_) return 0;

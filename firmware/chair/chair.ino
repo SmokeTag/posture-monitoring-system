@@ -43,7 +43,7 @@
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
  *   t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
- *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8,...,c15
+ *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,...,c15
  *   t_ms  = this board's millis() when the row was written (sample received);
  *           never compare it with the body's t_ms
  *   cal / calid / alert = the chair's decision after this sample: reference
@@ -70,6 +70,9 @@
  *   imu = 0 valid, 1 init, 2 I2C/short read, 3 no new data, 4 invalid vector;
  *         -1 when body silent. Invalid/silent angles and deviations are nan.
  *   binh = body's previous applied state inhibited a chair alert (BF_INH).
+ *   vbat = body battery mV, its last reading (0 = none yet; on USB the
+ *          charger output); -1 when body silent. Below 3300 on battery the
+ *          body powers off (PostureLink/Battery.h): the link then goes silent.
  * Events: "# alert ON/OFF", "# calibrat... calid=N", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
@@ -175,7 +178,7 @@ bool chairHeader(uint8_t i, Line &l) {
     case 4: l.str("# proto=").u32(PROTO_VER); return true;
     case 3:
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
-            "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh");
+            "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
       return true;
   }
@@ -272,7 +275,7 @@ void pollSerial() {
 }
 
 // t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
-// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,c8..c15
+// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8..c15
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   Line l;
   l.u32(t).chr(',').u32(calibrated).chr(',').u32(calId).chr(',').fix(dev, 1).chr(',')
@@ -289,7 +292,7 @@ void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
     for (int i = 0; i < 10; i++) l.str(",-1");   // boot,seq,bctl..bage: no sample
   }
   l.chr(',').i32(bodyUp ? body.imu : -1).chr(',')
-   .i32(bodyUp ? !!(body.flags & BF_INH) : -1);
+   .i32(bodyUp ? !!(body.flags & BF_INH) : -1).chr(',').i32(bodyUp ? body.vbat : -1);
   for (int i = 0; i < N_FSR; i++) l.chr(',').i32(fsr[i]);
   out.row(l);
 }

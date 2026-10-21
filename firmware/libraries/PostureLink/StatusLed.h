@@ -8,6 +8,7 @@
  *   green, fast     chair only: capturing the reference (1 s)
  *   red, slow       posture alert (body: in step with the motor)
  *   red, fast       fault: radio init failed / IMU not delivering
+ *   magenta, 3 x    body only: battery low, powering off (System OFF)
  *
  * The LED is active LOW and driven by PWM (analogWrite, 8 bit), so orange is
  * a red/green mix and `level` dims the whole LED (the body runs on a LiPo).
@@ -27,6 +28,7 @@ const Rgb RGB_RED    = {255, 0, 0};
 const Rgb RGB_GREEN  = {0, 255, 0};
 const Rgb RGB_BLUE   = {0, 0, 255};
 const Rgb RGB_ORANGE = {255, 165, 0};          // tuned by eye: {255, 40/100, 0} looked red
+const Rgb RGB_MAGENTA = {255, 0, 255};
 
 const unsigned long BLINK_FAST_MS = 100;       // fault / capturing: 100 ms on, 100 off
 
@@ -50,6 +52,13 @@ class StatusLed {
       uint8_t duty = (uint8_t)((v[i] * level_ + 127) / 255);
       if (duty != duty_[i]) write(i, duty);
     }
+  }
+
+  // Off for good (before System OFF, where PWM stops and each pin falls back
+  // to its GPIO output latch): latch HIGH = off for this active-LOW LED.
+  void shutdown() {
+    set(RGB_OFF);
+    for (int i = 0; i < 3; i++) digitalWrite(pins_[i], HIGH);
   }
 
   uint8_t duty(int i) const { return duty_[i]; }  // 0..255 lit fraction (tests)

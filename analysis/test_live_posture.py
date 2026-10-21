@@ -121,7 +121,7 @@ class RealFirmwareStream(unittest.TestCase):
     def test_header_drives_columns(self):
         r = reader()
         feed(r, self.lines)
-        self.assertEqual(r.fields, V2_FIELDS + ["imu", "binh"])
+        self.assertEqual(r.fields, V2_FIELDS + ["imu", "binh", "vbat"])
         self.assertTrue(r.rows)
         self.assertEqual(len(r.fsr[-1][1]), 8)          # c8..c15 found after the new columns
 
@@ -179,6 +179,29 @@ class RealFirmwareStream(unittest.TestCase):
         self.assertEqual(tags[0], "0")
         self.assertEqual(tags[-1], "3")
         self.assertEqual(sorted(set(tags)), ["0", "3"])
+
+
+    def test_battery_reported(self):
+        """The system test's body runs at ~3.9 V (host stub): every body row
+        carries it, body-silent rows carry -1 (not shown as a reading)."""
+        r = reader()
+        feed(r, self.lines)
+        self.assertTrue(all(abs(x["vbat"] - 3899) <= 2 for x in r.rows))
+        self.assertEqual(LP.battery_text(r.rows[-1]), "batt  3.90 V")
+
+
+class Battery(unittest.TestCase):
+    def test_text(self):
+        self.assertEqual(LP.battery_text(row(1)), "batt  ? (old firmware)")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 0}), "batt  — no reading yet")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 3712}), "batt  3.71 V")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 3310}), "batt  3.31 V  LOW (off < 3.30 V)")
+
+    def test_cutoff_hint_when_silent(self):
+        self.assertEqual(LP.cutoff_hint([]), "")
+        self.assertEqual(LP.cutoff_hint([row(1)]), "")                     # old firmware
+        self.assertEqual(LP.cutoff_hint([{**row(1), "vbat": 3800}]), "")
+        self.assertIn("3.31 V: low-battery cutoff?", LP.cutoff_hint([{**row(1), "vbat": 3310}]))
 
 
 class OldFirmware(unittest.TestCase):

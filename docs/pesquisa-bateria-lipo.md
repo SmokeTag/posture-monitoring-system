@@ -49,12 +49,14 @@ replugar o USB ou reiniciar a alimentação.
 - A 50 mA (padrão) → **~28 %**.
 - **"LED apagado" não significa bateria cheia.**
 
-### ⚠️ Leitura da tensão da bateria (para o firmware futuro)
+### ⚠️ Leitura da tensão da bateria
 
 A tensão da bateria é lida em P0.31 (AIN7) por um divisor 1 MΩ / 510 kΩ
 (Vbat ≈ 2,96 × Vadc). O divisor é habilitado com **P0.14 em LOW**.
 **Nunca levar P0.14 a HIGH:** isso pode colocar ~3,6 V em P0.31 e danificar o
 pino, principalmente durante a carga.
+Implementado no corpo, com corte por bateria baixa (3,3 V) e System OFF:
+`firmware/libraries/PostureLink/Battery.h` e `firmware/README.md`.
 
 ## Conclusão
 
