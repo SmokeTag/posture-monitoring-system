@@ -300,6 +300,13 @@ void setup() {
   pinMode(MOTOR_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   setLed(false);
+#if defined(PIN_CHARGING_CURRENT)
+  // BQ25101 charge current: P0.13 LOW = 100 mA (the core leaves it floating =
+  // 50 mA). Never drive it HIGH. Matters for the 1800 mAh LiPo: the charger's
+  // ~10 h safety timer caps one USB session at ~55 % instead of ~28 %.
+  pinMode(PIN_CHARGING_CURRENT, OUTPUT);
+  digitalWrite(PIN_CHARGING_CURRENT, LOW);
+#endif
 
   Serial.begin(115200);
   unsigned long t0 = millis();
