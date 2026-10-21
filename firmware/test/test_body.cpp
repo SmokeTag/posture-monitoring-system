@@ -213,6 +213,8 @@ static void checkPoweredOff(const char *why) {
   for (int pin : {LED_RED, LED_GREEN, LED_BLUE}) CHECK_EQ(sim::pin[pin], HIGH);   // active LOW: off
   CHECK_EQ(sim::pin[VBAT_ENABLE], LOW);       // never HIGH, also in System OFF
   CHECK(!Wire1.begun);
+  CHECK_EQ(pinModeOf(PIN_WIRE1_SDA), INPUT);   // no pull-ups left on the IMU's lines
+  CHECK_EQ(pinModeOf(PIN_WIRE1_SCL), INPUT);
   CHECK_EQ(count(std::string("# battery low (") + why + ")"), 1);
 }
 
@@ -234,6 +236,7 @@ static void testBatteryNoiseAndMotorSag() {
   tilt(20);
   uint32_t reads = 0, lastAt = battery.lastAt;
   uint32_t offAt = sim::now;
+  radio.writeMs = 3;                         // write() runs past loop()'s t (retries)
   for (int i = 0; i < 20000; i++) {
     a.basisBoot = bootId; a.basisSeq = (uint16_t)n;
     const uint8_t *b = (const uint8_t *)&a;
@@ -248,9 +251,32 @@ static void testBatteryNoiseAndMotorSag() {
       lastAt = battery.lastAt;                 // shift it so readings fall due at every phase
     }
   }
+  radio.writeMs = 0;
   CHECK(alert);
   CHECK(reads >= 9);                         // ~every 2 s, between pulses
   CHECK_EQ(battery.lows, 0);
+  // a buzz ending on a sample iteration whose radio.write() runs 5 ms past
+  // loop()'s t: the motor goes off after t, and no reading may come before
+  // 200 ms after that real off time
+  tilt(0); ackEmpty(); runFor(1500);
+  Serial.in = "m"; runFor(100);
+  CHECK(motorOn);
+  battery.lastAt = sim::now - 10 * VBAT_PERIOD_MS;   // a reading is overdue
+  testUntil = sim::now + 1;                    // the buzz ends on the next loop()...
+  lastSample = sim::now + 1 - SAMPLE_MS;       // ...which also samples
+  radio.writeMs = 5;
+  sim::vbat() = sim::rawForMv(3000);           // sagging until 200 ms after off
+  uint32_t before = battery.lastAt;
+  runFor(1);
+  radio.writeMs = 0;
+  CHECK(!motorOn);
+  CHECK_EQ(battery.lastAt, before);            // no reading right at the off edge
+  uint32_t off = motorOffAt;
+  CHECK(off != 0);
+  while (sim::now - off < VBAT_MOTOR_REST_MS - 1) { runFor(1); CHECK_EQ(battery.lastAt, before); }
+  sim::vbat() = sim::rawForMv(3700);
+  runFor(5);
+  CHECK(battery.lastAt != before && near(battery.mv, 3700));
   // on USB the cell can read low (no load on it, charger): never a cutoff
   tilt(0); ackEmpty();
   fakePower().USBREGSTATUS = POWER_USBREGSTATUS_VBUSDETECT_Msk;

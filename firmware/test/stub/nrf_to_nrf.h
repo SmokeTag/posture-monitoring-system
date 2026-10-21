@@ -48,7 +48,9 @@ struct FakeRadio {
     memcpy(b, rx.front().data(), n < rx.front().size() ? n : rx.front().size());
     rx.pop_front();
   }
+  uint32_t writeMs = 0;                        // time one write() takes (retries)
   bool write(const void *b, uint8_t n) {
+    sim::now += writeMs;
     sent.emplace_back((const uint8_t *)b, (const uint8_t *)b + n);
     if (peer) {
       if (upOk) peer->rx.push_back(sent.back());

@@ -9,6 +9,7 @@
 
 #define HIGH 1
 #define LOW 0
+#define INPUT 0
 #define OUTPUT 1
 #define INPUT_PULLUP 2
 #define AR_VDD4 0
@@ -18,6 +19,8 @@ enum { D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, A0 = D0, LED_RED = 20, LED_G
 #define VBAT_ENABLE 14
 #define PIN_CHARGING_CURRENT 23
 #define PIN_VBAT 32                            // analogRead only (not in sim::pin)
+#define PIN_WIRE1_SDA 24
+#define PIN_WIRE1_SCL 25
 
 namespace sim {
 extern uint32_t now;                           // millis()
@@ -33,7 +36,8 @@ inline int rawForMv(int mv) { return (int)(mv / 1000.0 / 1.8 * 4096 * 510 / 1510
 inline uint32_t millis() { return sim::now; }
 inline uint32_t micros() { return sim::now * 1000u; }
 inline void delayMicroseconds(unsigned) {}
-inline void pinMode(int, int) {}
+inline int &pinModeOf(int p) { static int m[32]; return m[p]; }
+inline void pinMode(int p, int m) { pinModeOf(p) = m; }
 inline void digitalWrite(int p, int v) { sim::pin[p] = v; }
 inline int digitalRead(int p) { return sim::pin[p]; }
 inline uint32_t &analogWriteCalls() { static uint32_t count = 0; return count; }

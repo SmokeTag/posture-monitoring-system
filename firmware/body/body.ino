@@ -405,7 +405,11 @@ void powerOff(const char *why) {
     led.set(RGB_OFF);     delay(LOWBAT_BLINK_MS);
   }
   led.shutdown();
-  Wire1.end();                                 // release SDA/SCL: no back-powering the IMU
+  Wire1.end();                                 // TWIM off, but begin()'s pull-ups stay on:
+#if defined(PIN_WIRE1_SDA)
+  pinMode(PIN_WIRE1_SDA, INPUT);               // no pull, so SDA/SCL can't back-power the
+  pinMode(PIN_WIRE1_SCL, INPUT);               // unpowered IMU through its I/O diodes
+#endif
 #if defined(PIN_LSM6DS3TR_C_POWER)
   digitalWrite(PIN_LSM6DS3TR_C_POWER, LOW);
 #endif
@@ -514,7 +518,8 @@ void loop() {
     testUntil = 0;
     setMotor(alert && phaseOn(t, alertStart, PULSE_PERIOD_MS, PULSE_ON_MS));
   }
-  checkBattery(t);                             // motor state for this loop is final here
+  checkBattery(millis());                      // motor state is final here; fresh time (sample()'s
+                                               // radio.write() may have run past t)
   updateStatusLed(t);
 
   if (t - lastReport >= 1000) report(t);
