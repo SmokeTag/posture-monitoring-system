@@ -400,6 +400,13 @@ void scanFsrs() {
 }
 
 void setup() {
+#if defined(VBAT_ENABLE)
+  // Same LiPo circuit as the body: the core drives P0.14 HIGH at boot, which
+  // leaves P0.31 (VBAT sense, 1 MΩ / 510 kΩ divider) near 3.6 V, above the
+  // pin's limit, mostly while charging. LOW keeps it at ~Vbat/3 (≤1.4 V).
+  // Never drive it HIGH.
+  digitalWrite(VBAT_ENABLE, LOW);
+#endif
   Serial.begin(115200);
   for (int b = 0; b < 4; b++) pinMode(SEL_PINS[b], OUTPUT);
   pinMode(BTN_PIN, INPUT_PULLUP);
