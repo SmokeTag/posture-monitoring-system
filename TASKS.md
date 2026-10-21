@@ -68,7 +68,7 @@ economiza de fato junto com o sleep do item acima.
 
 #### [ ] Padrão de vibração do alerta (menos insuportável)
 
-**Contexto:** hoje o corpo pulsa o motor 300 ms a cada 1 s
+**Contexto:** hoje o corpo pulsa o motor 700 ms a cada 1 s (duty 255)
 (`PULSE_ON_MS`/`PULSE_PERIOD_MS` em `body.ino`) **sem parar** enquanto o
 alerta durar. Ideia inicial (ainda a amadurecer), em ms, `+` ligado e `-`
 desligado:

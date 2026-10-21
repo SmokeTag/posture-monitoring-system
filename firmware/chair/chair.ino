@@ -39,7 +39,7 @@
  * Status LED (onboard RGB; colours in PostureLink/StatusLed.h): red fast =
  * radio fault or the body's IMU not delivering, orange = no body, blue =
  * linked, green fast = capturing the reference, green = calibrated, red
- * slow = posture alert (same 300 ms / 1 s rhythm as the body's motor).
+ * slow = posture alert (same 700 ms / 1 s rhythm as the body's motor).
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
@@ -120,7 +120,7 @@ const int   CAL_SAMPLES = 20;                  // 1 s of body samples averaged i
 
 const int   BTN_PIN     = D9;                  // calibrate button to GND
 const int   DEBOUNCE_MS = 25;                  // input must be stable this long
-const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;   // alert LED, as the body's motor
+const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;   // alert LED, as the body's motor
 const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid over this span of samples = fault
 
 nrf_to_nrf radio;

@@ -229,7 +229,7 @@ static void testBatteryNoiseAndMotorSag() {
   sim::vbat() = sim::rawForMv(3700);         // ...then fine: no cutoff, count restarts
   runFor(2100);
   CHECK_EQ(battery.lows, 0);
-  // continuous alert: the motor pulses 300 ms / 1 s. Its ~90 mA sag shows up
+  // continuous alert: the motor pulses 700 ms / 1 s. Its ~90 mA sag shows up
   // while it runs and for 150 ms after; no reading may see it
   ChairAck a = {};
   a.ver = PROTO_VER; a.calId = 9; a.flags = CF_CAL | CF_ALERT;

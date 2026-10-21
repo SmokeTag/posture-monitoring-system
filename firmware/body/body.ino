@@ -101,10 +101,10 @@ const unsigned long SAMPLE_MS = 50;            // 20 Hz
 
 // Alert output: motor driver (active HIGH, PWM)
 const int MOTOR_PIN  = D10;
-const int MOTOR_DUTY = 200;                    // 0..255; lower = weaker buzz
+const int MOTOR_DUTY = 255;                    // 0..255 (255 = always on); lower = weaker buzz
 const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (LiPo: ~1/8)
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
-const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;
+const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;
 const unsigned long MOTOR_TEST_MS   = 500;
 const unsigned long LOWBAT_BLINK_MS = 150;     // battery-low blink: 3 x (on, off)
 const uint32_t WDT_TIMEOUT_S = 4;              // >> a radio.write() with all retries (~20 ms)
