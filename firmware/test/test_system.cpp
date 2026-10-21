@@ -17,10 +17,12 @@ FakeWire Wire1;
 #include <PostureLink.h>
 #include <RandomId.h>
 #include <SerialOut.h>
+#include <StatusLed.h>
 
 using namespace posture;
 
 #include <map>
+#include <set>
 #include <vector>
 
 namespace sim { uint32_t now = 0; int pin[32]; int adc = 0; float ax = 0, ay = 0, az = 1; }
@@ -56,6 +58,35 @@ static void runFor(uint32_t ms) {
     chairSerial.hostReads();
     bodySerial.hostReads();
   }
+}
+
+// Status LED colour by lit channels: R G B O(range) or '-' (off).
+static char colour(const StatusLed &l) {
+  bool r = l.duty(0), g = l.duty(1), b = l.duty(2);
+  if (r && g && !b) return 'O';
+  if (b && !r && !g) return 'B';
+  if (r && !g && !b) return 'R';
+  if (g && !r && !b) return 'G';
+  return r || g || b ? '?' : '-';
+}
+
+#define CHECK_LEDS(got, want) do { \
+    if (got != want) \
+      printf("  line %d: %s showed \"%s\", want \"%s\"\n", __LINE__, #got, got.c_str(), want); \
+    CHECK(got == want); } while (0)
+
+// Run `ms`, collecting the colours each board's LED showed (sorted, unique).
+// Also checks that the body's LED is red whenever its motor runs.
+static void watchLeds(uint32_t ms, std::string &chair, std::string &body) {
+  std::set<char> c, b;
+  for (uint32_t i = 0; i < ms; i++) {
+    runFor(1);
+    c.insert(colour(chairfw::led));
+    b.insert(colour(bodyfw::led));
+    if (bodyfw::motorOn && colour(bodyfw::led) != 'R') CHECK(!"body LED red while the motor runs");
+  }
+  chair.assign(c.begin(), c.end());
+  body.assign(b.begin(), b.end());
 }
 
 static void tilt(float deg) {
@@ -130,7 +161,11 @@ int main(int argc, char **argv) {
   tilt(0);
 
   // link up: steady state body age 1 (aseq = seq-1), chair bage 2 (bseq = seq-2)
-  runFor(2000);
+  runFor(1800);
+  std::string ledC, ledB;
+  watchLeds(200, ledC, ledB);
+  CHECK_LEDS(ledC, "B");            // linked, not calibrated
+  CHECK_LEDS(ledB, "B");
   auto c = rows(chairSerial.out), b = rows(bodySerial.out);
   CHECK(c.size() > 30 && b.size() > 30);
   CHECK_EQ(c.back().at("boot"), 0x5a);
@@ -160,8 +195,14 @@ int main(int argc, char **argv) {
   // calibrate upright, then slouch: the chair's alert reaches the body one
   // sample later and is reported one more sample later
   chairSerial.in = "c";
-  runFor(1500);
+  watchLeds(500, ledC, ledB);
+  CHECK_LEDS(ledC, "-G");           // capturing: fast green blink
+  CHECK_LEDS(ledB, "B");            // the body only sees the result
+  runFor(800);
+  watchLeds(200, ledC, ledB);
   CHECK(chairfw::calibrated);
+  CHECK_LEDS(ledC, "G");
+  CHECK_LEDS(ledB, "G");
   uint8_t cal1 = chairfw::calId;
   CHECK(cal1 != 0x30);
   size_t c0 = rows(chairSerial.out).size();
@@ -189,6 +230,10 @@ int main(int argc, char **argv) {
     CHECK_EQ(cN2->at("bseq"), N);
     CHECK_EQ(cN2->at("bage"), 2);
   }
+
+  watchLeds(1000, ledC, ledB);                 // alert: red pulses, off between
+  CHECK_LEDS(ledC, "-R");
+  CHECK_LEDS(ledB, "-R");
 
   // manual motor test, upright, no alert: test + motor, not alert, on both sides
   tilt(0);
@@ -223,6 +268,9 @@ int main(int argc, char **argv) {
   long fb = 0;
   for (size_t i = f0; i < c.size(); i++) fb += c[i].at("bctl") == CTL_FALLBACK;
   CHECK(fb > 50);
+  watchLeds(1000, ledC, ledB);
+  CHECK_LEDS(ledC, "-R");           // the chair still gets samples
+  CHECK_LEDS(ledB, "OR");           // fallback alert: red pulses on orange
   // ACKs back: chair control again, age 1 at once (the chair never lost it)
   bodyfw::radio.downOk = true;
   runFor(200);
@@ -235,8 +283,13 @@ int main(int argc, char **argv) {
   tilt(0);
   runFor(500);
   bodyfw::radio.upOk = false;
-  runFor(2500);
+  watchLeds(900, ledC, ledB);                  // silent, not yet timed out: a gap is no IMU fault
+  CHECK_LEDS(ledC, "G");
+  runFor(1400);
+  watchLeds(200, ledC, ledB);
   CHECK(!chairfw::bodyUp);
+  CHECK_LEDS(ledC, "O");            // no link, upright: orange on both
+  CHECK_LEDS(ledB, "O");
   CHECK_EQ(chairfw::ack.basisBoot, 0);
   size_t r0 = rows(bodySerial.out).size();
   bodyfw::radio.upOk = true;
@@ -259,7 +312,10 @@ int main(int argc, char **argv) {
   uint8_t savedCal = chairfw::calId;
   chairSerial.in = "c"; runFor(250);
   CHECK(chairfw::calLeft > 0);
-  Wire1.forceStale = true; runFor(1100);
+  Wire1.forceStale = true; runFor(900);
+  watchLeds(200, ledC, ledB);
+  CHECK_LEDS(ledC, "-R");           // body IMU fault: fast red on both
+  CHECK_LEDS(ledB, "-R");
   CHECK(chairfw::bodyUp);
   CHECK_EQ(chairfw::body.imu, IMU_STALE);
   CHECK_EQ(chairfw::calLeft, 0);
@@ -274,9 +330,9 @@ int main(int argc, char **argv) {
   // Manual motor testing is still possible, explicitly distinct from posture.
   chairSerial.in = "m"; runFor(150);
   CHECK(bodyfw::testRunning(sim::now + BODY_CLOCK));
-  CHECK(bodyfw::ledState && !bodyfw::alert);
+  CHECK(bodyfw::motorOn && !bodyfw::alert);
   runFor(600);
-  CHECK(!bodyfw::ledState);
+  CHECK(!bodyfw::motorOn);
   Wire1.forceStale = false;
   Wire1.reset(); runFor(1600);                 // brownout/config lost -> bounded retry -> recovery
   CHECK_EQ(bodyfw::imuStatus, IMU_OK);
@@ -288,7 +344,7 @@ int main(int argc, char **argv) {
   bodyfw::radio.downOk = false;               // retain the pre-fault alert ACK
   Wire1.nackAll = true; runFor(50);
   CHECK_EQ(bodyfw::imuStatus, IMU_BUS);
-  CHECK(!bodyfw::alert && !bodyfw::ledState);
+  CHECK(!bodyfw::alert && !bodyfw::motorOn);
   CHECK(!chairfw::gate.alert);
   Wire1.nackAll = false; runFor(350);
   CHECK_EQ(bodyfw::imuStatus, IMU_OK);
@@ -302,7 +358,7 @@ int main(int argc, char **argv) {
   CHECK_EQ(bodyfw::chairLink.control(), CTL_FALLBACK);
   CHECK(bodyfw::alert);
   Wire1.forceStale = true; runFor(100);
-  CHECK(!bodyfw::alert && !bodyfw::ledState);
+  CHECK(!bodyfw::alert && !bodyfw::motorOn);
   CHECK_EQ(bodyfw::chairLink.ack.calId, savedCal);
   Wire1.forceStale = false; runFor(2900);
   CHECK(!bodyfw::alert);

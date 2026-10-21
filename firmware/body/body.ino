@@ -19,9 +19,14 @@
  * radio.write() blocks until ACKed or out of retries (~20 ms) — fine here.
  *
  * Alert output: vibration motor on D10 (NPN low-side driver + flyback diode,
- * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength), mirrored on the
- * onboard red LED. Pulsed PULSE_ON_MS every PULSE_PERIOD_MS while alerting.
- * A motor test ('m' here, or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
+ * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength). Pulsed
+ * PULSE_ON_MS every PULSE_PERIOD_MS while alerting. A motor test ('m' here,
+ * or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
+ *
+ * Status LED (onboard RGB, dimmed to LED_LEVEL for the battery; colours in
+ * PostureLink/StatusLed.h): red while the motor runs; otherwise red fast =
+ * radio/IMU fault, orange = no link, blue = linked, green = linked and
+ * calibrated (off between alert pulses while linked).
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one
  * row per sample (20 Hz), written AFTER that sample's ACK was digested:
@@ -33,7 +38,7 @@
  *   cal / calid = the body holds the chair's reference / its id (0 = none)
  *   dev   = degrees from that reference (0 if none)
  *   alert = alert in effect (chair's in ctl 1, local in ctl 2)
- *   motor = motor/LED output commanded on now (PWM; not a measurement)
+ *   motor = motor output commanded on now (PWM; not a measurement)
  *   test  = a motor-test buzz is running (motor on for the test, not an alert)
  *   aseq / age = body sample the ChairAck held was decided on, and seq - aseq
  *           (1 normally: decided on the previous sample); age 254 = 254 or
@@ -59,8 +64,9 @@
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/body
- *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM1 firmware/body
- *   arduino-cli monitor -p /dev/ttyACM1 -c baudrate=115200
+ *   BODY=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_3B4A158C694F1777-if00)
+ *   arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p "$BODY" firmware/body
+ *   arduino-cli monitor -p "$BODY" -c baudrate=115200
  */
 
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core
@@ -69,6 +75,7 @@
 #include <SerialOut.h>
 #include <RandomId.h>
 #include <Lsm6Accel.h>
+#include <StatusLed.h>
 #include "Wire.h"
 #include <math.h>
 
@@ -76,16 +83,18 @@ using namespace posture;
 
 const unsigned long SAMPLE_MS = 50;            // 20 Hz
 
-// Alert output: motor driver (active HIGH, PWM) + red LED (active LOW) mirror
+// Alert output: motor driver (active HIGH, PWM)
 const int MOTOR_PIN  = D10;
 const int MOTOR_DUTY = 200;                    // 0..255; lower = weaker buzz
-const int LED_PIN    = LED_RED;
+const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (LiPo: ~1/8)
+const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 300;
 const unsigned long MOTOR_TEST_MS   = 500;
 
 const float RAD_TO_DEGF = 57.2957795f;
 
 nrf_to_nrf radio;
+StatusLed led(LED_RED, LED_GREEN, LED_BLUE, LED_LEVEL);
 Lsm6Accel<decltype(Wire1)> imu(Wire1);         // checked I2C on the internal sensor bus
 
 // chair link
@@ -97,6 +106,7 @@ bool radioFailed = false;                    // initialization failure in the he
 bool imuReady = false, inhibited = false, versionNoted = false;
 uint8_t imuStatus = IMU_INIT, failedSamples = 0;
 uint32_t lastImuInit = 0;
+uint32_t imuOkAt = 0;                          // last valid IMU sample (status LED)
 ImuControlGuard imuGuard;
 
 bool bodyHeader(uint8_t i, Line &l);
@@ -104,7 +114,7 @@ SerialOut<decltype(Serial)> out(Serial, bodyHeader);
 
 // alert state
 AlertGate localGate;                           // only used in fallback
-bool alert = false, ledState = false;
+bool alert = false, motorOn = false;
 bool outputInitialized = false;
 unsigned long alertStart = 0;
 unsigned long lastSample = 0;
@@ -116,14 +126,23 @@ void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
   roll  = atan2f(aY, aZ) * RAD_TO_DEGF;
 }
 
-void setLed(bool on) {
+void setMotor(bool on) {
   // analogWrite restarts a hardware PWM sequence even for the same duty.
   // Do not flood the peripheral from the idle loop; always initialize it once.
-  if (outputInitialized && on == ledState) return;
+  if (outputInitialized && on == motorOn) return;
   outputInitialized = true;
-  ledState = on;
+  motorOn = on;
   analogWrite(MOTOR_PIN, on ? MOTOR_DUTY : 0);
-  digitalWrite(LED_PIN, on ? LOW : HIGH);
+}
+
+void updateStatusLed(unsigned long t) {
+  bool linkUp = chairLink.watch.up;
+  if (motorOn) led.set(RGB_RED);
+  else if (radioFailed || (uint32_t)(t - imuOkAt) >= IMU_FAULT_MS)
+    led.set(phaseOn(t, 0, 2 * BLINK_FAST_MS, BLINK_FAST_MS) ? RGB_RED : RGB_OFF);
+  else if (!linkUp) led.set(RGB_ORANGE);
+  else if (alert) led.set(RGB_OFF);            // between pulses
+  else led.set(chairLink.ack.flags & CF_CAL ? RGB_GREEN : RGB_BLUE);
 }
 
 bool bodyHeader(uint8_t i, Line &l) {
@@ -149,12 +168,12 @@ void setAlert(bool on, float dev) {
   Line l;
   l.str(on ? "# alert ON  dev=" : "# alert OFF dev=").fix(dev, 1);
   out.event(l);
-  if (!on) setLed(false);
+  if (!on) setMotor(false);
 }
 
 void motorTest(const char *src) {
   testUntil = millis() + MOTOR_TEST_MS;
-  setLed(true);
+  setMotor(true);
   Line l;
   l.str("# motor test (").str(src).chr(')');
   out.event(l);
@@ -179,7 +198,7 @@ void sendSample(unsigned long t, float pitch, float roll) {
   pkt.roll = roll;
   pkt.ctl = chairLink.control();
   pkt.imu = imuStatus;
-  pkt.flags = (inhibited ? BF_INH : 0) | (alert ? BF_ALERT : 0) | (ledState ? BF_MOTOR : 0) | (testRunning(t) ? BF_TEST : 0);
+  pkt.flags = (inhibited ? BF_INH : 0) | (alert ? BF_ALERT : 0) | (motorOn ? BF_MOTOR : 0) | (testRunning(t) ? BF_TEST : 0);
   if (chairLink.haveAck) {
     pkt.calId = held.calId;
     if (held.flags & CF_CAL) pkt.flags |= BF_CAL;
@@ -215,8 +234,8 @@ void sendSample(unsigned long t, float pitch, float roll) {
 // A returning transaction restores a manual test or the previous pulse only
 // for a valid sample. No claim is made that software can recover a wedged bus.
 uint8_t readImu(uint32_t t, float &pitch, float &roll) {
-  bool wasOn = ledState;
-  setLed(false);
+  bool wasOn = motorOn;
+  setMotor(false);
   if (!imuReady && (uint32_t)(t - lastImuInit) >= 1000) {
     lastImuInit = t;
     imuReady = imu.begin() == IMU_OK;
@@ -233,7 +252,7 @@ uint8_t readImu(uint32_t t, float &pitch, float &roll) {
     if (failedSamples < 20) failedSamples++;
     if (failedSamples >= 20) imuReady = false;
   } else failedSamples = 0;
-  if (testRunning(t) || (status == IMU_OK && wasOn)) setLed(true);
+  if (testRunning(t) || (status == IMU_OK && wasOn)) setMotor(true);
   return status;
 }
 
@@ -244,7 +263,7 @@ void printBodyRow(unsigned long t, float pitch, float roll, float dev, bool cal)
   Line l;
   l.u32(t).chr(',').u32((uint16_t)n).chr(',').u32(chairLink.control()).chr(',')
    .u32(cal).chr(',').u32(chairLink.haveAck ? ack.calId : 0).chr(',').fix(dev, 1).chr(',')
-   .u32(alert).chr(',').u32(ledState).chr(',').u32(testRunning(t)).chr(',')
+   .u32(alert).chr(',').u32(motorOn).chr(',').u32(testRunning(t)).chr(',')
    .i32(known ? (int32_t)ack.basisSeq : -1).chr(',').i32(known ? (int32_t)age : -1).chr(',')
    .fix(pitch, 1).chr(',').fix(roll, 1).chr(',').u32(imuStatus).chr(',').u32(inhibited);
   out.row(l);
@@ -257,6 +276,7 @@ void sample(unsigned long t) {
     Line e; e.str("# IMU state=").u32(status); out.event(e);
   }
   imuStatus = status;
+  if (status == IMU_OK) imuOkAt = t;
   bool valid = status == IMU_OK;
   imuGuard.observe(n, valid);
 
@@ -277,7 +297,7 @@ void sample(unsigned long t) {
     setAlert((ack.flags & CF_ALERT) && allowed, dev);
   } else if (cal) { localGate.update(dev, t); setAlert(localGate.alert, dev); }
   else setAlert(false, dev);
-  if (testRunning(t)) setLed(true);           // manual test remains distinct from posture validity
+  if (testRunning(t)) setMotor(true);           // manual test remains distinct from posture validity
 
   printBodyRow(t, pitch, roll, dev, cal);
   n++;
@@ -309,8 +329,8 @@ void keepCrystal() {
 
 void setup() {
   pinMode(MOTOR_PIN, OUTPUT);
-  pinMode(LED_PIN, OUTPUT);
-  setLed(false);
+  led.begin();
+  setMotor(false);
 #if defined(PIN_CHARGING_CURRENT)
   // BQ25101 charge current: P0.13 LOW = 100 mA (the core leaves it floating =
   // 50 mA). Never drive it HIGH. Matters for the 1800 mAh LiPo: the charger's
@@ -375,11 +395,12 @@ void loop() {
     sample(t);
   }
 
-  if (testRunning(t)) setLed(true);
+  if (testRunning(t)) setMotor(true);
   else {
     testUntil = 0;
-    setLed(alert && (t - alertStart) % PULSE_PERIOD_MS < PULSE_ON_MS);
+    setMotor(alert && phaseOn(t, alertStart, PULSE_PERIOD_MS, PULSE_ON_MS));
   }
+  updateStatusLed(t);
 
   if (t - lastReport >= 1000) report(t);
 }

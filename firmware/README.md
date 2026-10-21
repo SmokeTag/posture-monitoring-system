@@ -21,14 +21,27 @@ generated the data in `data/` (reproducibility).
 
 ## Build / upload / monitor (arduino-cli, from the repo root)
 
+Pick the board by its USB serial number, never by `ttyACM0`/`1` (the numbers
+swap between plugs). **Chair firmware on the body runs the motor at full
+power** (its mux S0 is the body's motor pin D10).
+
+| Board | USB serial |
+|---|---|
+| chair | `2C7FE46C8E63BDA0` |
+| body  | `3B4A158C694F1777` |
+
 ```bash
+CHAIR=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00)
+BODY=$(readlink -f /dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_3B4A158C694F1777-if00)
 arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/chair
-arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p /dev/ttyACM0 firmware/chair
-arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
+arduino-cli upload  --fqbn Seeeduino:nrf52:xiaonRF52840Sense -p "$CHAIR" firmware/chair
+arduino-cli monitor -p "$CHAIR" -c baudrate=115200
 ```
 
-Same for `firmware/body`. Upload with the plain `/dev/ttyACMx` path: the
-`/dev/serial/by-id/...` symlink fails ("Target is not in DFU mode"). The XIAO is native USB CDC, so the baud rate is
+Same for `firmware/body` with `"$BODY"`. `readlink -f` matters: uploading
+through the `/dev/serial/by-id/...` symlink itself fails ("Target is not in
+DFU mode"). That message also shows up now and then on a plain port: just run
+the upload again. The XIAO is native USB CDC, so the baud rate is
 ignored; serial input is line-buffered (type, then Enter).
 
 ## Tests (host, no board)

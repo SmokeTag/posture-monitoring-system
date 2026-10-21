@@ -73,8 +73,11 @@ no further prompting. Defaults:
 - **Calibration = per-user, by button:** alert on deviation from a captured
   "upright" reference, not on absolute angle. The button lives on the chair unit
   (XIAO has only RESET), which captures the reference from the body's samples
-  (serial `'c'` also works); the chair's green LED flashes when captured.
+  (serial `'c'` also works); the chair's LED blinks green while capturing.
   Rationale: `docs/decisao-calibracao-vs-limiar-absoluto.md`.
+- **Status LED (both boards, RGB):** orange = no link, blue = linked,
+  green = calibrated, red slow = alert, red fast = fault
+  (`PostureLink/StatusLed.h`; dimmed on the body for the LiPo).
 
 ## Data Flow
 ```

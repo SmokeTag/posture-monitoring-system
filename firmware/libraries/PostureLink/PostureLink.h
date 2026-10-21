@@ -78,7 +78,7 @@ enum : uint8_t {                               // BodyPacket.ctl: who decides th
 enum : uint8_t {                               // BodyPacket.flags
   BF_CAL   = 1 << 0,                           // holds a chair reference (calId)
   BF_ALERT = 1 << 1,                           // alert in effect (from the chair or local, see ctl)
-  BF_MOTOR = 1 << 2,                           // motor/LED output commanded on now (not measured)
+  BF_MOTOR = 1 << 2,                           // motor output commanded on now (not measured)
   BF_TEST  = 1 << 3,                           // a motor-test buzz is running (not a posture alert)
   BF_INH   = 1 << 4,                           // chair alert suppressed by local IMU guard
 };
