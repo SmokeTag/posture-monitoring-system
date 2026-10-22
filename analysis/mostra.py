@@ -185,6 +185,8 @@ class Exhibit:
     def feed(self, row: dict, seated: bool | None = None):
         """One chair row (body up). seated: from the seat FSRs; None = unknown."""
         t = row["t_ms"] / 1000.0
+        if self.prev_t is not None and t < self.prev_t:   # chair reset / replay loop
+            self.timeline.clear()
         dt = 0.0 if self.prev_t is None else min(max(t - self.prev_t, 0.0), 0.25)
         self.prev_t = t
         cat = category(row)
@@ -202,8 +204,8 @@ class Exhibit:
                 v.good_s += dt
                 v.streak_s += dt
                 v.best_streak_s = max(v.best_streak_s, v.streak_s)
-            else:
-                v.streak_s = 0.0
+        if v is not None and cat != GOOD:            # away / invalid breaks "sem parar" too
+            v.streak_s = 0.0
         if v is not None:
             if cat == ALERT and not v.in_alert:
                 v.alerts += 1
@@ -365,7 +367,8 @@ def main() -> int:
     ap.add_argument("--stats-dir", type=Path, default=STATS_DIR,
                     help="where the day's numbers are kept (one JSON per date)")
     ap.add_argument("--no-ref", action="store_true", help="don't draw the recorded postures")
-    ap.add_argument("--replay", type=Path, help="play a recorded capture instead of the serial port")
+    ap.add_argument("--replay", type=Path,
+                    help="play a recorded capture instead of the serial port (day numbers in memory only)")
     ap.add_argument("--speed", type=float, default=1.0, help="replay speed")
     ap.add_argument("--screenshot", type=Path, help="save the screen here after --at s and quit")
     ap.add_argument("--at", type=float, default=5.0, help="seconds before --screenshot")
@@ -373,8 +376,11 @@ def main() -> int:
 
     fmap = M.load_map(args.map)
     today = datetime.date.today().isoformat()
-    exhibit = Exhibit(DayStats.load(args.stats_dir, today),
-                      on_day_change=lambda d: d.save(args.stats_dir))
+    if args.replay:                              # a replay never touches the real day's numbers
+        exhibit = Exhibit(DayStats(today))
+    else:
+        exhibit = Exhibit(DayStats.load(args.stats_dir, today),
+                          on_day_change=lambda d: d.save(args.stats_dir))
     ref_runs = [] if args.no_ref else LP.load_reference_runs()
     reader = (ReplayReader(args.replay, args.speed) if args.replay
               else LP.ChairReader(args.port, None, trail_n=200))

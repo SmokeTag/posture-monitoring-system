@@ -118,6 +118,21 @@ class Visits(unittest.TestCase):
             self.ex.feed(row(10 + i * 0.05), seated=False)
         self.assertAlmostEqual(self.ex.visit.seated_s, 10, delta=0.2)
 
+    def test_leaving_breaks_the_streak(self):
+        sit(self.ex, 0, 20)
+        for i in range(40):                                         # 2 s away, visit kept
+            self.ex.feed(row(20 + i * 0.05), seated=False)
+        sit(self.ex, 22, 42)
+        sit(self.ex, 42, 44, imu=2)                                 # invalid IMU breaks it too
+        sit(self.ex, 44, 50)
+        self.assertAlmostEqual(self.ex.visit.best_streak_s, 20, delta=0.2)
+
+    def test_time_going_back_resets_the_timeline(self):
+        sit(self.ex, 1000, 1010)
+        sit(self.ex, 0, 10)                                         # chair rebooted
+        self.assertTrue(all(t < 10 for t, _ in self.ex.timeline))
+        self.assertLessEqual(len(self.ex.timeline), 200)
+
     def test_timeline(self):
         sit(self.ex, 0, 10)
         sit(self.ex, 10, 12, reason=X.R_IMU_DEV, alert=1)

@@ -12,7 +12,8 @@ porque a porta serial é uma só).
 ```
 
 `--replay` toca uma captura gravada no ritmo original, em loop: serve para
-testar sem o hardware e como plano B se algo falhar na mostra.
+testar sem o hardware e como plano B se algo falhar na mostra. Os números do
+dia de um replay ficam só na memória (não contam no dia real).
 
 ## O que aparece
 
