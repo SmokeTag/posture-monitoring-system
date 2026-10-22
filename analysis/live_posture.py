@@ -102,7 +102,7 @@ class ChairReader(threading.Thread):
     def __init__(self, port: str, log: Path | None, trail_n: int):
         super().__init__(daemon=True)
         self.port, self.ser = port, None
-        self.log = open(log, "a") if log else None
+        self.log = open(log, "x") if log else None   # never append to an old run
         self.lock = threading.Lock()
         self.rows: deque[dict] = deque(maxlen=trail_n)
         self.fsr: deque[tuple[float, dict[int, float]]] = deque(maxlen=int(TRACE_S * 20) + 20)
@@ -534,11 +534,13 @@ def main() -> int:
     ap.add_argument("--port", default=CHAIR_PORT)
     ap.add_argument("--map", type=Path, default=M.MAP_PATH,
                     help="FSR channel -> chair spot map (read + written)")
-    ap.add_argument("--log", type=Path, help="also append every serial line here")
+    ap.add_argument("--log", type=Path, help="also save every serial line here (new file; refuses an existing one)")
     ap.add_argument("--trail", type=float, default=3.0, help="trail length, s")
     ap.add_argument("--tags", type=Path, default=TAGS_PATH,
                     help="posture tag names (JSON, {\"1\": \"name\", ...})")
     args = ap.parse_args()
+    if args.log and args.log.exists():
+        ap.error(f"{args.log} already exists; pick a new name (e.g. the next _runN)")
 
     tags = load_tags(args.tags)
     reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
