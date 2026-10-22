@@ -1,8 +1,12 @@
 # Decisão de projeto: regra de alerta com fusão IMU + FSR
 
-> **Status:** PROPOSTA (fase 1, análise). Regra desenhada e avaliada em Python
-> (`analysis/fusion.py`); falta portar para o firmware da cadeira (fase 2).
-> A queda de enlace no corpo continua só-IMU (o corpo não tem FSRs).
+> **Status:** IMPLEMENTADA, falta validar com uma pessoa nova. Regra
+> desenhada e avaliada em Python (`analysis/fusion.py`) e portada 1:1 para a
+> cadeira (`firmware/libraries/PostureLink/Fusion.h`; `test_fusion` confere as
+> duas em trechos reais dos logs). A queda de enlace no corpo continua só-IMU
+> (o corpo não tem FSRs). O mapa posição ↔ canal dos FSRs está fixo no
+> firmware (`FSR_SPOT_CH` em `chair.ino`, cópia de `analysis/chair_map.json`):
+> remapear a cadeira exige atualizar essa tabela.
 
 ## Problema
 

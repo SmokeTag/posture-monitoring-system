@@ -19,6 +19,8 @@ Capturas seguem `docs/protocolo-captura.md` (tag `0` = transição; posturas
 `1`–`9` em `analysis/tags.json`, incluindo pernas cruzadas; falta decidir se
 elas geram alerta). Essa captura também alimenta o overlay de referência do
 `analysis/live_posture.py`.
+Regra de fusão implementada (`docs/decisao-fusao-imu-fsr.md`, `Fusion.h`);
+falta validar com uma pessoa nova.
 **Pronto quando:** as posturas desse protocolo são classificadas corretamente
 em sessões gravadas.
 
