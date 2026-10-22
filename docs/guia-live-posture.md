@@ -81,6 +81,7 @@ Diz ao app qual canal do mux (C8–C15) está em cada posição da cadeira.
 
 1. Aperte **`m`**. As posições são pedidas em ordem: assento trás E, trás D,
    frente E, frente D; encosto baixo E, baixo D, cima E, cima D.
+   **E/D = de quem está sentado** (de frente para a cadeira, fica invertido).
 2. Para cada uma, siga o aviso no topo do painel:
    **tire as mãos** (o app mede a linha de base) → **aperte e segure o sensor
    pedido** (~0,5 s) → o círculo fica verde → **solte**.

@@ -134,7 +134,7 @@ class MapSession:
         if self.state == "settle":
             return f"{step}hands off the sensors …  (next: {name})"
         if self.state == "press":
-            return f"{step}press and hold the {name.upper()} sensor"
+            return f"{step}press and hold the {name.upper()} sensor  (sitter's left/right)"
         return f"{step}got it — release"
 
     def candidate(self) -> int | None:

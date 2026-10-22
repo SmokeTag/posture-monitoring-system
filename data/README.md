@@ -9,6 +9,11 @@ saved as a `# fsr map` line. The live tool appends the posture tag as a last
 `tag` column (`0` = transition, dropped in analysis), with the names as a
 `# tag map` line. Capture protocol (PT-BR): [`../docs/protocolo-captura.md`](../docs/protocolo-captura.md).
 
+**FSR map, 2026-10-21 runs:** the chair was mapped facing it, so left/right
+came out as the viewer's. The `# fsr map` lines were mirrored on 2026-10-22
+(marked by a `# note:` line) and now use the sitter's left/right, like
+`analysis/chair_map.json`.
+
 ## Run registry
 
 | run | file | date | subject | notes |

@@ -6,7 +6,8 @@ t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,bctl,bcal,bcalid,baler
 199959,0,217,0.0,0,0.4,0.3,0.4,0.3,223,2094,1,0,217,0,0,0,2092,2,0,0,3956,2743,2671,3091,2908,1608,2314,1002,0,0
 # rx pkts=20 lost=0 dup=0 old=0 rst=0 bad=0 ver=0 sdrop=0 edrop=0 dt=1000
 200009,0,217,0.0,0,0.3,0.6,0.3,0.6,223,2095,1,0,217,0,0,0,2093,2,0,0,3956,2748,2678,3096,2912,1488,2317,992,0,0
-# fsr map c8=seat_front_right c9=seat_front_left c10=seat_rear_right c11=seat_rear_left c12=back_lower_left c13=back_upper_left c14=back_lower_right c15=back_upper_right
+# note: fsr map mirrored L/R 2026-10-22: mapped facing the chair; left/right = the sitter's (original line was viewer's)
+# fsr map c8=seat_front_left c9=seat_front_right c10=seat_rear_left c11=seat_rear_right c12=back_lower_right c13=back_upper_right c14=back_lower_left c15=back_upper_left
 200059,0,217,0.0,0,0.4,0.3,0.4,0.3,223,2096,1,0,217,0,0,0,2094,2,0,0,3956,2747,2675,3095,2909,1413,2313,979,0,0
 200109,0,217,0.0,0,0.3,0.4,0.3,0.4,223,2097,1,0,217,0,0,0,2095,2,0,0,3956,2745,2674,3097,2911,1387,2301,963,0,0
 200159,0,217,0.0,0,0.4,0.4,0.4,0.4,223,2098,1,0,217,0,0,0,2096,2,0,0,3956,2748,2680,3097,2909,1378,2301,967,0,0

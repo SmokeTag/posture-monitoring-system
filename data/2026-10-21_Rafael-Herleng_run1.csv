@@ -5,7 +5,8 @@ t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,bctl,bcal,bcalid,baler
 # proto=4
 13755796,1,239,6.4,0,-1.3,-6.2,-1.0,75.8,188,22605,1,1,239,0,0,0,22603,2,0,0,3880,2363,2742,2845,2646,0,2504,2278,2904,0
 13755846,1,239,6.3,0,-1.4,-6.2,-1.0,75.8,188,22606,1,1,239,0,0,0,22604,2,0,0,3880,2352,2752,2842,2648,0,2495,2276,2899,0
-# fsr map c8=seat_front_right c9=seat_front_left c10=seat_rear_right c11=seat_rear_left c12=back_lower_left c13=back_upper_left c14=back_lower_right c15=back_upper_right
+# note: fsr map mirrored L/R 2026-10-22: mapped facing the chair; left/right = the sitter's (original line was viewer's)
+# fsr map c8=seat_front_left c9=seat_front_right c10=seat_rear_left c11=seat_rear_right c12=back_lower_right c13=back_upper_right c14=back_lower_left c15=back_upper_left
 13755896,1,239,6.7,0,-1.1,-6.6,-0.7,75.4,188,22607,1,1,239,0,0,0,22605,2,0,0,3880,2354,2742,2840,2644,0,2489,2275,2895,0
 13755946,1,239,6.3,0,-1.2,-6.2,-0.8,75.8,188,22608,1,1,239,0,0,0,22606,2,0,0,3880,2355,2746,2840,2645,4,2492,2268,2887,0
 13755997,1,239,6.4,0,-1.4,-6.3,-1.0,75.8,188,22609,1,1,239,0,0,0,22607,2,0,0,3880,2353,2745,2832,2647,0,2489,2236,2888,0

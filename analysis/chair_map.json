@@ -1,10 +1,10 @@
 {
-  "seat_rear_left": 11,
-  "seat_rear_right": 10,
-  "seat_front_left": 9,
-  "seat_front_right": 8,
-  "back_upper_left": 13,
-  "back_upper_right": 15,
-  "back_lower_left": 12,
-  "back_lower_right": 14
+  "seat_rear_right": 11,
+  "seat_rear_left": 10,
+  "seat_front_right": 9,
+  "seat_front_left": 8,
+  "back_upper_right": 13,
+  "back_upper_left": 15,
+  "back_lower_right": 12,
+  "back_lower_left": 14
 }

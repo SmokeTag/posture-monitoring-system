@@ -5,7 +5,8 @@ t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,bctl,bcal,bcalid,baler
 # proto=4
 9402846,1,234,67.4,1,0.1,-67.4,-3.0,-1.1,132,56636,1,1,234,1,1,0,56634,2,0,0,3909,0,0,0,0,0,0,0,0,0
 9402896,1,234,67.4,1,0.2,-67.4,-2.9,-1.1,132,56637,1,1,234,1,1,0,56635,2,0,0,3909,0,0,0,0,0,2,0,0,0
-# fsr map c8=seat_front_right c9=seat_front_left c10=seat_rear_right c11=seat_rear_left c12=back_lower_left c13=back_upper_left c14=back_lower_right c15=back_upper_right
+# note: fsr map mirrored L/R 2026-10-22: mapped facing the chair; left/right = the sitter's (original line was viewer's)
+# fsr map c8=seat_front_left c9=seat_front_right c10=seat_rear_left c11=seat_rear_right c12=back_lower_right c13=back_upper_right c14=back_lower_left c15=back_upper_left
 9402947,1,234,67.4,1,0.2,-67.4,-2.9,-1.1,132,56638,1,1,234,1,1,0,56636,2,0,0,3909,0,3,0,0,2,0,1,0,0
 9402997,1,234,67.5,1,0.3,-67.5,-2.8,-1.1,132,56639,1,1,234,1,0,0,56637,2,0,0,3909,0,0,0,1,0,0,0,0,0
 # rx pkts=20 lost=0 dup=0 old=0 rst=0 bad=0 ver=0 sdrop=0 edrop=0 dt=1000

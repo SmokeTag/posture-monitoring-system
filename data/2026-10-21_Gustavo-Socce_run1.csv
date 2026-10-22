@@ -1,5 +1,6 @@
 # tag map 0=transition 1=ereto 2=curvado_frente 3=cabeca_frente 4=escorregado 5=inclinado_esq 6=inclinado_dir 7=reclinado 8=perna_e_sobre_d 9=perna_d_sobre_e
-# fsr map c8=seat_front_right c9=seat_front_left c10=seat_rear_right c11=seat_rear_left c12=back_lower_left c13=back_upper_left c14=back_lower_right c15=back_upper_right
+# note: fsr map mirrored L/R 2026-10-22: mapped facing the chair; left/right = the sitter's (original line was viewer's)
+# fsr map c8=seat_front_left c9=seat_front_right c10=seat_rear_left c11=seat_rear_right c12=back_lower_right c13=back_upper_right c14=back_lower_left c15=back_upper_left
 # chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, 'r' = clear, 'm' = motor test
 # unit=raw
 t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,c9,c10,c11,c12,c13,c14,c15,tag
