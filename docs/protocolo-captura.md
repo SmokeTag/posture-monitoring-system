@@ -59,6 +59,8 @@ do log.
 
 Confira no painel: `IMU OK`, enlace sem perdas, os 8 FSRs respondendo e o
 badge `TAG 0 · transição` (sem badge = não está gravando: falta o `--log`).
+O badge cronometra cada tag: 15 s regressivos por postura (10 s no ereto `1`),
+verde em "✓ pronto"; na transição, cronômetro crescente.
 
 ## Regras de cada postura
 

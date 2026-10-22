@@ -18,18 +18,20 @@ Right: the chair seen from above with the backrest folded back (sitter's left
 on the left) — 4 seat + 4 backrest spots, each filled by its FSR's load
 (conductance 1/R, ~linear in force), with the centre of pressure per plate;
 below, one trace per mux channel (C8..C15). Which channel sits at which spot
-comes from chair_map.json, built here: press m (or click a spot) and press each
+comes from chair_map.json (FSRs are soldered: fixed). With --fsr-placement it is
+built here: press m (or click a spot) and press each
 sensor when asked. While a spot is waiting you can also click a channel's trace
 to assign it by hand.
 
 Keys (plot window focused):  c = calibrate (sends 'c' to the chair)   r = clear
-                             m = map all 8 FSRs   Esc = cancel mapping
+                             m = map all 8 FSRs   Esc = cancel mapping (--fsr-placement)
                              0..9 = posture tag (0 = transition; --log only)
 
 With --log, every data row gets the current tag as an extra last column `tag`
 (it starts at 0, so anything not tagged on purpose is dropped as transition);
-the tag names from tags.json go in as a `# tag map` line. Without --log the tag
-badge and keys are hidden. The UI text is PT-BR (shown at a science fair).
+the tag names from tags.json go in as a `# tag map` line. The badge times the
+hold: a countdown (--hold s; 10 s for upright) that turns green when done, a
+stopwatch for transition. Without --log the tag badge and keys are hidden. The UI text is PT-BR (shown at a science fair).
 
     .venv/bin/python analysis/live_posture.py
     .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0 --log data/<name>.csv
@@ -41,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import threading
 import warnings
 import time
@@ -86,6 +89,7 @@ G_MAX = 6250.0                               # µS = 160 Ω, the FSR402 floor at
 LOAD_NORM = PowerNorm(0.5, 0, G_MAX)         # sqrt: light touches stay visible
 R_TICKS = [10_000, 2_000, 1_000, 500, 250]    # Ω, on the load scale
 TRACE_S = 10.0
+HOLD_S, HOLD_UPRIGHT_S = 15.0, 10.0           # tag countdowns (capture protocol)
 TAGS_PATH = Path(__file__).with_name("tags.json")   # {"1": "upright", ...}; 0 is always transition
 
 
@@ -103,6 +107,16 @@ def volts(mv: float) -> str:
 def tag_label(tags: dict[int, str], tag: int) -> str:
     """Badge text for a tag: 'transição' for 0, else the tags.json name."""
     return "transição" if tag == 0 else tags.get(tag, "(indefinida)").replace("_", " ")
+
+
+def tag_clock(tag: int, elapsed: float, hold: float = HOLD_S) -> tuple[str, bool]:
+    """Badge timer since the tag key: a stopwatch for 0 (transition), else a
+    countdown of the hold time (HOLD_UPRIGHT_S for upright between postures,
+    docs/protocolo-captura.md); done = the hold is over."""
+    if tag == 0:
+        return f"⏱ {int(elapsed) // 60}:{int(elapsed) % 60:02d}", False
+    left = (HOLD_UPRIGHT_S if tag == 1 else hold) - elapsed
+    return ("✓ pronto", True) if left <= 0 else (f"⏳ {math.ceil(left)} s", False)
 
 
 def fmt_ohms(r: float) -> str:
@@ -408,8 +422,10 @@ class ChairView:
     PLATES = {"back": (0.0, 11.0), "seat": (0.0, 0.0)}   # lower-left corner, 10 x 10
     SPOT_R = 2.0
 
-    def __init__(self, fig, rect_chair, rect_bar, rect_traces, map_path: Path, reader):
+    def __init__(self, fig, rect_chair, rect_bar, rect_traces, map_path: Path, reader,
+                 editable: bool = False):
         self.map_path, self.reader = map_path, reader
+        self.editable = editable                      # FSR mapping wizard on (--fsr-placement)
         self.map = M.load_map(map_path)
         self.session: M.MapSession | None = None
         self.last_t = 0.0
@@ -489,7 +505,8 @@ class ChairView:
 
     # --- mapping ---------------------------------------------------------
     def start(self, slots: list[str]):
-        self.session = M.MapSession(slots)
+        if self.editable:
+            self.session = M.MapSession(slots)
 
     def cancel(self):
         self.session = None
@@ -506,6 +523,8 @@ class ChairView:
             f"c{c}={inv.get(c, 'unmapped')}" for c in M.CHANNELS))
 
     def on_click(self, ev):
+        if not self.editable:
+            return
         if ev.inaxes is self.ax and ev.xdata is not None:
             for slot in M.SLOTS:
                 cx, cy = self._xy(slot)
@@ -545,7 +564,7 @@ class ChairView:
                 spot.set(fc="none" if ch is None else OPEN_FC, ec=MUTED, lw=1.2,
                          ls=":" if ch is None else "-")
                 txt.set(text="?" if ch is None else f"C{ch}", color=MUTED)
-                val.set(text="clique" if ch is None else "—", color=MUTED)
+                val.set(text="clique" if ch is None and self.editable else "—", color=MUTED)
             else:
                 us = g.get(ch, 0.0)
                 lvl = float(LOAD_NORM(us))
@@ -574,7 +593,8 @@ class ChairView:
             hint = ("ou clique no gráfico dele abaixo · " if self.session.state == "press" else "")
             self.prompt.set_text(f"{self.session.prompt}\n{hint}Esc cancela")
         elif len(self.map) < len(M.SLOTS):
-            self.prompt.set_text(f"{len(self.map)}/8 FSRs mapeados — aperte m para mapear")
+            self.prompt.set_text(f"{len(self.map)}/8 FSRs mapeados — "
+                                 + ("aperte m para mapear" if self.editable else "rode com --fsr-placement"))
         else:
             self.prompt.set_text("")
         self.prompt.set_visible(bool(self.prompt.get_text()))
@@ -619,6 +639,10 @@ def main() -> int:
     ap.add_argument("--trail", type=float, default=3.0, help="trail length, s")
     ap.add_argument("--tags", type=Path, default=TAGS_PATH,
                     help="posture tag names (JSON, {\"1\": \"name\", ...})")
+    ap.add_argument("--fsr-placement", action="store_true",
+                    help="enable the FSR mapping wizard (m / click a spot); off: the map is fixed")
+    ap.add_argument("--hold", type=float, default=HOLD_S,
+                    help="posture tag countdown, s (upright `1` always counts HOLD_UPRIGHT_S = 10 s)")
     ap.add_argument("--no-ref", action="store_true",
                     help="don't draw the recorded postures (data/*_run*.csv) on the IMU plot")
     args = ap.parse_args()
@@ -638,7 +662,7 @@ def main() -> int:
     fig.canvas.manager.set_window_title("Postura — ao vivo (IMU do corpo + FSRs da cadeira)")
     ax = fig.add_axes((0.04, 0.08, 0.39, 0.84))
     chair = ChairView(fig, (0.575, 0.37, 0.41, 0.50), (0.59, 0.335, 0.2, 0.013),
-                      (0.575, 0.03, 0.41, 0.27), args.map, reader)
+                      (0.575, 0.03, 0.41, 0.27), args.map, reader, editable=args.fsr_placement)
     ax.add_patch(Circle((0, 0), ALERT_DEG, fill=False, color="#888", lw=1.5))
     ax.add_patch(Circle((0, 0), CLEAR_DEG, fill=False, color="#888", lw=1, ls=":"))
     ax.annotate(f"alerta {ALERT_DEG:.0f}°", (ALERT_DEG * 0.71, ALERT_DEG * 0.71),
@@ -671,9 +695,9 @@ def main() -> int:
     def on_key(ev):
         if ev.key in ("c", "r"):
             reader.send(ev.key)
-        elif ev.key == "m":
+        elif ev.key == "m" and args.fsr_placement:
             chair.start(M.WIZARD_ORDER)
-        elif ev.key == "escape":
+        elif ev.key == "escape" and args.fsr_placement:
             chair.cancel()
         elif args.log and ev.key in tuple("0123456789"):     # tags only matter in a log
             reader.tag = int(ev.key)
@@ -681,8 +705,9 @@ def main() -> int:
     fig.canvas.mpl_connect("key_press_event", on_key)
     fig.canvas.mpl_connect("button_press_event", chair.on_click)
 
-    keys = ("\n\nteclas\n· c calibrar\n· r limpar calibração\n· m mapear FSRs"
-            "\n· Esc cancelar mapeamento" + ("\n· 0-9 tag (0 = transição)" if args.log else ""))
+    keys = ("\n\nteclas\n· c calibrar\n· r limpar calibração"
+            + ("\n· m mapear FSRs\n· Esc cancelar mapeamento" if args.fsr_placement else "")
+            + ("\n· 0-9 tag (0 = transição)" if args.log else ""))
 
     def update(_):
         rows, fsr, events, link, body_up = reader.snapshot()
@@ -725,10 +750,11 @@ def main() -> int:
         if args.log:
             name = tag_label(tags, reader.tag)
             flash = time.monotonic() - tag_set_at[0] < 0.6     # confirms the key press
-            tag_badge.set_text(f"TAG {reader.tag} · {name}")
+            clock, done = tag_clock(reader.tag, time.monotonic() - tag_set_at[0], args.hold)
+            tag_badge.set_text(f"TAG {reader.tag} · {name}   {clock}")
             tag_badge.set_color(INK if reader.tag == 0 else "white")
             tag_badge.get_bbox_patch().set(
-                fc=OPEN_FC if reader.tag == 0 else "#2a78d6",
+                fc=OPEN_FC if reader.tag == 0 else "#0ca30c" if done else "#2a78d6",
                 ec="#0ca30c" if flash else PLATE_EC, lw=4 if flash else 1.5)
             tag = f"tag     {reader.tag} · {name}\n"
         tail = (f"{tag}enlace  {link.removeprefix('rx ') or '—'}\n"

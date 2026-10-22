@@ -359,6 +359,21 @@ class Parsing(unittest.TestCase):
         self.assertEqual(s, "rx pkts=0 lost=0 bad=20")
 
 
+class TagClock(unittest.TestCase):
+    def test_transition_is_a_stopwatch(self):
+        self.assertEqual(LP.tag_clock(0, 0.4), ("⏱ 0:00", False))
+        self.assertEqual(LP.tag_clock(0, 75.2), ("⏱ 1:15", False))
+
+    def test_posture_counts_down_then_done(self):
+        self.assertEqual(LP.tag_clock(2, 0.0), ("⏳ 15 s", False))
+        self.assertEqual(LP.tag_clock(2, 14.2), ("⏳ 1 s", False))
+        self.assertEqual(LP.tag_clock(2, 15.0), ("✓ pronto", True))
+        self.assertEqual(LP.tag_clock(2, 0.0, hold=20), ("⏳ 20 s", False))
+
+    def test_upright_between_postures_is_shorter(self):
+        self.assertEqual(LP.tag_clock(1, 0.0), ("⏳ 10 s", False))
+
+
 class Reference(unittest.TestCase):
     def test_recorded_postures_land_where_the_neck_mount_puts_them(self):
         """dpitch = sideways, droll = forward/back (the axis labels rely on it)."""

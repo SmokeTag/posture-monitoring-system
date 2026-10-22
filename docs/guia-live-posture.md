@@ -76,12 +76,15 @@ abre a porta com DTR baixo e o ativa após a abertura, sem enviar comandos.
 |---|---|
 | `c` | calibrar a postura ereta (manda `c` para a cadeira; o botão físico faz o mesmo) |
 | `r` | limpar a calibração |
-| `m` | mapear os 8 FSRs |
-| `Esc` | cancelar o mapeamento |
-| `0`–`9` | tag da postura (`0` = transição); só com `--log`, vai como coluna `tag` ([protocolo](protocolo-captura.md)) |
-| clique num círculo | remapear só aquela posição |
+| `m` | mapear os 8 FSRs (só com `--fsr-placement`) |
+| `Esc` | cancelar o mapeamento (só com `--fsr-placement`) |
+| `0`–`9` | tag da postura (`0` = transição); só com `--log`, vai como coluna `tag` ([protocolo](protocolo-captura.md)). O badge cronometra: contagem regressiva de 15 s (`--hold`; 10 s no ereto `1`), que fica verde em "✓ pronto"; na transição, cronômetro crescente |
+| clique num círculo | remapear só aquela posição (só com `--fsr-placement`) |
 
 ## Mapear os FSRs
+
+Os FSRs estão soldados e o mapa em `chair_map.json` é fixo: o mapeamento só
+fica disponível com `--fsr-placement` (sem ele, `m` e o clique não fazem nada).
 
 Diz ao app qual canal do mux (C8–C15) está em cada posição da cadeira.
 
