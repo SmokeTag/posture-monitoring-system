@@ -4,7 +4,7 @@ Reads the serial CSV of the chair unit (firmware/chair/chair.ino, the "brain",
 which receives the body's IMU over ESB and scans its FSRs).
 
 Left: the current (dpitch, droll) point with a short trail, with the alert
-(10°) and clear (7°) circles, on top of the postures recorded in data/*_run*.csv
+(10°) and clear (7°) circles, on top of the postures recorded in data/2026-10-21_*_run*.csv
 (one dot per subject, a big one at their median; red = should alert,
 green = must not; --no-ref hides them). The status box shows dev and the chair's
 decision, then what the body reports it applied: who decides (chair /
@@ -52,6 +52,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 import serial  # noqa: E402
 from matplotlib.animation import FuncAnimation  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap, PowerNorm  # noqa: E402
@@ -347,15 +348,37 @@ REF_POSTURES = {                              # display group -> (tags, label, l
     "pernas": ([8, 9], "pernas cruzadas", (10, 8), "left"),
 }
 REF_BAD, REF_OK = "#e07b72", "#5aa469"           # should alert / must not (fusion.BAD_TAGS)
+REF_GLOB = "2026-10-21_*_run*.csv"               # the tagged multi-subject captures (data/README.md)
+
+
+def load_reference_runs(pattern: str = REF_GLOB, skip: Path | None = None) -> list:
+    """Captures for the overlay; best effort: an unreadable file (e.g. a log cut
+    short before its first row) is skipped, never fatal for the live view."""
+    runs = []
+    for p in sorted(C.DATA.glob(pattern)):
+        if skip is not None and p.resolve() == skip.resolve():
+            continue
+        try:
+            with warnings.catch_warnings():         # untrusted-calibration notes
+                warnings.simplefilter("ignore")
+                runs.append(C.load(p))
+        except (ValueError, IndexError, KeyError, OSError) as e:
+            print(f"reference: skipping {p.name} ({e})")
+    return runs
 
 
 def reference_points(runs) -> dict[str, np.ndarray]:
     """Display group -> per-subject median (dpitch, droll), one row per subject
-    that held it: settled, calibrated, valid-IMU rows of the tagged captures."""
+    that held it (all their runs pooled): settled, calibrated, valid-IMU rows
+    of the tagged captures."""
     per: dict[str, list] = {k: [] for k in REF_POSTURES}
+    by_subject: dict[str, list] = {}
     for run in runs:
         d = run.rows
-        d = d[d["settled"] & (d["cal"] == 1) & (d["imu"] == 0 if "imu" in d else True)]
+        by_subject.setdefault(run.subject, []).append(
+            d[d["settled"] & (d["cal"] == 1) & (d["imu"] == 0 if "imu" in d else True)])
+    for frames in by_subject.values():
+        d = pd.concat(frames)
         for key, (tags, *_) in REF_POSTURES.items():
             g = d[d["tag"].isin(tags)]
             if len(g):
@@ -603,6 +626,7 @@ def main() -> int:
         ap.error(f"{args.log} already exists; pick a new name (e.g. the next _runN)")
 
     tags = load_tags(args.tags)
+    ref_runs = [] if args.no_ref else load_reference_runs(skip=args.log)   # before the log exists
     reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
     reader.note("tag map " + " ".join(f"{k}={v.replace(' ', '_')}" for k, v in sorted(tags.items())))
     reader.start()
@@ -629,12 +653,8 @@ def main() -> int:
     ax.set_xlabel("dpitch [°]   (− esquerda · direita +)")
     ax.set_ylabel("droll [°]   (− frente · trás +)")
     ax.set_title("Desvio da postura calibrada (centro = ereto)", fontsize=10)
-    if not args.no_ref:
-        with warnings.catch_warnings():                 # untrusted-calibration notes
-            warnings.simplefilter("ignore")
-            runs = C.runs()
-        if runs:
-            draw_reference(ax, reference_points(runs), len({r.subject for r in runs}))
+    if ref_runs:
+        draw_reference(ax, reference_points(ref_runs), len({r.subject for r in ref_runs}))
 
     trail, = ax.plot([], [], color="#333", lw=2, alpha=0.5, zorder=4)
     dot = ax.scatter([0], [0], s=260, color=C_OK, edgecolor="white", lw=2.5, zorder=6)

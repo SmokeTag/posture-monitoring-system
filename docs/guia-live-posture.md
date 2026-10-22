@@ -23,7 +23,7 @@ A interface é em português (usada na mostra de ciência).
 - **Esquerda — IMU:** desvio da postura calibrada `(dpitch, droll)` com rastro,
   e círculos de alerta (10°) e de liberação (7°). Com o colar no pescoço,
   `dpitch` = inclinação lateral (− esquerda) e `droll` = frente/trás
-  (− frente). Ao fundo, as posturas gravadas em `data/*_run*.csv`: um ponto
+  (− frente). Ao fundo, as posturas gravadas em 21/10 (`data/2026-10-21_*_run*.csv`): um ponto
   pequeno por pessoa, um grande na mediana; vermelho = deve alertar, verde =
   não alerta (`--no-ref` esconde). Escorregado e reclinado caem no mesmo
   lugar do IMU — quem separa os dois são os FSRs. Caixa de status: desvio,

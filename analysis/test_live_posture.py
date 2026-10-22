@@ -362,7 +362,7 @@ class Parsing(unittest.TestCase):
 class Reference(unittest.TestCase):
     def test_recorded_postures_land_where_the_neck_mount_puts_them(self):
         """dpitch = sideways, droll = forward/back (the axis labels rely on it)."""
-        runs = C.runs()
+        runs = LP.load_reference_runs()
         if not runs:
             self.skipTest("no captures in data/")
         med = {k: np.median(v, axis=0) for k, v in LP.reference_points(runs).items()}
@@ -371,6 +371,27 @@ class Reference(unittest.TestCase):
         self.assertLess(med["esq"][0], -5)               # lean left: dpitch −
         self.assertGreater(med["dir"][0], 5)             # lean right: dpitch +
         self.assertLess(np.hypot(*med["pernas"]), 7)     # crossed legs: inside the clear circle
+
+    def test_one_dot_per_subject(self):
+        runs = LP.load_reference_runs()
+        if not runs:
+            self.skipTest("no captures in data/")
+        n = len({r.subject for r in runs})
+        self.assertLess(n, len(runs))                    # André has two runs
+        self.assertEqual(len(LP.reference_points(runs)["curvado"]), n)
+
+    def test_broken_or_active_log_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            good = sorted(C.DATA.glob(LP.REF_GLOB))[0]
+            (data / good.name).write_text(good.read_text())
+            (data / "2026-10-21_Empty_run1.csv").write_text("# tag map 0=transition\n")
+            (data / "2026-10-21_HeaderOnly_run1.csv").write_text("# x\nt_ms,cal\n")
+            active = data / "2026-10-21_Active_run1.csv"
+            active.write_text(good.read_text())
+            with patch.object(C, "DATA", data), patch("builtins.print"):
+                runs = LP.load_reference_runs(skip=active)
+            self.assertEqual([r.path.name for r in runs], [good.name])
 
 
 if __name__ == "__main__":
