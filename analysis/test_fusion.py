@@ -182,7 +182,15 @@ class RuleTest(unittest.TestCase):
         self.assertEqual(self.decide(6.0, -3.0, left)[:2], (F.OK, False))    # shift the other way
         self.assertEqual(self.decide(-4.0, -3.0, left)[:2], (F.OK, False))   # too small in the IMU
 
+    def test_capture_rejected_without_seat_rear(self):
+        rule = F.FusionRule()
+        self.assertFalse(rule.calibrate([2500, 2500, 0, 0, 2300, 2400, 2800, 2600]))   # perched
+        self.assertEqual(rule.step(0, 30.0, 0.0, UPRIGHT), (False, F.INVALID))     # no decisions
+        self.assertTrue(rule.calibrate(UPRIGHT))
+        self.assertTrue(F.FusionRule(F.CURRENT).calibrate([0] * 8))                 # IMU-only rule
+
     def test_zero_baseline_falls_back_to_imu(self):
+        """Defence in depth: the chair rejects such a capture, decide() still guards it."""
         base = F.Baseline.of([2400, 2700, 0, 0, 0, 0, 2800, 2600])
         self.assertFalse(base.rear_ok)
         f = fsr(seat_rear_left=0, seat_rear_right=0)

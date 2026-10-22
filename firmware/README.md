@@ -88,7 +88,10 @@ open FSR ≈0), announced by `# unit=raw`. The last column, `reason`, is the
 fusion rule's reason code (`Fusion.h`; -1 = no decision), and the
 `# calibrated upright:` event carries the FSR baseline (`fsr=` c8..c15 means).
 Spot ↔ channel is the `FSR_SPOT_CH` table in `chair.ino`, a copy of
-`analysis/chair_map.json`: re-mapping the chair means updating both. Headers are sent automatically on
+`analysis/chair_map.json`: re-mapping the chair means updating both. A
+capture with the seat rear unloaded (baseline < `BASE_MIN`: perched forward,
+empty chair) is rejected — `# calibrate rejected: ...`, LED red fast for 2 s,
+previous state kept, as an aborted capture. Headers are sent automatically on
 connection/reconnection; there is no header command. The live view opens the
 port with DTR low, then raises it after pyserial's initial input flush so the
 header is not discarded. `analysis/live_posture.py` converts these

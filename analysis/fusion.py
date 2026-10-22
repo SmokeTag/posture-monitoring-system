@@ -64,9 +64,10 @@ class Params:
     lean_lr: float = 0.08                     # seat (L-R)/(L+R) shift vs baseline towards the lean
     empty_raw: float = 2000.0                 # seat sum below this = no-one seated (raw counts)
     base_min: float = 1000.0                  # a 2-sensor baseline below this is unusable (raw)
+    reject_cal: bool = True                   # refuse a capture whose seat-rear baseline < base_min
 
 
-CURRENT = Params(slump_frac=-INF, recline_frac=INF, lean_deg=INF, empty_raw=-INF)
+CURRENT = Params(slump_frac=-INF, recline_frac=INF, lean_deg=INF, empty_raw=-INF, reject_cal=False)
 FUSION = Params()
 
 
@@ -150,9 +151,14 @@ class FusionRule:
     def __init__(self, p: Params = FUSION):
         self.p, self.gate, self.base = p, Gate(hold_ms(p)), None
 
-    def calibrate(self, fsr_means):
-        self.base = Baseline.of(fsr_means, self.p)
+    def calibrate(self, fsr_means) -> bool:
+        """False = capture rejected (seat rear unloaded: perched forward / empty chair).
+        The chair then keeps its previous state; a replay can't (the logged angles are
+        relative to the new reference), so it stays uncalibrated: no decisions."""
         self.gate.reset()
+        base = Baseline.of(fsr_means, self.p)
+        self.base = None if self.p.reject_cal and not base.rear_ok else base
+        return self.base is not None
 
     def step(self, t: int, dp: float, dr: float, f) -> tuple[bool, int]:
         if self.base is None:
@@ -310,6 +316,8 @@ def replay_v(x: Inputs, p: Params) -> np.ndarray:
     code, bad, ok = decide_v(x, p)
     n = len(bad)
     usable = x.calibrated & ~np.isnan(x.base[:, 0])
+    if p.reject_cal:                           # FusionRule.calibrate() refuses these
+        usable &= x.base[:, SRL] + x.base[:, SRR] >= p.base_min
     prev_usable = np.r_[False, usable[:-1]]
     changed = np.r_[True, np.any(x.base[1:] != x.base[:-1], 1)]
     newbase = usable & ~x.frozen & (x.recal | ~prev_usable | changed)

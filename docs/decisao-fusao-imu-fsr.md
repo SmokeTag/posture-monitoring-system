@@ -26,12 +26,16 @@ referência calibrada), os 8 FSRs crus (ADC 12 bits) por posição e a
 **linha de base FSR** da calibração.
 
 **Linha de base:** média de cada FSR nas **mesmas 20 amostras** (1 s) que
-formam a referência do IMU (`CAL_SAMPLES` em `chair.ino`). Dela saem:
+formam a referência do IMU (`CAL_SAMPLES` em `chair.ino`). **Se
+`base_rear < BASE_MIN` a captura é recusada** (sentado na ponta ou cadeira
+vazia: sem ela não há detecção de escorregado): evento `# calibrate rejected:
+seat rear unloaded ...`, LED vermelho rápido por 2 s, e vale o estado anterior,
+como numa captura abortada. Dela saem:
 
 ```
 base_rear = b[seat_rear_left] + b[seat_rear_right]
 bL = b[seat_front_left] + b[seat_rear_left];  bR = b[seat_front_right] + b[seat_rear_right]
-rear_ok = base_rear >= BASE_MIN              # guarda: base ~0 desliga os termos do assento traseiro
+rear_ok = base_rear >= BASE_MIN              # sempre verdade após a recusa acima; guarda mantida
 lr_ok   = bL + bR  >= 2*BASE_MIN
 base_lr = lr_ok ? (bL - bR)/(bL + bR) : 0
 ```
@@ -69,7 +73,7 @@ calibração zeram o portão.
 | `RECLINE_FRAC` | 0,7 | `reclinado`: assento traseiro p5 0,65 agrupado (mediana 0,98); precisa ficar acima do `escorregado` parcial do Gustavo (0,49). 7/8 dobras LOSO |
 | `LEAN_DEG` / `LEAN_LR` | 5° / 0,08 | ereto: \|dpitch\| ≤ 3,9° (p1–p99), deslocamento L/R do assento ≈ 0 (\|mediana\| ≤ 0,01); 6/8 dobras LOSO |
 | `EMPTY_RAW` | 2000 | sentado, soma do assento ≥ 5222 em toda amostra assentada (mín. = `escorregado`, só a frente); vazio ≈ 0 |
-| `BASE_MIN` | 1000 | bases do assento traseiro 4007–5999 em todas as calibrações registradas; as de antes do log feitas com a cadeira vazia (Andre, Gustavo) dão 0–2 |
+| `BASE_MIN` | 1000 | recusa da captura; bases do assento traseiro 4007–5999 em todas as calibrações registradas (nenhuma seria recusada); as de antes do log feitas com a cadeira vazia (Andre, Gustavo) dão 0–2 |
 
 Só somas de grupos do assento são usadas: as costas têm canais que ficam ≈ 0
 mesmo ereto (back_lower de Thiago-M, Rafael, Ryan), então razões por canal
@@ -86,7 +90,10 @@ captura de cada `# calibrated` (19 antes do evento + a primeira com o novo
 Toda postura rotulada está sob uma calibração feita dentro do log; para o
 `calid` herdado de antes do log (8 das 9 runs) usam-se as primeiras 20 linhas
 com ele — só afeta trechos não rotulados, e em Andre e Gustavo a cadeira
-estava vazia (base ≈ 0, as guardas desligam os termos do assento). Pontuação
+estava vazia (base ≈ 0: captura recusada, o replay deixa esses trechos sem
+calibração). Uma janela incompleta no log (linhas descartadas pela serial:
+`seq` com lacuna, `# calibrating` fora do lugar) marca a calibração como não
+confiável e seus trechos ficam fora da avaliação; nenhuma das 9 runs tem isso. Pontuação
 nas amostras assentadas (tag ≠ 0, descartados 2 s após cada troca de tag).
 Sanidade: a regra atual re-executada concorda com a coluna `alert` gravada em
 99,7–100 % das linhas (diferenças = arredondamento de 0,1° no limiar).
@@ -107,7 +114,7 @@ Escolhe-se com 7 sujeitos e testa-se no 8º (Andre: run1 + run2 juntos).
 
 A regra atual não tem parâmetro ajustado nestes dados, então seus números já
 são "fora da amostra". Pior sujeito: Vinicius (0,67 atual → 0,74 fusão/LOSO)
-e Felipe (0,68 → 0,76 / 0,72 LOSO). Referência: a LDA LOSO grosseira dava
+e Felipe (0,68 → 0,76 / 0,71 LOSO). Referência: a LDA LOSO grosseira dava
 70 %/86 % (só IMU) e 76 %/95 % (IMU+FSR) de sensibilidade/especificidade;
 aqui, LOSO, 92 % / 97 % (1, 7) por amostra.
 

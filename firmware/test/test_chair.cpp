@@ -40,7 +40,9 @@ static void push(uint8_t boot, uint16_t seq, float pitch, float roll = 0) {
 }
 
 // One body sample, then the rest of its 50 ms period.
-static void sample(uint8_t boot, uint16_t seq, float pitch) { push(boot, seq, pitch); runFor(50); }
+static void sample(uint8_t boot, uint16_t seq, float pitch, float roll = 0) {
+  push(boot, seq, pitch, roll); runFor(50);
+}
 
 static ChairAck sentAck() {
   ChairAck a = {};
@@ -456,8 +458,27 @@ static void load(int seatFL, int seatFR, int seatRL, int seatRR, int back = SEAT
 static void testFusion() {
   const uint8_t B = 0x55;
   sim::adcFn() = muxAdc;
-  load(2000, 2200, 2600, 2400);
+  Serial.in = "r";
   runFor(1100);
+  CHECK(!calibrated);
+  // perched on the front edge (seat rear unloaded): the capture is rejected
+  load(2500, 2500, 0, 0);
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  uint8_t id0 = calId;
+  Serial.in = "c";
+  for (int i = 0; i < CAL_SAMPLES + 1; i++) sample(B, s++, 0);
+  CHECK(!calibrated);
+  CHECK_EQ(calId, id0);
+  CHECK(!(sentAck().flags & CF_CAL));
+  CHECK_EQ(count("# calibrate rejected: seat rear unloaded (sit back fully and recalibrate) rear=0"), 1);
+  CHECK(rejectShown);                          // LED: red fast for REJECT_LED_MS
+  CHECK_EQ(sim::pin[LED_GREEN], 255);
+  CHECK_STR(lastRowFields()[30], "-1");
+  for (int i = 0; i < 50; i++) sample(B, s++, 0, 3);   // slid-like, small IMU: no alert, uncalibrated
+  CHECK(!gate.alert);
+  CHECK(!rejectShown);
+  // sitting back fully: accepted
+  load(2000, 2200, 2600, 2400);
   for (int i = 0; i < 3; i++) sample(B, s++, 0);
   Serial.in = "c";
   for (int i = 0; i < CAL_SAMPLES + 1; i++) sample(B, s++, 0);
@@ -509,6 +530,16 @@ static void testFusion() {
   run(30, 0, 100);
   CHECK_STR(reason(), "5");
   CHECK(!gate.alert);
+  // a rejected recapture keeps the reference in use (as an aborted one)
+  uint8_t id1 = calId;
+  load(2600, 2600, 300, 200);
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  Serial.in = "c";
+  for (int i = 0; i < CAL_SAMPLES + 1; i++) sample(B, s++, 0);
+  CHECK(calibrated);
+  CHECK_EQ(calId, id1);
+  CHECK_EQ(count("# calibrate rejected: seat rear unloaded (sit back fully and recalibrate) rear=500"), 1);
+  CHECK(fusionBase.rearOk);
   // cleared: no decision, baseline gone
   Serial.in = "r";
   runFor(1);

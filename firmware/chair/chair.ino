@@ -33,7 +33,9 @@
  * Calibration: sit upright and press the button (D9 -> GND, INPUT_PULLUP,
  * software debounce) or send 'c'. The reference is the mean of the next
  * CAL_SAMPLES body samples (1 s), and so is the FSR baseline (each FSR's mean
- * over the same samples). 'r' clears both. No alerts until calibrated, and
+ * over the same samples). A capture with the seat rear unloaded (perched
+ * forward, empty chair: FsrBaseline.rearOk false) is rejected like an aborted
+ * one (previous state kept). 'r' clears both. No alerts until calibrated, and
  * none while the body is silent. 'm' asks the body for a motor test buzz.
  *
  * Alert: IMU + FSR fusion (PostureLink/Fusion.h; docs/decisao-fusao-imu-fsr.md):
@@ -43,7 +45,7 @@
  * Headers are sent on USB connection.
  *
  * Status LED (onboard RGB; colours in PostureLink/StatusLed.h): red fast =
- * radio fault or the body's IMU not delivering, orange = no body, blue =
+ * radio fault or the body's IMU not delivering (2 s: capture rejected), orange = no body, blue =
  * linked, green fast = capturing the reference, green = calibrated, red
  * slow = posture alert (same 700 ms / 1 s rhythm as the body's motor).
  *
@@ -86,7 +88,7 @@
  *          charger output); -1 when body silent. Below 3300 on battery the
  *          body powers off (PostureLink/Battery.h): the link then goes silent.
  * Events: "# alert ON/OFF", "# calibrat... calid=N" ("# calibrated upright:"
- * also gives fsr=<baseline c8..c15>), "# body link up/lost",
+ * also gives fsr=<baseline c8..c15>), "# calibrate rejected: ...", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
@@ -149,6 +151,7 @@ const int   BTN_PIN     = D9;                  // calibrate button to GND
 const int   DEBOUNCE_MS = 25;                  // input must be stable this long
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;   // alert LED, as the body's motor
 const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid over this span of samples = fault
+const unsigned long REJECT_LED_MS = 2000;      // rejected capture: red fast this long
 
 nrf_to_nrf radio;
 StatusLed led(LED_RED, LED_GREEN, LED_BLUE, 255);   // USB powered: full brightness
@@ -184,6 +187,8 @@ uint8_t calId = 0;                             // ChairAck.calId: random at boot
 
 FusionGate gate;
 int reason = -1;                               // Reason of the last decision; -1 = none
+unsigned long rejectedAt = 0;                  // last capture rejected (LED: red fast, REJECT_LED_MS)
+bool rejectShown = false;
 unsigned long alertAt = 0;                     // alert ON time: LED pulse phase
 
 bool btnRaw = HIGH, btnState = HIGH;           // last read / debounced level
@@ -224,7 +229,8 @@ void updateStatusLed(unsigned long t) {
   bool fast = phaseOn(t, 0, 2 * BLINK_FAST_MS, BLINK_FAST_MS);
   // IMU fault = invalid across received samples; a silent radio is not an IMU fault
   bool imuFault = bodyUp && lastBodyAt - imuOkAt >= IMU_FAULT_MS;
-  if (radioFailed || imuFault) led.set(fast ? RGB_RED : RGB_OFF);
+  if (rejectShown && t - rejectedAt >= REJECT_LED_MS) rejectShown = false;
+  if (radioFailed || imuFault || rejectShown) led.set(fast ? RGB_RED : RGB_OFF);
   else if (!bodyUp) led.set(RGB_ORANGE);
   else if (calLeft > 0) led.set(fast ? RGB_GREEN : RGB_OFF);
   else if (gate.alert) led.set(phaseOn(t, alertAt, PULSE_PERIOD_MS, PULSE_ON_MS) ? RGB_RED : RGB_OFF);
@@ -348,6 +354,39 @@ void decideAlert(float dPitch, float dRoll, float dev, unsigned long t) {
   }
 }
 
+// End of a capture: IMU reference + FSR baseline, unless the seat rear
+// carried no load (perched forward or an empty chair: no slump detection
+// with that baseline). A rejected capture is like an aborted one: the
+// previous state (reference or none) stays.
+void finishCapture(unsigned long t) {
+  float base[N_FSR], spot[N_SPOTS];
+  for (int i = 0; i < N_FSR; i++) base[i] = calFsrSum[i] / CAL_SAMPLES;
+  for (int s = 0; s < N_SPOTS; s++) spot[s] = base[FSR_SPOT_CH[s] - FIRST_CH];
+  FsrBaseline fb = FsrBaseline::of(spot);
+  if (!fb.rearOk) {
+    rejectedAt = t;
+    rejectShown = true;
+    Line l;
+    l.str("# calibrate rejected: seat rear unloaded (sit back fully and recalibrate) rear=")
+     .fix(fb.rear, 0);
+    out.event(l);
+    return;
+  }
+  pitchRef = calPSum / CAL_SAMPLES;
+  rollRef  = calRSum / CAL_SAMPLES;
+  for (int i = 0; i < N_FSR; i++) fsrBase[i] = base[i];
+  fusionBase = fb;
+  calibrated = true;
+  newCalId();
+  if (gate.alert) setAlert(false, 0);
+  gate.reset();
+  Line l;
+  l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
+   .str(" calid=").u32(calId).str(" fsr=");
+  for (int i = 0; i < N_FSR; i++) { if (i) l.chr(','); l.fix(fsrBase[i], 1); }
+  out.event(l);
+}
+
 // One body sample: calibration capture, alert decision, ACK, CSV row.
 void onBodySample(unsigned long t) {
   if (body.imu != lastImuState) {
@@ -368,23 +407,7 @@ void onBodySample(unsigned long t) {
   if (calLeft > 0) {
     calPSum += body.pitch; calRSum += body.roll;
     for (int i = 0; i < N_FSR; i++) calFsrSum[i] += fsr[i];
-    if (--calLeft == 0) {
-      pitchRef = calPSum / CAL_SAMPLES;
-      rollRef  = calRSum / CAL_SAMPLES;
-      float spot[N_SPOTS];
-      for (int i = 0; i < N_FSR; i++) fsrBase[i] = calFsrSum[i] / CAL_SAMPLES;
-      for (int s = 0; s < N_SPOTS; s++) spot[s] = fsrBase[FSR_SPOT_CH[s] - FIRST_CH];
-      fusionBase = FsrBaseline::of(spot);
-      calibrated = true;
-      newCalId();
-      if (gate.alert) setAlert(false, 0);
-      gate.reset();
-      Line l;
-      l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
-       .str(" calid=").u32(calId).str(" fsr=");
-      for (int i = 0; i < N_FSR; i++) { if (i) l.chr(','); l.fix(fsrBase[i], 1); }
-      out.event(l);
-    }
+    if (--calLeft == 0) finishCapture(t);
   }
 
   float dPitch = body.pitch - pitchRef, dRoll = body.roll - rollRef;
