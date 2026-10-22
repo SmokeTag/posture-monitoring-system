@@ -28,5 +28,13 @@ came out as the viewer's. The `# fsr map` lines were mirrored on 2026-10-22
 | 1 | `2026-10-21_Gustavo-Socce_run1.csv` | 2026-10-21 | Gustavo Socce | short protocol, sheet P1 pass A only (shuffled, `1` between postures); recalibrated before the `5` and the `2`; the `1` after `7` and the `9` kept droll ≈ +10° (alert on the `9`) |
 | 1 | `2026-10-21_Rafael-Herleng_run1.csv` | 2026-10-21 | Rafael Herleng | short protocol, sheet P2 pass A without `7`/`3` (5 6 2 9 8 4); recalibrated after the `6`; back_lower_left (c12) ≈ 0 |
 
+`validation/` — hardware validation sessions of the chair's fusion rule
+(firmware on the boards, motor active; each file's `#` header has the session
+notes):
+
+| run | file | date | subject | notes |
+|----:|------|------|---------|-------|
+| 1 | `validation/2026-10-22_Andre-Monteiro_run1.csv` | 2026-10-22 | André Monteiro | fusion rule, firmware `c4ae8f2` on both boards, motor active; guided, fixed order 1, 7 (light + stronger), 4, 1, 2, 5, 6, 3, 8, 9, empty chair, collar re-placed + recalibrated, 1, 7, 4, 1 (~16 s holds, no shuffle/subtle). 0 lost, IMU OK throughout. Alert 100 % of the time on 2–6, 0 % on 1, 7, 8, 9; vibration felt and stopping on return upright. Not an unseen subject; 3 s latency not measured; collar/chair details not recorded |
+
 `archive/` — midterm captures (June 2026: bare-XIAO IMU run + FSR402 bench
 characterization): [`archive/README.md`](archive/README.md).
