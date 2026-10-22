@@ -17,8 +17,7 @@ E/D) com o desvio do IMU; definir posturas-alvo, limiares e temporização
 limiares com dados reais.
 Capturas seguem `docs/protocolo-captura.md` (tag `0` = transição; posturas
 `1`–`9` em `analysis/tags.json`, incluindo pernas cruzadas, que não
-alertam). Essa captura também alimenta o overlay de referência do
-`analysis/live_posture.py`.
+alertam).
 Regra de fusão implementada (`docs/decisao-fusao-imu-fsr.md`, `Fusion.h`);
 falta validar com uma pessoa nova.
 **Pronto quando:** as posturas desse protocolo são classificadas corretamente

@@ -23,14 +23,14 @@ MAP_PATH = Path(__file__).with_name("chair_map.json")
 # slot -> (plate, short label, x, y); x: 0 = sitter's left .. 1 = right,
 # y: seat 0 = front edge .. 1 = rear, backrest 0 = lower .. 1 = upper
 SLOTS = {
-    "seat_rear_left":   ("seat", "rear L", 0, 1),
-    "seat_rear_right":  ("seat", "rear R", 1, 1),
-    "seat_front_left":  ("seat", "front L", 0, 0),
-    "seat_front_right": ("seat", "front R", 1, 0),
-    "back_upper_left":  ("back", "upper L", 0, 1),
-    "back_upper_right": ("back", "upper R", 1, 1),
-    "back_lower_left":  ("back", "lower L", 0, 0),
-    "back_lower_right": ("back", "lower R", 1, 0),
+    "seat_rear_left":   ("seat", "trás E", 0, 1),
+    "seat_rear_right":  ("seat", "trás D", 1, 1),
+    "seat_front_left":  ("seat", "frente E", 0, 0),
+    "seat_front_right": ("seat", "frente D", 1, 0),
+    "back_upper_left":  ("back", "cima E", 0, 1),
+    "back_upper_right": ("back", "cima D", 1, 1),
+    "back_lower_left":  ("back", "baixo E", 0, 0),
+    "back_lower_right": ("back", "baixo D", 1, 0),
 }
 WIZARD_ORDER = ["seat_rear_left", "seat_rear_right", "seat_front_left",
                 "seat_front_right", "back_lower_left", "back_lower_right",
@@ -46,7 +46,7 @@ SETTLE_S = 0.6       # baseline window before each press (hands off)
 
 def slot_name(slot: str) -> str:
     plate, label, _, _ = SLOTS[slot]
-    return f"{'seat' if plate == 'seat' else 'backrest'} {label}"
+    return f"{'assento' if plate == 'seat' else 'encosto'} {label}"
 
 
 def ohms_to_us(r: float) -> float:
@@ -132,10 +132,10 @@ class MapSession:
         step = f"[{self.i + 1}/{len(self.slots)}] " if len(self.slots) > 1 else ""
         name = slot_name(self.slot)
         if self.state == "settle":
-            return f"{step}hands off the sensors …  (next: {name})"
+            return f"{step}tire as mãos dos sensores …  (próximo: {name})"
         if self.state == "press":
-            return f"{step}press and hold the {name.upper()} sensor  (sitter's left/right)"
-        return f"{step}got it — release"
+            return f"{step}aperte e segure o sensor {name.upper()}  (esquerda/direita de quem senta)"
+        return f"{step}pronto — solte"
 
     def candidate(self) -> int | None:
         """Channel currently winning the press test (for highlighting)."""

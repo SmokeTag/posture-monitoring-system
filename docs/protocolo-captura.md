@@ -58,7 +58,7 @@ do log.
 ```
 
 Confira no painel: `IMU OK`, enlace sem perdas, os 8 FSRs respondendo e o
-badge `TAG 0 · transition` (borda vermelha = não está gravando).
+badge `TAG 0 · transição` (sem badge = não está gravando: falta o `--log`).
 
 ## Regras de cada postura
 
