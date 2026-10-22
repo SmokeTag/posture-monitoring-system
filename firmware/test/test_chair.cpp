@@ -4,9 +4,11 @@
 #include "stub/Arduino.h"
 #include "stub/nrf_to_nrf.h"
 
+const int SEATED = 2000;                       // every FSR: someone seated (an empty seat never alerts)
+
 #include <vector>
 
-namespace sim { uint32_t now = 1; int pin[32]; int adc = 0; }
+namespace sim { uint32_t now = 1; int pin[32]; int adc = SEATED; }
 FakeSerial Serial;
 static FakeRng rng = {};
 FakeRng *NRF_RNG = &rng;
@@ -108,10 +110,12 @@ static void testHeaderAndRows() {
   CHECK_STR(v[0].substr(0, 22), "# chair unit (brain): ");
   CHECK_STR(v[1], "# unit=raw");
   CHECK_STR(v[2], "t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
-                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,c9,c10,c11,c12,c13,c14,c15");
-  // a body-silent row: boot..bage, imu, binh, vbat all -1 ("no sample"), 30 fields
+                  "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,c9,c10,c11,c12,c13,c14,c15,"
+                  "reason");
+  // a body-silent row: boot..bage, imu, binh, vbat all -1 ("no sample"), no decision; 31 fields
   auto f = split(v.back());
-  CHECK_EQ(f.size(), 30u);
+  CHECK_EQ(f.size(), 31u);
+  CHECK_STR(f[30], "-1");
   CHECK_STR(f[2], std::to_string(calId));      // chair's reference id, even with no body
   for (int i = 9; i <= 21; i++) CHECK_STR(f[i], "-1");
 }
@@ -125,7 +129,7 @@ static void testFixedRawUnits() {
     Serial.in = commands[n];
     runFor(100);
     auto f = split(outLines().back());
-    CHECK_EQ(f.size(), 30u);
+    CHECK_EQ(f.size(), 31u);
     for (int i = 22; i < 30; i++) CHECK_STR(f[i], std::to_string(values[n]));
   }
   CHECK_EQ(count("# unit=ohms"), 0);
@@ -136,7 +140,7 @@ static void testFixedRawUnits() {
   runFor(100);
   CHECK_EQ(count("# unit=raw"), 2);           // reconnect automatically sends the header
   CHECK_EQ(count("t_ms,"), 2);
-  sim::adc = 0;
+  sim::adc = SEATED;
 }
 
 // Only duplicates / stale packets for > 1 s: no new sample, so the link must
@@ -280,7 +284,8 @@ static void testAckBasisAndCalId() {
   CHECK(calibrated);
   CHECK(calId != id0 && calId != 0);
   CHECK_EQ(sentAck().calId, calId);
-  CHECK_EQ(count("# calibrated upright: pitch=0.0 roll=0.0 calid=" + std::to_string(calId)), 1);
+  CHECK_EQ(count("# calibrated upright: pitch=0.0 roll=0.0 calid=" + std::to_string(calId) +
+                 " fsr=2000.0,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0"), 1);
   // a motor test: same decision and basis, only buzz moves
   ChairAck before = sentAck();
   Serial.in = "m";
@@ -408,12 +413,12 @@ static void testWidestRow() {
   std::string fsrs;
   for (int i = 0; i < 8; i++) fsrs += ",4095";
   CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
-                 "2,1,255,1,1,1,10000,254,0,0,65535" + fsrs);
-  CHECK_EQ(row.size(), 135u);
+                 "2,1,255,1,1,1,10000,254,0,0,65535" + fsrs + ",1");
+  CHECK_EQ(row.size(), 137u);                  // reason -1 (no decision) is 1 byte wider: 138
   seqs.clearCounts();
   s = 0;
   runFor(1);
-  sim::adc = 0;
+  sim::adc = SEATED;
 
   // stats line with every counter at its maximum (sdrop/edrop are 0 here:
   // 9 digits each of slack must remain for them)
@@ -432,6 +437,85 @@ static void testWidestRow() {
   for (auto &l : v) hdr += l.compare(0, 23, "# chair unit (brain): F") == 0;
   CHECK(hdr >= 1);
   for (uint8_t i = 0; i < 8; i++) { Line l; if (chairHeader(i, l)) CHECK(l.ok()); }
+}
+
+// Per-channel FSR load: the channel the mux selects (S0..S3 = D10, D3, D2, D1).
+static int chAdc[16];
+static int muxAdc() {
+  int ch = 0;
+  for (int b = 0; b < 4; b++) ch |= (sim::pin[SEL_PINS[b]] & 1) << b;
+  return chAdc[ch];
+}
+static void load(int seatFL, int seatFR, int seatRL, int seatRR, int back = SEATED) {
+  for (int c = 8; c < 16; c++) chAdc[c] = back;
+  chAdc[8] = seatFL; chAdc[9] = seatFR; chAdc[10] = seatRL; chAdc[11] = seatRR;   // FSR_SPOT_CH
+}
+
+// The fusion rule in the sketch: FSR baseline captured with the reference,
+// reason column, slumped / reclined / leaning / empty seat, spot map sides.
+static void testFusion() {
+  const uint8_t B = 0x55;
+  sim::adcFn() = muxAdc;
+  load(2000, 2200, 2600, 2400);
+  runFor(1100);
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  Serial.in = "c";
+  for (int i = 0; i < CAL_SAMPLES + 1; i++) sample(B, s++, 0);
+  CHECK(calibrated);
+  CHECK_EQ(count("# calibrated upright: pitch=0.0 roll=0.0 calid=" + std::to_string(calId) +
+                 " fsr=2000.0,2200.0,2600.0,2400.0,2000.0,2000.0,2000.0,2000.0"), 1);
+  CHECK(fusionBase.rearOk && fusionBase.lrOk);
+  CHECK(fabsf(fusionBase.rear - 5000) < 0.01f);
+  auto reason = [] { return lastRowFields()[30]; };   // last column
+  auto run = [](float pitch, float roll, int n) {
+    for (int i = 0; i < n; i++) { push(B, s++, pitch, roll); runFor(50); }
+  };
+  run(0, 0, 5);
+  CHECK_STR(reason(), "0");
+  // slid forward: seat rear unloaded, IMU barely moves -> alert after the hold
+  load(2600, 2800, 0, 0);
+  run(0, 4, 50);
+  CHECK_STR(reason(), "2");
+  CHECK(!gate.alert);
+  run(0, 4, 15);
+  CHECK(gate.alert);
+  CHECK(sentAck().flags & CF_ALERT);
+  load(2000, 2200, 2600, 2400);
+  run(0, 0, 2);
+  CHECK(!gate.alert);
+  CHECK_STR(reason(), "0");
+  // reclined: hips back, backward tilt accepted
+  run(0, 20, 100);
+  CHECK_STR(reason(), "4");
+  CHECK(!gate.alert);
+  // same tilt with the hips half forward: IMU deviation
+  load(2400, 2600, 1500, 1300);
+  run(0, 20, 70);
+  CHECK_STR(reason(), "1");
+  CHECK(gate.alert);
+  load(2000, 2200, 2600, 2400);
+  run(0, 0, 2);
+  // small lean left (dpitch < 0) with the seat's left side loaded (C8, C10)
+  load(2800, 1800, 3400, 1800);
+  run(-6, 0, 70);
+  CHECK_STR(reason(), "3");
+  CHECK(gate.alert);
+  load(1400, 2800, 1800, 3400);                // the seat moved right instead: not a lean
+  run(-6, 0, 2);
+  CHECK_STR(reason(), "0");
+  CHECK(!gate.alert);
+  // nobody seated (only the backrest touched): never alerts, even far off
+  load(0, 0, 0, 0, 1500);
+  run(30, 0, 100);
+  CHECK_STR(reason(), "5");
+  CHECK(!gate.alert);
+  // cleared: no decision, baseline gone
+  Serial.in = "r";
+  runFor(1);
+  run(0, 0, 2);
+  CHECK_STR(reason(), "-1");
+  CHECK(!fusionBase.rearOk);
+  sim::adcFn() = nullptr;
 }
 
 int main() {
@@ -454,6 +538,7 @@ int main() {
   testBodyReportColumns();
   testRejectedPackets();
   testWidestRow();
+  testFusion();
   CHECK_EQ(Serial.blocked, 0);
   return report("chair.ino");
 }

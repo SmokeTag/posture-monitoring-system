@@ -25,7 +25,7 @@ using namespace posture;
 #include <set>
 #include <vector>
 
-namespace sim { uint32_t now = 0; int pin[32]; int adc = 0; float ax = 0, ay = 0, az = 1; }
+namespace sim { uint32_t now = 0; int pin[32]; int adc = 2000; float ax = 0, ay = 0, az = 1; }   // adc: seated
 FakeSerial Serial;                             // unused: each board has its own below
 static FakeRng rng = {};
 FakeRng *NRF_RNG = &rng;
