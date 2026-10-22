@@ -86,6 +86,21 @@ class LoaderTest(unittest.TestCase):
         self.assertEqual(int(st[30:50].sum()), 10)
         self.assertFalse(st[:30].any())
 
+    def test_new_firmware_log(self):
+        """reason column after c15 and the chair's own baseline in the event line."""
+        text = synthetic().replace(",c15,tag", ",c15,reason,tag")
+        text = text.replace("calid=6\n", "calid=6 fsr=1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0\n")
+        lines = [l if l.startswith(("#", "t_ms")) else l.rsplit(",", 1)[0] + ",0," + l.rsplit(",", 1)[1]
+                 for l in text.splitlines()]
+        self.path.write_text("\n".join(lines) + "\n")
+        run = C.load(self.path)
+        self.assertIn("reason", run.rows)
+        self.assertEqual(len(run.rows), 60)
+        self.assertEqual(list(C.segments(run.rows)["tag"]), [1, 4])
+        base = run.fsr_baseline(run.cals[1])
+        self.assertEqual(base["seat_front_left"], 1.0)   # c8
+        self.assertEqual(base["back_lower_left"], 7.0)   # c14
+
     def test_real_calibration_windows(self):
         """On every capture the window's IMU mean reproduces the logged reference."""
         for run in C.runs():
@@ -157,24 +172,24 @@ class RuleTest(unittest.TestCase):
             self.assertEqual((bad, ok), (dev > 10, dev < 7))
 
     def test_gate(self):
-        g = F.Gate(3.0)
-        self.assertFalse(g.update(True, False, 0.0))
-        self.assertFalse(g.update(True, False, 2.95))
-        self.assertTrue(g.update(True, False, 3.0))
-        self.assertTrue(g.update(False, False, 3.1))     # between thresholds: held
-        self.assertFalse(g.update(False, True, 3.2))     # ok clears
-        g.update(True, False, 4.0)
-        self.assertFalse(g.update(True, False, 6.9))     # a non-bad sample restarts the hold
-        g.update(False, False, 7.0)
-        self.assertFalse(g.update(True, False, 9.9))
+        g = F.Gate(3000)
+        self.assertFalse(g.update(True, False, 0))
+        self.assertFalse(g.update(True, False, 2950))
+        self.assertTrue(g.update(True, False, 3000))
+        self.assertTrue(g.update(False, False, 3100))    # between thresholds: held
+        self.assertFalse(g.update(False, True, 3200))    # ok clears
+        g.update(True, False, 4000)
+        self.assertFalse(g.update(True, False, 6900))
+        g.update(False, False, 7000)                     # a non-bad sample restarts the hold
+        self.assertFalse(g.update(True, False, 9900))
 
     def test_rule_resets_on_empty(self):
         rule = F.FusionRule()
         rule.calibrate(UPRIGHT)
         for i in range(70):
-            alert, code = rule.step(i * 0.05, 0.0, -20.0, UPRIGHT)
+            alert, code = rule.step(i * 50, 0.0, -20.0, UPRIGHT)
         self.assertTrue(alert)
-        self.assertEqual(rule.step(3.5, 0.0, -20.0, [0] * 8), (False, F.EMPTY))
+        self.assertEqual(rule.step(3500, 0.0, -20.0, [0] * 8), (False, F.EMPTY))
 
 
 class ReplayTest(unittest.TestCase):
@@ -195,6 +210,10 @@ class ReplayTest(unittest.TestCase):
             i0 = int(np.argmax(~logged))
             agree = np.mean(F.replay_v(x, F.CURRENT)[i0:] == logged[i0:])
             self.assertGreater(agree, 0.995, x.run.name)
+
+    def test_cpp_fixture_up_to_date(self):
+        """firmware/test/fixtures/fusion_cases.txt = this rule's output (regenerate: --fixture)."""
+        self.assertEqual(F.FIXTURE.read_text(), "\n".join(F.fixture_lines(self.xs)) + "\n")
 
     def test_fusion_beats_current(self):
         cur = F.objective(F.evaluate(self.xs, F.CURRENT))

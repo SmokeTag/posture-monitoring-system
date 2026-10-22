@@ -5,7 +5,7 @@ the body's (dpitch, droll) from the calibrated upright reference, the 8 FSRs
 (raw 12-bit ADC, by spot), and an FSR baseline captured with the IMU reference
 (mean of each FSR over the same 1 s calibration window). With the current
 collar mounting droll is the sagittal axis (+ = backwards) and dpitch the
-lateral one (+ = right). Per sample (decide(), port 1:1 to C++):
+lateral one (+ = right). Per sample (decide(); C++ twin: firmware/libraries/PostureLink/Fusion.h):
 
   seat   = sum of the 4 seat FSRs                  (raw counts)
   seat < EMPTY_RAW                                -> EMPTY: no-one seated, gate reset
@@ -25,6 +25,7 @@ CURRENT (the firmware's rule today) is the same code with the FSR terms off.
 
     .venv/bin/python analysis/fusion.py            # tables: current vs fusion, LOSO
     .venv/bin/python analysis/fusion.py --quick    # skip the LOSO grid search
+    .venv/bin/python analysis/fusion.py --fixture  # regenerate the C++ cross-check fixture
 """
 
 from __future__ import annotations
@@ -114,22 +115,27 @@ def decide(dp: float, dr: float, f, base: Baseline, p: Params) -> tuple[int, boo
     return code, False, dev < p.clear_deg
 
 
-class Gate:
-    """bad for hold_s -> alert; ok clears it; reset() on EMPTY / invalid / new calibration."""
+def hold_ms(p: Params) -> int:
+    return int(round(p.hold_s * 1000))
 
-    def __init__(self, hold_s: float):
-        self.hold_s = hold_s
+
+class Gate:
+    """bad for hold_ms -> alert; ok clears it; reset() on EMPTY / invalid / new calibration.
+    Times in integer ms (chair millis()), as on the MCU."""
+
+    def __init__(self, hold_ms: int):
+        self.hold_ms = hold_ms
         self.reset()
 
     def reset(self):
         self.alert = False
         self.over_since = None
 
-    def update(self, bad: bool, ok: bool, t: float) -> bool:
+    def update(self, bad: bool, ok: bool, t: int) -> bool:
         if bad:
             if self.over_since is None:
                 self.over_since = t
-            if not self.alert and t - self.over_since >= self.hold_s:
+            if not self.alert and t - self.over_since >= self.hold_ms:
                 self.alert = True
         else:
             self.over_since = None
@@ -142,13 +148,13 @@ class FusionRule:
     """Stateful rule as the chair runs it: calibrate() once, then step() per sample."""
 
     def __init__(self, p: Params = FUSION):
-        self.p, self.gate, self.base = p, Gate(p.hold_s), None
+        self.p, self.gate, self.base = p, Gate(hold_ms(p)), None
 
     def calibrate(self, fsr_means):
         self.base = Baseline.of(fsr_means, self.p)
         self.gate.reset()
 
-    def step(self, t: float, dp: float, dr: float, f) -> tuple[bool, int]:
+    def step(self, t: int, dp: float, dr: float, f) -> tuple[bool, int]:
         if self.base is None:
             return False, INVALID
         code, bad, ok = decide(dp, dr, f, self.base, self.p)
@@ -165,6 +171,7 @@ class Inputs:
     """Per-row arrays of one run, as the chair would have seen them."""
     run: C.Run
     t: np.ndarray                             # s (chair millis)
+    t_ms: np.ndarray                          # the same, integer ms (the gate's clock)
     dp: np.ndarray
     dr: np.ndarray
     f: np.ndarray                             # (n, 8) raw, SPOTS order
@@ -192,7 +199,8 @@ def inputs(run: C.Run) -> Inputs:
     ok_imu = (r["imu"] == 0).to_numpy() if "imu" in r else np.ones(n, bool)
     dp = np.where(ok_imu, r["dpitch"].to_numpy(float), np.nan)
     dr = np.where(ok_imu, r["droll"].to_numpy(float), np.nan)
-    return Inputs(run, r["t_ms"].to_numpy(float) / 1000.0, dp, dr, run.fsr().to_numpy(float),
+    t_ms = r["t_ms"].to_numpy(np.int64)
+    return Inputs(run, t_ms / 1000.0, t_ms, dp, dr, run.fsr().to_numpy(float),
                   base, (r["cal"] == 1).to_numpy(), recal, frozen, tagged_segments(r))
 
 
@@ -213,8 +221,59 @@ def replay(x: Inputs, p: Params) -> tuple[np.ndarray, np.ndarray]:
         if x.recal[i] or cur is None or not np.array_equal(x.base[i], cur):
             cur = x.base[i]
             rule.calibrate(cur)
-        alert[i], code[i] = rule.step(x.t[i], x.dp[i], x.dr[i], x.f[i])
+        alert[i], code[i] = rule.step(int(x.t_ms[i]), x.dp[i], x.dr[i], x.f[i])
     return alert, code
+
+
+# --- cross-check fixture for the C++ port (firmware/test/test_fusion.cpp) ---
+
+FIXTURE = C.ROOT / "firmware" / "test" / "fixtures" / "fusion_cases.txt"
+FIXTURE_TAGS = [4, 7, 5]                       # first segment of each, per run (slump, recline, lean)
+FIXTURE_ROWS = (40, 30)                         # rows before / from the start
+
+
+def fixture_lines(xs: list[Inputs], p: Params = FUSION) -> list[str]:
+    """Real log excerpts replayed by FusionRule: per run, the first segment of each
+    FIXTURE_TAGS and the first empty-seat stretch. Per excerpt 'B' = baseline means by
+    spot + gate state at its start (alert, ms since the hold started or -1); per row
+    'S' = ms from the excerpt start, dpitch, droll, 8 FSRs by spot, reason code, alert."""
+    out = [f"# {FIXTURE.name}: generated by analysis/fusion.py --fixture; do not edit",
+           "# B base[8 by spot] alert held_ms   |   S dt_ms dpitch droll f[8 by spot] reason alert"]
+    for x in xs:
+        rule, cur, n = FusionRule(p), None, len(x.t)
+        state, res = [None] * n, [None] * n       # gate before the row, (alert, code) after
+        for i in range(n):
+            g = rule.gate
+            state[i] = (g.alert, -1 if g.over_since is None else int(x.t_ms[i] - g.over_since))
+            if x.frozen[i]:
+                continue
+            if not x.calibrated[i] or np.isnan(x.base[i, 0]):
+                rule.gate.reset(); cur = None
+                continue
+            if x.recal[i] or cur is None or not np.array_equal(x.base[i], cur):
+                cur = x.base[i]
+                rule.calibrate(cur)
+            res[i] = rule.step(int(x.t_ms[i]), x.dp[i], x.dr[i], x.f[i])
+        first = {}
+        for sg in x.segs:
+            first.setdefault(sg.tag, sg.i0)
+        starts = [first[t] - FIXTURE_ROWS[0] for t in FIXTURE_TAGS if t in first]
+        empty = [i for i in range(n) if res[i] and res[i][1] == EMPTY]
+        if empty:
+            starts.append(empty[0] - FIXTURE_ROWS[0])
+        for i0 in sorted(starts):
+            rows = range(i0, min(i0 + sum(FIXTURE_ROWS), n))
+            if i0 < 0 or any(x.recal[i] or res[i] is None for i in rows) \
+                    or np.any(x.base[i0] != x.base[rows[-1]]):
+                continue                          # keep excerpts within one calibration
+            out.append(f"# {x.run.name} rows {i0}..{rows[-1]}")
+            out.append("B " + " ".join(f"{v:.2f}" for v in x.base[i0])
+                       + f" {int(state[i0][0])} {state[i0][1]}")
+            for i in rows:
+                f = " ".join(str(int(v)) for v in x.f[i])
+                out.append(f"S {x.t_ms[i] - x.t_ms[i0]} {x.dp[i]:.1f} {x.dr[i]:.1f} {f} "
+                           f"{res[i][1]} {int(res[i][0])}")
+    return out
 
 
 def decide_v(x: Inputs, p: Params):
@@ -257,7 +316,7 @@ def replay_v(x: Inputs, p: Params) -> np.ndarray:
     idx = np.arange(n)
     first = run_bad & (~np.r_[False, run_bad[:-1]] | newbase)
     start = np.maximum.accumulate(np.where(first, idx, 0))
-    held = run_bad & (x.t - x.t[start] >= p.hold_s)
+    held = run_bad & (x.t_ms - x.t_ms[start] >= hold_ms(p))
     ev = np.full(n, np.nan)                                 # nan = state unchanged
     ev[~x.frozen & ~usable] = 0
     ev[live & ((code == EMPTY) | (code == INVALID))] = 0
@@ -439,7 +498,14 @@ def empty_report(xs: list[Inputs], p: Params) -> pd.DataFrame:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--quick", action="store_true", help="skip the LOSO grid search")
+    ap.add_argument("--fixture", action="store_true",
+                    help=f"write the C++ cross-check fixture ({FIXTURE.relative_to(C.ROOT)}) and exit")
     args = ap.parse_args()
+    if args.fixture:
+        FIXTURE.parent.mkdir(exist_ok=True)
+        FIXTURE.write_text("\n".join(fixture_lines([inputs(r) for r in C.runs()])) + "\n")
+        print(f"wrote {FIXTURE}")
+        return 0
     pd.set_option("display.width", 200)
     pd.set_option("display.max_columns", 20)
     runs = C.runs()

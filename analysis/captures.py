@@ -2,7 +2,9 @@
 
 One file = the chair unit's CSV (firmware/chair/chair.ino) as logged by
 live_posture.py --log: '#' lines are comments/events, interleaved with the rows
-in stream order; the last column is the posture tag (0 = transition).
+in stream order; the last column is the posture tag (0 = transition). Newer
+firmware adds a `reason` column (the fusion rule's reason code) after c15 and
+the FSR baseline (fsr=c8..c15) to the "# calibrated" event; both are optional.
 
     run = load("data/2026-10-21_Rafael-Herleng_run1.csv")
     run.rows                  # DataFrame, one row per sample; + t (s), seg, settled
@@ -33,7 +35,7 @@ SPOTS = ["seat_front_left", "seat_front_right", "seat_rear_left", "seat_rear_rig
          "back_lower_left", "back_lower_right", "back_upper_left", "back_upper_right"]
 
 _NAME = re.compile(r"(\d{4}-\d{2}-\d{2})_(.+)_run(\d+)\.csv$")
-_CALIBRATED = re.compile(r"# calibrated upright: pitch=(\S+) roll=(\S+) calid=(\d+)")
+_CALIBRATED = re.compile(r"# calibrated upright: pitch=(\S+) roll=(\S+) calid=(\d+)(?: fsr=(\S+))?")
 
 
 @dataclass
@@ -45,6 +47,7 @@ class Cal:
     start: int = 0                            # capture window rows [start, stop)
     stop: int = 0
     in_file: bool = True                      # False: captured before logging started
+    fsr: dict[str, float] | None = None       # FSR baseline logged by the chair (c8.. -> mean), if any
 
 
 @dataclass
@@ -70,6 +73,9 @@ class Run:
         return next((c for c in self.cals if c.calid == calid), None)
 
     def fsr_baseline(self, cal: Cal) -> dict[str, float]:
+        """Spot -> mean raw ADC over the capture window (the chair's own, if logged)."""
+        if cal.fsr:
+            return {s: cal.fsr[self.fsr_map[s]] for s in SPOTS}
         f = self.fsr().iloc[cal.start:cal.stop]
         return {s: float(f[s].mean()) for s in SPOTS}
 
@@ -131,8 +137,12 @@ def find_cals(rows: pd.DataFrame, events: list[tuple[int, str]]) -> list[Cal]:
         cid = int(m.group(3))
         if calid[n] != cid:                    # the row after the event carries it
             continue
+        logged = None
+        if m.group(4):                          # chair firmware since 2026-10-22: c8..c15 means
+            vals = [float(v) for v in m.group(4).split(",")]
+            logged = {f"c{8 + i}": v for i, v in enumerate(vals)}
         cals.append(Cal(cid, n, float(m.group(1)), float(m.group(2)),
-                        max(0, n - (CAL_SAMPLES - 1)), n + 1))
+                        max(0, n - (CAL_SAMPLES - 1)), n + 1, fsr=logged))
     known = {c.calid for c in cals}
     first = rows.loc[rows["cal"] == 1, "calid"]
     if len(first) and int(first.iloc[0]) not in known:
