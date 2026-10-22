@@ -212,7 +212,15 @@ def inputs(run: C.Run) -> Inputs:
     t_ms = r["t_ms"].to_numpy(np.int64)
     return Inputs(run, t_ms / 1000.0, t_ms, dp, dr, run.fsr().to_numpy(float),
                   base, (r["cal"] == 1).to_numpy(), recal, frozen,
-                  (r["cal"] == 1).to_numpy() & ~np.isnan(base[:, 0]), tagged_segments(r))
+                  scored_rows(r, base), tagged_segments(r))
+
+
+def scored_rows(r: pd.DataFrame, base: np.ndarray) -> np.ndarray:
+    """Rows both rules are scored on: calibrated, with a trusted baseline the chair
+    would accept (seat rear >= base_min; older logs predate the rejection)."""
+    with np.errstate(invalid="ignore"):
+        usable = base[:, SRL] + base[:, SRR] >= FUSION.base_min   # NaN (untrusted) -> False
+    return (r["cal"] == 1).to_numpy() & usable
 
 
 def replay(x: Inputs, p: Params) -> tuple[np.ndarray, np.ndarray]:

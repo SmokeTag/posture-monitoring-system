@@ -284,6 +284,16 @@ class EvaluationValidityTest(unittest.TestCase):
         self.assertEqual(len(F.evaluate([self.load("2026-10-21_Bad-Two_run1.csv",
                                                    long_log(False, dp_bad=1.0))], F.FUSION)), 2)
 
+    def test_rejected_baseline_not_scored(self):
+        """A baseline the chair would reject (seat rear < base_min) is not scored, for
+        either rule: FUSION would be forced quiet there, CURRENT would not."""
+        import pandas as pd
+        r = pd.DataFrame({"cal": [1, 1, 1, 0]})
+        base = np.full((4, 8), 2000.0)
+        base[1, [F.SRL, F.SRR]] = 400.0                     # perched: 800 < base_min
+        base[2] = np.nan                                     # untrusted window
+        self.assertEqual(list(F.scored_rows(r, base)), [True, False, False, False])
+
     def test_rejected_capture_freezes_the_gate(self):
         """'# calibrating' .. '# calibrate rejected': no decisions, reference unchanged."""
         lines = long_log(False).splitlines()
