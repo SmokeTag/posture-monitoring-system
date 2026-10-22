@@ -225,6 +225,64 @@ class RuleTest(unittest.TestCase):
         self.assertEqual(rule.step(3500, 0.0, -20.0, [0] * 8), (False, F.EMPTY))
 
 
+def long_log(drop: bool, dp_bad: float = 30.0) -> str:
+    """Uncalibrated lead-in, a capture (5 of its rows dropped if `drop`), then 6 s of
+    tag 2 at dpitch = dp_bad and 6 s of tag 1 upright."""
+    lines = ["# tag map 0=transition 1=ereto 2=curvado_frente", FSR_MAP, COLS]
+    t, rows = 1000, []
+    for i in range(10):
+        rows.append(row(t, 5, 0.0, 0.0, UPRIGHT, 0, cal=0)); t += 50
+    lines += rows
+    lines.append("# calibrating (hold upright 1 s), from serial")
+    cap = []
+    for i in range(20):
+        if i == 19:
+            cap.append("# calibrated upright: pitch=0.0 roll=0.0 calid=6")
+        cap.append(row(t, 6 if i == 19 else 5, 0.0, 0.0, UPRIGHT, 0, cal=int(i == 19))); t += 50
+    if drop:
+        del cap[3:8]
+    lines += cap
+    for tag, dp, n in ((0, 0.0, 10), (2, dp_bad, 120), (1, 0.0, 120)):
+        for i in range(n):
+            lines.append(row(t, 6, dp, 0.0, UPRIGHT, tag)); t += 50
+    return "\n".join(lines) + "\n"
+
+
+class EvaluationValidityTest(unittest.TestCase):
+    """Rows under an untrusted calibration take no part in scoring or selection."""
+
+    def load(self, name: str, text: str, warn: bool = False):
+        path = Path(self.dir.name) / name
+        path.write_text(text)
+        if warn:
+            with self.assertWarns(UserWarning):
+                return F.inputs(C.load(path))
+        return F.inputs(C.load(path))
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_untrusted_window_not_scored(self):
+        good = self.load("2026-10-21_Good-One_run1.csv", long_log(False))
+        # a conflicting subject: its "bad" posture is tiny, would count as a miss
+        bad = self.load("2026-10-21_Bad-One_run1.csv", long_log(True, dp_bad=1.0), warn=True)
+        self.assertFalse(bad.valid.any())
+        self.assertTrue(F.evaluate([bad], F.FUSION).empty)
+        both = F.evaluate([good, bad], F.FUSION)
+        self.assertEqual(set(both["subject"]), {"Good-One"})
+        self.assertEqual(list(both["tag"]), [2, 1])
+        # parameter selection sees exactly the trusted run
+        ps = [F.FUSION, F.CURRENT, F.replace(F.FUSION, alert_deg=40.0, clear_deg=37.0)]
+        pd_ = __import__("pandas").testing
+        pd_.assert_series_equal(F.scores(F.search([good, bad], ps)), F.scores(F.search([good], ps)))
+        # the same postures under a trusted window are scored
+        self.assertEqual(len(F.evaluate([self.load("2026-10-21_Bad-Two_run1.csv",
+                                                   long_log(False, dp_bad=1.0))], F.FUSION)), 2)
+
+
 class ReplayTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

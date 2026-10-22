@@ -184,7 +184,8 @@ class Inputs:
     base: np.ndarray                          # (n, 8) baseline means of the calibration in effect
     calibrated: np.ndarray                    # chair has a reference
     recal: np.ndarray                         # first row of a new calibration (gate reset)
-    frozen: np.ndarray                        # capture window before the event: gate not updated
+    frozen: np.ndarray                        # capture samples before the last: gate not updated
+    valid: np.ndarray                         # scored: calibrated with a usable (trusted) baseline
     segs: list = field(default_factory=list)  # tagged segments (Seg), for scoring
 
 
@@ -209,7 +210,8 @@ def inputs(run: C.Run) -> Inputs:
     dr = np.where(ok_imu, r["droll"].to_numpy(float), np.nan)
     t_ms = r["t_ms"].to_numpy(np.int64)
     return Inputs(run, t_ms / 1000.0, t_ms, dp, dr, run.fsr().to_numpy(float),
-                  base, (r["cal"] == 1).to_numpy(), recal, frozen, tagged_segments(r))
+                  base, (r["cal"] == 1).to_numpy(), recal, frozen,
+                  (r["cal"] == 1).to_numpy() & ~np.isnan(base[:, 0]), tagged_segments(r))
 
 
 def replay(x: Inputs, p: Params) -> tuple[np.ndarray, np.ndarray]:
@@ -359,12 +361,17 @@ def tagged_segments(r: pd.DataFrame) -> list[Seg]:
 
 def seg_table(x: Inputs, alert: np.ndarray) -> pd.DataFrame:
     """Per tagged segment: fraction of settled samples alerted (frac, over n), fired at
-    all within the segment, latency from its start (s; 0 = already on)."""
+    all within the segment, latency from its start (s; 0 = already on). Only valid rows
+    count (x.valid: calibrated with a trusted baseline); a segment with no valid settled
+    row is left out."""
     out = []
     for s in x.segs:
-        on = np.flatnonzero(alert[s.i0:s.i1])
-        out.append((x.run.subject, x.run.name, s.tag, alert[s.settled].mean(), len(on) > 0,
-                    x.t[s.i0 + on[0]] - x.t[s.i0] if len(on) else np.nan, len(s.settled)))
+        scored = s.settled[x.valid[s.settled]]
+        if not len(scored):
+            continue
+        on = np.flatnonzero(alert[s.i0:s.i1] & x.valid[s.i0:s.i1])
+        out.append((x.run.subject, x.run.name, s.tag, alert[scored].mean(), len(on) > 0,
+                    x.t[s.i0 + on[0]] - x.t[s.i0] if len(on) else np.nan, len(scored)))
     return pd.DataFrame(out, columns=["subject", "run", "tag", "frac", "fired", "latency", "n"])
 
 
