@@ -74,14 +74,14 @@ no further prompting. Defaults:
   body = transmitter (pitch/roll, 20 Hz), chair = receiver; the decision rides
   back in the **ACK payload**. Protocol + alert rules are shared in
   `firmware/libraries/PostureLink`. BLE only if a phone joins later.
-- **Chair alert = IMU + FSR fusion** (`PostureLink/Fusion.h`): IMU deviation,
-  slid forward (seat rear unloaded), FSR-confirmed lean; reclined and empty
-  seat don't alert. Rationale: `docs/decisao-fusao-imu-fsr.md`.
   Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
   It is polled — the receiver's ACK is sent inside `radio.available()`, so the
   chair `loop()` must never block (the TX waits only ~0.8 ms for an ACK
   payload). Bench @ ~1 m: 0 lost (20 Hz), but ~10–35 retx/s — tune in the
   power work.
+- **Chair alert = IMU + FSR fusion** (`PostureLink/Fusion.h`): IMU deviation,
+  slid forward (seat rear unloaded), FSR-confirmed lean; reclined and empty
+  seat don't alert. Rationale: `docs/decisao-fusao-imu-fsr.md`.
 - **Link loss → body fallback:** after 1 s without a valid ChairAck the body applies the
   IMU-only rule (deviation > 10° for 3 s) alone, with the last reference the chair sent.
 - **Calibration = per-user, by button:** alert on deviation from a captured
