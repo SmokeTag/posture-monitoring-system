@@ -354,6 +354,15 @@ class Parsing(unittest.TestCase):
         self.assertIsNone(LP.parse_row("1,2,3", V2_FIELDS))
         self.assertIsNone(LP.parse_row("12,a" + ",0" * 30, V2_FIELDS))
 
+    def test_columns_after_the_fsrs_go_into_the_row(self):
+        head = ",".join(V2_FIELDS + [f"c{c}" for c in range(8, 16)] + ["reason", "tag"])
+        tail = LP.tail_fields(head)
+        self.assertEqual(tail, ["reason", "tag"])
+        line = "12," + ",".join(["0"] * (len(V2_FIELDS) - 1)) + ",1,2,3,4,5,6,7,8,3,0"
+        r, fsr = LP.parse_row(line, V2_FIELDS, tail)
+        self.assertEqual(fsr, [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertEqual((r["reason"], r["tag"]), (3, 0))
+
     def test_rx_summary_shows_bad(self):
         s = LP.rx_summary("rx pkts=0 lost=0 dup=0 old=0 rst=0 bad=20 sdrop=0 edrop=0 dt=1000")
         self.assertEqual(s, "rx pkts=0 lost=0 bad=20")
