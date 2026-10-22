@@ -35,7 +35,7 @@ do log.
 - **Pernas** (`8`/`9`): o IMU quase não as vê, quem vê é o assento.
   Combinações (curvado + perna cruzada) ficam para o bloco livre, assim como
   posturas fora da tabela (sentado na ponta, tornozelo sobre o joelho).
-- Se as pernas cruzadas geram alerta ainda está em aberto.
+- Pernas cruzadas não geram alerta (`docs/decisao-fusao-imu-fsr.md`).
 
 ## Antes de começar
 

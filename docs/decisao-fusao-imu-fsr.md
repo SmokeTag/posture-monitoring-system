@@ -168,7 +168,7 @@ alertar no `reclinado` (29 % → 2 % do tempo ok alertado); o `SLUMP` leva o
   transição e continuar no início da próxima se o desvio ficar entre 7° e
   10°; "disparou no segmento" credita isso.
 
-## Pernas cruzadas (decisão em aberto)
+## Pernas cruzadas (não alertam)
 
 Pelos FSRs do assento (medianas assentadas, vs. ereto): o deslocamento L/R
 passa de 0,1 em só 3/8 sujeitos no `8` (Rafael +0,15, Thiago-Fita +0,29,
@@ -178,8 +178,12 @@ consistente entre pessoas (Thiago-M vai levemente para o outro lado no `8`, −0
 os mesmos índices ficam em ±0,03. Conclusão: **detectável em ~metade das
 pessoas, sem um padrão comum** com 4 FSRs no assento; a regra não alerta
 nelas (8 e 9 ficam em 12 % / 10 % do tempo: deriva do Felipe, `LEAN` do
-Rafael e o escorregamento real do Vinicius). Decidir se pernas cruzadas devem alertar
-exige mais dados (e talvez outro arranjo de sensores no assento).
+Rafael e o escorregamento real do Vinicius).
+
+**Decisão (2026-10-22):** na versão atual, pernas cruzadas **não geram alerta**.
+Não compensa: o sinal não é confiável com 4 FSRs no assento, e um alerta
+nelas viraria falso alarme em quem não é detectável. Rever só com mais dados
+(e talvez outro arranjo de sensores no assento).
 
 ## Ninguém sentado
 

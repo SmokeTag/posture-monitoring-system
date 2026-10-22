@@ -80,8 +80,8 @@ no further prompting. Defaults:
   payload). Bench @ ~1 m: 0 lost (20 Hz), but ~10–35 retx/s — tune in the
   power work.
 - **Chair alert = IMU + FSR fusion** (`PostureLink/Fusion.h`): IMU deviation,
-  slid forward (seat rear unloaded), FSR-confirmed lean; reclined and empty
-  seat don't alert. Rationale: `docs/decisao-fusao-imu-fsr.md`.
+  slid forward (seat rear unloaded), FSR-confirmed lean; reclined, crossed legs and
+  empty seat don't alert. Rationale: `docs/decisao-fusao-imu-fsr.md`.
 - **Link loss → body fallback:** after 1 s without a valid ChairAck the body applies the
   IMU-only rule (deviation > 10° for 3 s) alone, with the last reference the chair sent.
 - **Calibration = per-user, by button:** alert on deviation from a captured
