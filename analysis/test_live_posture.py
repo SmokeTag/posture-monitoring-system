@@ -14,6 +14,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import numpy as np
+
+import captures as C
 import live_posture as LP
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -130,7 +133,7 @@ class RealFirmwareStream(unittest.TestCase):
         live view would. The system is consistent, so: never "≠"; ✓ in steady
         chair control; fallback and unknown bases never count as a mismatch."""
         r = reader()
-        seen = {"✓ applied": 0, "unconfirmed": 0, "FALLBACK": 0, "≠ applied": 0}
+        seen = {"✓ aplicado": 0, "não conferido": 0, "SOZINHO": 0, "≠ aplicado": 0}
         for line in self.lines:
             n0 = len(r.rows)
             last = r.rows[-1] if r.rows else None
@@ -140,10 +143,10 @@ class RealFirmwareStream(unittest.TestCase):
             text = " ".join(LP.body_lines(list(r.rows))[:2])
             for k in seen:
                 seen[k] += k in text
-        self.assertEqual(seen["≠ applied"], 0)
-        self.assertGreater(seen["✓ applied"], 200)
-        self.assertGreater(seen["FALLBACK"], 50)
-        self.assertGreater(seen["unconfirmed"], 0)       # e.g. the chair's no-basis ACK
+        self.assertEqual(seen["≠ aplicado"], 0)
+        self.assertGreater(seen["✓ aplicado"], 200)
+        self.assertGreater(seen["SOZINHO"], 50)
+        self.assertGreater(seen["não conferido"], 0)       # e.g. the chair's no-basis ACK
 
     def test_motor_test_is_not_an_alert(self):
         r = reader()
@@ -151,7 +154,7 @@ class RealFirmwareStream(unittest.TestCase):
         for line in self.lines:
             r._handle(line)
             if r.rows and r.rows[-1].get("btest") == 1:
-                self.assertEqual(LP.body_lines(list(r.rows))[2], "motor ● ON test")
+                self.assertEqual(LP.body_lines(list(r.rows))[2], "motor   ● teste")
                 self.assertEqual(r.rows[-1]["balert"], 0)
                 tested = True
         self.assertTrue(tested)
@@ -187,21 +190,21 @@ class RealFirmwareStream(unittest.TestCase):
         r = reader()
         feed(r, self.lines)
         self.assertTrue(all(abs(x["vbat"] - 3899) <= 2 for x in r.rows))
-        self.assertEqual(LP.battery_text(r.rows[-1]), "batt  3.90 V")
+        self.assertEqual(LP.battery_text(r.rows[-1]), "bateria 3,90 V")
 
 
 class Battery(unittest.TestCase):
     def test_text(self):
-        self.assertEqual(LP.battery_text(row(1)), "batt  ? (old firmware)")
-        self.assertEqual(LP.battery_text({**row(1), "vbat": 0}), "batt  — no reading yet")
-        self.assertEqual(LP.battery_text({**row(1), "vbat": 3712}), "batt  3.71 V")
-        self.assertEqual(LP.battery_text({**row(1), "vbat": 3310}), "batt  3.31 V  LOW (off < 3.30 V)")
+        self.assertEqual(LP.battery_text(row(1)), "bateria ? (firmware antigo)")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 0}), "bateria — sem leitura ainda")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 3712}), "bateria 3,71 V")
+        self.assertEqual(LP.battery_text({**row(1), "vbat": 3310}), "bateria 3,31 V  BAIXA (desliga < 3,30 V)")
 
     def test_cutoff_hint_when_silent(self):
         self.assertEqual(LP.cutoff_hint([]), "")
         self.assertEqual(LP.cutoff_hint([row(1)]), "")                     # old firmware
         self.assertEqual(LP.cutoff_hint([{**row(1), "vbat": 3800}]), "")
-        self.assertIn("3.31 V: low-battery cutoff?", LP.cutoff_hint([{**row(1), "vbat": 3310}]))
+        self.assertIn("3,31 V: desligou por bateria baixa?", LP.cutoff_hint([{**row(1), "vbat": 3310}]))
 
 
 class OldFirmware(unittest.TestCase):
@@ -212,7 +215,7 @@ class OldFirmware(unittest.TestCase):
         self.assertEqual([x["seq"] for x in r.rows], [41, 42])
         self.assertFalse(r.body_up)                     # last row: seq -1
         self.assertEqual(LP.body_lines(list(r.rows)),
-                         ["body  (old firmware)", "      no report", "motor ● ON"])
+                         ["corpo   (firmware antigo)", "        sem relatório", "motor   ● ligado"])
         self.assertEqual(r.fsr[-2][1][10], LP.M.ohms_to_us(5410))
 
     def test_v1_without_header(self):
@@ -229,7 +232,7 @@ class OldFirmware(unittest.TestCase):
 
 
 class Confirmation(unittest.TestCase):
-    """When body_lines() may say ✓ / ≠, and when only "unconfirmed"."""
+    """When body_lines() may say ✓ / ≠, and when only "não conferido"."""
 
     def stream(self, n=10, **kw):
         return [row(s, **kw) for s in range(100, 100 + n)]
@@ -238,55 +241,55 @@ class Confirmation(unittest.TestCase):
         return LP.body_lines(rows)[1].strip()
 
     def test_steady_state(self):
-        self.assertEqual(self.check(self.stream()), "✓ applied")
-        self.assertEqual(LP.body_lines(self.stream())[0], "body  chair, age 2")
+        self.assertEqual(self.check(self.stream()), "✓ aplicado")
+        self.assertEqual(LP.body_lines(self.stream())[0], "corpo   cadeira, idade 2")
 
     def test_mismatch(self):
         rows = self.stream()
         rows[-3]["alert"] = 1                           # decided alert, body reports none
-        self.assertEqual(self.check(rows), "≠ applied")
+        self.assertEqual(self.check(rows), "≠ aplicado")
         rows = self.stream()
         rows[-3]["calid"] = 8                           # another reference
-        self.assertEqual(self.check(rows), "≠ applied")
+        self.assertEqual(self.check(rows), "≠ aplicado")
 
     def test_unknown_basis_or_saturated_age(self):
         for kw in (dict(bage=-1), dict(bage=254, bseq=5)):
             rows = self.stream()
             rows[-1] = row(109, **kw)
-            self.assertEqual(self.check(rows), "unconfirmed")
+            self.assertEqual(self.check(rows), "não conferido")
         self.assertEqual(LP.body_lines(self.stream()[:-1] + [row(109, bage=254, bseq=5)])[0],
-                         "body  chair, age 254+")
+                         "corpo   cadeira, idade 254+")
 
     def test_decision_not_in_buffer(self):
-        self.assertEqual(self.check([row(100)]), "unconfirmed")
+        self.assertEqual(self.check([row(100)]), "não conferido")
 
     def test_other_session_never_matches(self):
         rows = self.stream()
         for x in rows[:-1]:
             x["boot"] = 0x11                            # same seqs, other body boot
             x["alert"] = 1
-        self.assertEqual(self.check(rows), "unconfirmed")
+        self.assertEqual(self.check(rows), "não conferido")
 
     def test_seq_going_back_stops_the_search(self):
         rows = [row(s) for s in (105, 106, 107)] + [row(s) for s in (100, 101, 102)]
         rows[1]["alert"] = 1                            # seq 106 "decided" an alert, earlier
         rows[-1] = row(108, bage=2)                     # bseq 106, but seq went back before it
-        self.assertEqual(self.check(rows), "unconfirmed")
+        self.assertEqual(self.check(rows), "não conferido")
 
     def test_seq_wrap(self):
         rows = [row(s & 0xFFFF) for s in range(65530, 65538)]
         self.assertEqual(rows[-1]["bseq"], 65535)
-        self.assertEqual(self.check(rows), "✓ applied")
+        self.assertEqual(self.check(rows), "✓ aplicado")
 
     def test_fallback_is_not_a_mismatch(self):
         rows = self.stream(bctl=2, balert=1, bage=60)   # its own alert, chair says none
-        self.assertEqual(LP.body_lines(rows)[:2], ["body  FALLBACK (alone)", "      ref = chair's"])
+        self.assertEqual(LP.body_lines(rows)[:2], ["corpo   SOZINHO (sem enlace)", "        ref = da cadeira"])
         rows[-1]["bcalid"] = 9
-        self.assertEqual(self.check(rows), "ref ≠ chair's")
+        self.assertEqual(self.check(rows), "ref ≠ da cadeira")
 
     def test_none_yet(self):
         rows = [row(0, bctl=0, bcal=0, bcalid=0, bage=-1)]
-        self.assertEqual(LP.body_lines(rows)[0], "body  no chair decision")
+        self.assertEqual(LP.body_lines(rows)[0], "corpo   sem decisão da")
 
 
 class ImuHealth(unittest.TestCase):
@@ -295,7 +298,7 @@ class ImuHealth(unittest.TestCase):
         RealFirmwareStream.setUpClass()
 
     def test_old_firmware_health_is_unknown(self):
-        self.assertEqual(LP.imu_text(row(10)), "IMU ? (old firmware)")
+        self.assertEqual(LP.imu_text(row(10)), "IMU ? (firmware antigo)")
         self.assertTrue(LP.imu_valid(row(10)))          # historical posture data remains readable
 
     def test_invalid_sample_has_no_confirmation(self):
@@ -310,9 +313,9 @@ class ImuHealth(unittest.TestCase):
         rows = [row(s) for s in range(100, 110)]
         rows[-3]["alert"] = 1
         rows[-1].update(imu=0, binh=1, balert=0)
-        self.assertEqual(LP.body_lines(rows)[1].strip(), "IMU guard (inhibited)")
+        self.assertEqual(LP.body_lines(rows)[1].strip(), "proteção IMU (inibido)")
         rows[-1]["bcalid"] = 8
-        self.assertEqual(LP.body_lines(rows)[1].strip(), "≠ applied")
+        self.assertEqual(LP.body_lines(rows)[1].strip(), "≠ aplicado")
 
     def test_real_stream_contains_invalid_and_inhibited_samples(self):
         r = reader()
@@ -354,6 +357,56 @@ class Parsing(unittest.TestCase):
     def test_rx_summary_shows_bad(self):
         s = LP.rx_summary("rx pkts=0 lost=0 dup=0 old=0 rst=0 bad=20 sdrop=0 edrop=0 dt=1000")
         self.assertEqual(s, "rx pkts=0 lost=0 bad=20")
+
+
+class TagClock(unittest.TestCase):
+    def test_transition_is_a_stopwatch(self):
+        self.assertEqual(LP.tag_clock(0, 0.4), ("⏱ 0:00", False))
+        self.assertEqual(LP.tag_clock(0, 75.2), ("⏱ 1:15", False))
+
+    def test_posture_counts_down_then_done(self):
+        self.assertEqual(LP.tag_clock(2, 0.0), ("⏳ 15 s", False))
+        self.assertEqual(LP.tag_clock(2, 14.2), ("⏳ 1 s", False))
+        self.assertEqual(LP.tag_clock(2, 15.0), ("✓ pronto", True))
+        self.assertEqual(LP.tag_clock(2, 0.0, hold=20), ("⏳ 20 s", False))
+
+    def test_upright_between_postures_is_shorter(self):
+        self.assertEqual(LP.tag_clock(1, 0.0), ("⏳ 10 s", False))
+
+
+class Reference(unittest.TestCase):
+    def test_recorded_postures_land_where_the_neck_mount_puts_them(self):
+        """dpitch = sideways, droll = forward/back (the axis labels rely on it)."""
+        runs = LP.load_reference_runs()
+        if not runs:
+            self.skipTest("no captures in data/")
+        med = {k: np.median(v, axis=0) for k, v in LP.reference_points(runs).items()}
+        self.assertLess(med["curvado"][1], -10)          # slouch: droll forward
+        self.assertGreater(med["reclinado"][1], 5)       # recline: droll back
+        self.assertLess(med["esq"][0], -5)               # lean left: dpitch −
+        self.assertGreater(med["dir"][0], 5)             # lean right: dpitch +
+        self.assertLess(np.hypot(*med["pernas"]), 7)     # crossed legs: inside the clear circle
+
+    def test_one_dot_per_subject(self):
+        runs = LP.load_reference_runs()
+        if not runs:
+            self.skipTest("no captures in data/")
+        n = len({r.subject for r in runs})
+        self.assertLess(n, len(runs))                    # André has two runs
+        self.assertEqual(len(LP.reference_points(runs)["curvado"]), n)
+
+    def test_broken_or_active_log_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            good = sorted(C.DATA.glob(LP.REF_GLOB))[0]
+            (data / good.name).write_text(good.read_text())
+            (data / "2026-10-21_Empty_run1.csv").write_text("# tag map 0=transition\n")
+            (data / "2026-10-21_HeaderOnly_run1.csv").write_text("# x\nt_ms,cal\n")
+            active = data / "2026-10-21_Active_run1.csv"
+            active.write_text(good.read_text())
+            with patch.object(C, "DATA", data), patch("builtins.print"):
+                runs = LP.load_reference_runs(skip=active)
+            self.assertEqual([r.path.name for r in runs], [good.name])
 
 
 if __name__ == "__main__":

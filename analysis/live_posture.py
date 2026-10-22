@@ -4,7 +4,9 @@ Reads the serial CSV of the chair unit (firmware/chair/chair.ino, the "brain",
 which receives the body's IMU over ESB and scans its FSRs).
 
 Left: the current (dpitch, droll) point with a short trail, with the alert
-(10°) and clear (7°) circles. The status box shows dev and the chair's
+(10°) and clear (7°) circles, on top of the postures recorded in data/2026-10-21_*_run*.csv
+(one dot per subject, a big one at their median; red = should alert,
+green = must not; --no-ref hides them). The status box shows dev and the chair's
 decision, then what the body reports it applied: who decides (chair /
 fallback), the age of the decision it holds and whether it matches the chair
 row that made it (✓ / ≠; "unconfirmed" when that can't be checked), and the
@@ -16,17 +18,20 @@ Right: the chair seen from above with the backrest folded back (sitter's left
 on the left) — 4 seat + 4 backrest spots, each filled by its FSR's load
 (conductance 1/R, ~linear in force), with the centre of pressure per plate;
 below, one trace per mux channel (C8..C15). Which channel sits at which spot
-comes from chair_map.json, built here: press m (or click a spot) and press each
+comes from chair_map.json (FSRs are soldered: fixed). With --fsr-placement it is
+built here: press m (or click a spot) and press each
 sensor when asked. While a spot is waiting you can also click a channel's trace
 to assign it by hand.
 
 Keys (plot window focused):  c = calibrate (sends 'c' to the chair)   r = clear
-                             m = map all 8 FSRs   Esc = cancel mapping
-                             0..9 = posture tag (0 = transition)
+                             m = map all 8 FSRs   Esc = cancel mapping (--fsr-placement)
+                             0..9 = posture tag (0 = transition; --log only)
 
 With --log, every data row gets the current tag as an extra last column `tag`
 (it starts at 0, so anything not tagged on purpose is dropped as transition);
-the tag names from tags.json go in as a `# tag map` line.
+the tag names from tags.json go in as a `# tag map` line. The badge times the
+hold: a countdown (--hold s; 10 s for upright) that turns green when done, a
+stopwatch for transition. Without --log the tag badge and keys are hidden. The UI text is PT-BR (shown at a science fair).
 
     .venv/bin/python analysis/live_posture.py
     .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0 --log data/<name>.csv
@@ -38,7 +43,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import threading
+import warnings
 import time
 from collections import deque
 from pathlib import Path
@@ -48,12 +55,15 @@ import matplotlib
 matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 import serial  # noqa: E402
 from matplotlib.animation import FuncAnimation  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap, PowerNorm  # noqa: E402
 from matplotlib.patches import Circle, FancyBboxPatch  # noqa: E402
 
+import captures as C  # noqa: E402
 import chair_map as M  # noqa: E402
+import fusion as F  # noqa: E402
 
 CHAIR_PORT = "/dev/serial/by-id/usb-Seeed_XIAO_nRF52840_Sense_2C7FE46C8E63BDA0-if00"
 ALERT_DEG, CLEAR_DEG = 10.0, 7.0            # keep in sync with firmware/libraries/PostureLink
@@ -79,6 +89,7 @@ G_MAX = 6250.0                               # µS = 160 Ω, the FSR402 floor at
 LOAD_NORM = PowerNorm(0.5, 0, G_MAX)         # sqrt: light touches stay visible
 R_TICKS = [10_000, 2_000, 1_000, 500, 250]    # Ω, on the load scale
 TRACE_S = 10.0
+HOLD_S, HOLD_UPRIGHT_S = 15.0, 10.0           # tag countdowns (capture protocol)
 TAGS_PATH = Path(__file__).with_name("tags.json")   # {"1": "upright", ...}; 0 is always transition
 
 
@@ -86,6 +97,26 @@ def load_tags(path: Path) -> dict[int, str]:
     """Tag -> posture name; 0 = transition, missing names = undefined."""
     names = {int(k): str(v) for k, v in json.loads(path.read_text()).items()} if path.exists() else {}
     return {**names, 0: "transition"}
+
+
+def volts(mv: float) -> str:
+    """'3,90 V' (PT-BR decimal comma)."""
+    return f"{mv / 1000:.2f} V".replace(".", ",")
+
+
+def tag_label(tags: dict[int, str], tag: int) -> str:
+    """Badge text for a tag: 'transição' for 0, else the tags.json name."""
+    return "transição" if tag == 0 else tags.get(tag, "(indefinida)").replace("_", " ")
+
+
+def tag_clock(tag: int, elapsed: float, hold: float = HOLD_S) -> tuple[str, bool]:
+    """Badge timer since the tag key: a stopwatch for 0 (transition), else a
+    countdown of the hold time (HOLD_UPRIGHT_S for upright between postures,
+    docs/protocolo-captura.md); done = the hold is over."""
+    if tag == 0:
+        return f"⏱ {int(elapsed) // 60}:{int(elapsed) % 60:02d}", False
+    left = (HOLD_UPRIGHT_S if tag == 1 else hold) - elapsed
+    return ("✓ pronto", True) if left <= 0 else (f"⏳ {math.ceil(left)} s", False)
 
 
 def fmt_ohms(r: float) -> str:
@@ -244,12 +275,12 @@ def decision_row(rows: list[dict], i: int):
     return None
 
 
-IMU_STATES = {0: "OK", 1: "initializing", 2: "I2C error", 3: "no fresh data", 4: "invalid gravity vector"}
+IMU_STATES = {0: "OK", 1: "inicializando", 2: "erro I2C", 3: "sem dados novos", 4: "vetor de gravidade inválido"}
 
 
 def imu_text(row: dict) -> str:
     status = int(row.get("imu", -1))
-    return "IMU ? (old firmware)" if status < 0 else "IMU " + IMU_STATES.get(status, "unknown status")
+    return "IMU ? (firmware antigo)" if status < 0 else "IMU " + IMU_STATES.get(status, "estado desconhecido")
 
 
 def imu_valid(row: dict) -> bool:
@@ -261,17 +292,17 @@ def battery_text(row: dict) -> str:
     """Status-box line for the body's battery (vbat, mV)."""
     mv = int(row.get("vbat", -1))
     if mv < 0:
-        return "batt  ? (old firmware)"
+        return "bateria ? (firmware antigo)"
     if mv == 0:
-        return "batt  — no reading yet"
-    low = f"  LOW (off < {VBAT_CUTOFF_MV / 1000:.2f} V)" if mv < VBAT_LOW_MV else ""
-    return f"batt  {mv / 1000:.2f} V{low}"
+        return "bateria — sem leitura ainda"
+    low = f"  BAIXA (desliga < {volts(VBAT_CUTOFF_MV)})" if mv < VBAT_LOW_MV else ""
+    return f"bateria {volts(mv)}{low}"
 
 
 def cutoff_hint(rows: list[dict]) -> str:
     """Banner suffix for a silent body whose last battery reading was low."""
     mv = int(rows[-1].get("vbat", -1)) if rows else -1
-    return f"\nlast battery {mv / 1000:.2f} V: low-battery cutoff?" if 0 < mv < VBAT_LOW_MV else ""
+    return f"\núltima bateria {volts(mv)}: desligou por bateria baixa?" if 0 < mv < VBAT_LOW_MV else ""
 
 
 def body_lines(rows: list[dict]) -> list[str]:
@@ -280,35 +311,35 @@ def body_lines(rows: list[dict]) -> list[str]:
     have no report."""
     r = rows[-1]
     if "bctl" not in r:                               # v1: only the motor flag
-        return ["body  (old firmware)", "      no report",
-                f"motor {'● ON' if r.get('led') else '○ off'}"]
-    motor = "○ off"
+        return ["corpo   (firmware antigo)", "        sem relatório",
+                f"motor   {'● ligado' if r.get('led') else '○ desligado'}"]
+    motor = "○ desligado"
     if r["bmotor"]:
-        motor = "● ON test" if r["btest"] else "● ON alert" if r["balert"] else "● ON"
+        motor = "● teste" if r["btest"] else "● alerta" if r["balert"] else "● ligado"
     ctl = int(r["bctl"])
     age = int(r["bage"])
     age_txt = "?" if age < 0 else f"{age}+" if age >= AGE_MAX else f"{age}"
     if ctl == CTL_NONE:
-        return ["body  no chair decision", "      yet", f"motor {motor}"]
+        return ["corpo   sem decisão da", "        cadeira ainda", f"motor   {motor}"]
     if ctl == CTL_FALLBACK:                           # its own alert: nothing to confirm
-        ref = "ref = chair's" if r["bcalid"] == r["calid"] else "ref ≠ chair's"
+        ref = "ref = da cadeira" if r["bcalid"] == r["calid"] else "ref ≠ da cadeira"
         if not r["bcal"]:
-            ref = "no ref: no alerts"
-        return ["body  FALLBACK (alone)", f"      {ref}", f"motor {motor}"]
+            ref = "sem ref: sem alertas"
+        return ["corpo   SOZINHO (sem enlace)", f"        {ref}", f"motor   {motor}"]
     d = decision_row(rows, len(rows) - 1)
     if not imu_valid(r):
-        check = "sample invalid"
+        check = "amostra inválida"
     elif r.get("binh", 0):
-        check = "IMU guard (unconfirmed)" if d is None else (
-            "IMU guard (inhibited)" if (r["bcal"], r["bcalid"], r["balert"]) ==
-            (d["cal"], d["calid"], 0) and d["alert"] else "≠ applied")
+        check = "proteção IMU (não conferido)" if d is None else (
+            "proteção IMU (inibido)" if (r["bcal"], r["bcalid"], r["balert"]) ==
+            (d["cal"], d["calid"], 0) and d["alert"] else "≠ aplicado")
     elif d is None:
-        check = "unconfirmed"
+        check = "não conferido"
     elif (r["bcal"], r["bcalid"], r["balert"]) == (d["cal"], d["calid"], d["alert"]):
-        check = "✓ applied"
+        check = "✓ aplicado"
     else:
-        check = "≠ applied"
-    return [f"body  chair, age {age_txt}", f"      {check}", f"motor {motor}"]
+        check = "≠ aplicado"
+    return [f"corpo   cadeira, idade {age_txt}", f"        {check}", f"motor   {motor}"]
 
 
 def rx_summary(text: str) -> str:
@@ -321,14 +352,80 @@ def rx_summary(text: str) -> str:
     return " ".join(words[:1] + keep)
 
 
+REF_POSTURES = {                              # display group -> (tags, label, label offset pt, ha)
+    "curvado": ([2], "curvado p/ frente", (10, 0), "left"),
+    "cabeca": ([3], "cabeça p/ frente", (10, 0), "left"),
+    "escorregado": ([4], "escorregado", (-10, 0), "right"),
+    "esq": ([5], "inclinado à esq.", (-10, 0), "right"),
+    "dir": ([6], "inclinado à dir.", (10, 0), "left"),
+    "reclinado": ([7], "reclinado", (10, 0), "left"),
+    "pernas": ([8, 9], "pernas cruzadas", (10, 8), "left"),
+}
+REF_BAD, REF_OK = "#e07b72", "#5aa469"           # should alert / must not (fusion.BAD_TAGS)
+REF_GLOB = "2026-10-21_*_run*.csv"               # the tagged multi-subject captures (data/README.md)
+
+
+def load_reference_runs(pattern: str = REF_GLOB, skip: Path | None = None) -> list:
+    """Captures for the overlay; best effort: an unreadable file (e.g. a log cut
+    short before its first row) is skipped, never fatal for the live view."""
+    runs = []
+    for p in sorted(C.DATA.glob(pattern)):
+        if skip is not None and p.resolve() == skip.resolve():
+            continue
+        try:
+            with warnings.catch_warnings():         # untrusted-calibration notes
+                warnings.simplefilter("ignore")
+                runs.append(C.load(p))
+        except (ValueError, IndexError, KeyError, OSError) as e:
+            print(f"reference: skipping {p.name} ({e})")
+    return runs
+
+
+def reference_points(runs) -> dict[str, np.ndarray]:
+    """Display group -> per-subject median (dpitch, droll), one row per subject
+    that held it (all their runs pooled): settled, calibrated, valid-IMU rows
+    of the tagged captures."""
+    per: dict[str, list] = {k: [] for k in REF_POSTURES}
+    by_subject: dict[str, list] = {}
+    for run in runs:
+        d = run.rows
+        by_subject.setdefault(run.subject, []).append(
+            d[d["settled"] & (d["cal"] == 1) & (d["imu"] == 0 if "imu" in d else True)])
+    for frames in by_subject.values():
+        d = pd.concat(frames)
+        for key, (tags, *_) in REF_POSTURES.items():
+            g = d[d["tag"].isin(tags)]
+            if len(g):
+                per[key].append((g["dpitch"].median(), g["droll"].median()))
+    return {k: np.array(v) for k, v in per.items() if v}
+
+
+def draw_reference(ax, refs: dict[str, np.ndarray], n_subjects: int):
+    """Recorded postures: one small dot per subject, a big one at their median."""
+    for key, pts in refs.items():
+        tags, label, off, ha = REF_POSTURES[key]
+        c = REF_BAD if set(tags) <= set(F.BAD_TAGS) else REF_OK
+        ax.scatter(pts[:, 0], pts[:, 1], s=22, color=c, alpha=0.35, lw=0, zorder=2)
+        mx, my = np.median(pts, axis=0)
+        ax.scatter([mx], [my], s=150, color=c, edgecolor="white", lw=2, alpha=0.9, zorder=3)
+        ax.annotate(label, (mx, my), xytext=off, textcoords="offset points", ha=ha,
+                    va="center", fontsize=9, color=INK2, zorder=3)
+    for c, txt in ((REF_BAD, "deve alertar"), (REF_OK, "não alerta")):
+        ax.scatter([], [], s=80, color=c, edgecolor="white", label=txt)
+    ax.legend(loc="lower left", fontsize=9, frameon=False,
+              title=f"posturas gravadas ({n_subjects} pessoas)", title_fontsize=9)
+
+
 class ChairView:
     """Chair diagram + per-channel traces + the interactive FSR mapping."""
 
     PLATES = {"back": (0.0, 11.0), "seat": (0.0, 0.0)}   # lower-left corner, 10 x 10
     SPOT_R = 2.0
 
-    def __init__(self, fig, rect_chair, rect_bar, rect_traces, map_path: Path, reader):
+    def __init__(self, fig, rect_chair, rect_bar, rect_traces, map_path: Path, reader,
+                 editable: bool = False):
         self.map_path, self.reader = map_path, reader
+        self.editable = editable                      # FSR mapping wizard on (--fsr-placement)
         self.map = M.load_map(map_path)
         self.session: M.MapSession | None = None
         self.last_t = 0.0
@@ -339,7 +436,7 @@ class ChairView:
         ax.set_ylim(-2, 21.2)
         ax.set_aspect("equal")
         ax.axis("off")
-        names = {"back": "BACKREST", "seat": "SEAT"}
+        names = {"back": "ENCOSTO", "seat": "ASSENTO"}
         self.spots, self.spot_txt, self.spot_val, self.cop, self.summary = {}, {}, {}, {}, {}
         for plate, (x0, y0) in self.PLATES.items():
             ax.add_patch(FancyBboxPatch((x0, y0), 10, 10, boxstyle="round,pad=0,rounding_size=1.2",
@@ -349,10 +446,10 @@ class ChairView:
             self.summary[plate] = ax.text(x0 + 10.8, y0 + 8.2, "", fontsize=9, color=INK2,
                                           va="top", linespacing=1.5)
             self.cop[plate], = ax.plot([], [], marker="+", ms=16, mew=2.5, color=INK, zorder=5)
-        ax.text(5, -1.2, "front edge", ha="center", fontsize=8, color=MUTED)
-        ax.text(5, 10.5, "hinge", ha="center", va="center", fontsize=7, color=MUTED)
-        ax.text(-0.9, 10.5, "L", ha="center", va="center", fontsize=9, color=MUTED, weight="bold")
-        ax.text(10.9, 10.5, "R", ha="center", va="center", fontsize=9, color=MUTED, weight="bold")
+        ax.text(5, -1.2, "borda da frente", ha="center", fontsize=8, color=MUTED)
+        ax.text(5, 10.5, "dobra", ha="center", va="center", fontsize=7, color=MUTED)
+        ax.text(-0.9, 10.5, "E", ha="center", va="center", fontsize=9, color=MUTED, weight="bold")
+        ax.text(10.9, 10.5, "D", ha="center", va="center", fontsize=9, color=MUTED, weight="bold")
         for slot in M.SLOTS:
             cx, cy = self._xy(slot)
             self.spots[slot] = ax.add_patch(Circle((cx, cy), self.SPOT_R, zorder=2))
@@ -376,7 +473,7 @@ class ChairView:
         cb.tick_params(length=2, color=PLATE_EC)
         for s in cb.spines.values():
             s.set_visible(False)
-        cb.set_title("load per FSR  (R, ~1/force)   grey = open", fontsize=8, color=INK2,
+        cb.set_title("carga por FSR  (R, ~1/força)   cinza = solto", fontsize=8, color=INK2,
                      loc="left")
 
         x0, y0, w, h = rect_traces
@@ -389,7 +486,7 @@ class ChairView:
             ta.set_ylim(0, 1.02)
             ta.set_yticks([float(LOAD_NORM(1e6 / rr)) for rr in (10_000, 1_000, 250)],
                           ["10k", "1k", "250"] if c == 0 else [], fontsize=6, color=MUTED)
-            ta.set_xticks([-10, -5, 0], ["-10 s", "-5", "0"] if r == 1 else [],
+            ta.set_xticks([-10, -5, 0], ["−10 s", "−5", "0"] if r == 1 else [],
                           fontsize=6, color=MUTED)
             ta.tick_params(length=0)
             ta.grid(color=GRID, lw=0.6)
@@ -408,7 +505,8 @@ class ChairView:
 
     # --- mapping ---------------------------------------------------------
     def start(self, slots: list[str]):
-        self.session = M.MapSession(slots)
+        if self.editable:
+            self.session = M.MapSession(slots)
 
     def cancel(self):
         self.session = None
@@ -425,6 +523,8 @@ class ChairView:
             f"c{c}={inv.get(c, 'unmapped')}" for c in M.CHANNELS))
 
     def on_click(self, ev):
+        if not self.editable:
+            return
         if ev.inaxes is self.ax and ev.xdata is not None:
             for slot in M.SLOTS:
                 cx, cy = self._xy(slot)
@@ -464,19 +564,19 @@ class ChairView:
                 spot.set(fc="none" if ch is None else OPEN_FC, ec=MUTED, lw=1.2,
                          ls=":" if ch is None else "-")
                 txt.set(text="?" if ch is None else f"C{ch}", color=MUTED)
-                val.set(text="click" if ch is None else "—", color=MUTED)
+                val.set(text="clique" if ch is None and self.editable else "—", color=MUTED)
             else:
                 us = g.get(ch, 0.0)
                 lvl = float(LOAD_NORM(us))
                 spot.set(fc=LOAD_CMAP(lvl) if us > 0 else OPEN_FC, ec=SURFACE, lw=2, ls="-")
                 ink = "white" if lvl > 0.55 else INK
                 txt.set(text=f"C{ch}", color=ink)
-                val.set(text=fmt_ohms(1e6 / us) if us > 0 else "open", color=ink)
+                val.set(text=fmt_ohms(1e6 / us) if us > 0 else "solto", color=ink)
             if slot == waiting:
                 spot.set(ec=INK, lw=3, ls="-")
                 txt.set_color(INK if ch is None else txt.get_color())
-                val.set_text({"settle": "hands off", "press": "press it",
-                              "release": "release"}[self.session.state])
+                val.set_text({"settle": "sem mãos", "press": "aperte",
+                              "release": "solte"}[self.session.state])
             elif slot == flash:
                 spot.set(ec="#0ca30c", lw=3.5, ls="-")
 
@@ -485,15 +585,16 @@ class ChairView:
         for plate in self.PLATES:
             self._plate_summary(plate, bal[plate], chair_total)
 
-        title = "Chair FSRs — top view, backrest folded back (sitter's left = left)"
+        title = "FSRs da cadeira — vista de cima, encosto rebatido (esquerda de quem senta = esquerda)"
         if not live:
-            title += "\nno FSR data" + ("" if fsr else " yet (old chair firmware?)")
+            title += "\nsem dados dos FSRs" + ("" if fsr else " ainda (firmware antigo da cadeira?)")
         self.title.set_text(title)
         if self.session:
-            hint = ("or click its trace below · " if self.session.state == "press" else "")
-            self.prompt.set_text(f"{self.session.prompt}\n{hint}Esc cancels")
+            hint = ("ou clique no gráfico dele abaixo · " if self.session.state == "press" else "")
+            self.prompt.set_text(f"{self.session.prompt}\n{hint}Esc cancela")
         elif len(self.map) < len(M.SLOTS):
-            self.prompt.set_text(f"{len(self.map)}/8 FSRs mapped — press m to map them")
+            self.prompt.set_text(f"{len(self.map)}/8 FSRs mapeados — "
+                                 + ("aperte m para mapear" if self.editable else "rode com --fsr-placement"))
         else:
             self.prompt.set_text("")
         self.prompt.set_visible(bool(self.prompt.get_text()))
@@ -502,9 +603,9 @@ class ChairView:
         for ch in M.CHANNELS:
             pts = [(t - now, float(LOAD_NORM(gg.get(ch, 0.0)))) for t, gg in fsr]
             self.trace_ln[ch].set_data([p[0] for p in pts], [p[1] for p in pts])
-            where = M.slot_name(inv[ch]) if ch in inv else "unmapped"
+            where = M.slot_name(inv[ch]) if ch in inv else "não mapeado"
             hot = ch == cand
-            self.trace_ti[ch].set(text=f"C{ch} · {where}" + ("  ◀ pressed" if hot else ""),
+            self.trace_ti[ch].set(text=f"C{ch} · {where}" + ("  ◀ apertado" if hot else ""),
                                   color=INK if hot or ch in inv else MUTED,
                                   weight="bold" if hot else "normal")
             self.trace_ax[ch].set_facecolor("#eef4fc" if hot else SURFACE)
@@ -514,19 +615,19 @@ class ChairView:
         txt, cop = self.summary[plate], self.cop[plate]
         cop.set_data([], [])
         if len(mapped) < 4:
-            txt.set_text(f"{len(mapped)}/4 mapped")
+            txt.set_text(f"{len(mapped)}/4 mapeados")
             return
         if bal is None:
-            txt.set_text("no load")
+            txt.set_text("sem carga")
             return
         x, y, total = bal
         x0, y0 = self.PLATES[plate]
         cop.set_data([x0 + 2.5 + 5 * x], [y0 + 2.5 + 5 * y])
-        lo, hi = ("front", "rear") if plate == "seat" else ("lower", "upper")
-        txt.set_text(f"{100 * total / chair_total:3.0f} % of chair load\n"
-                     f"L {100 * (1 - x):3.0f} %  ·  R {100 * x:3.0f} %\n"
+        lo, hi = ("frente", "trás") if plate == "seat" else ("baixo", "cima")
+        txt.set_text(f"{100 * total / chair_total:3.0f} % da carga da cadeira\n"
+                     f"E {100 * (1 - x):3.0f} %  ·  D {100 * x:3.0f} %\n"
                      f"{lo} {100 * (1 - y):3.0f} %  ·  {hi} {100 * y:3.0f} %\n"
-                     "+ = centre of pressure")
+                     "+ = centro de pressão")
 
 
 def main() -> int:
@@ -538,11 +639,18 @@ def main() -> int:
     ap.add_argument("--trail", type=float, default=3.0, help="trail length, s")
     ap.add_argument("--tags", type=Path, default=TAGS_PATH,
                     help="posture tag names (JSON, {\"1\": \"name\", ...})")
+    ap.add_argument("--fsr-placement", action="store_true",
+                    help="enable the FSR mapping wizard (m / click a spot); off: the map is fixed")
+    ap.add_argument("--hold", type=float, default=HOLD_S,
+                    help="posture tag countdown, s (upright `1` always counts HOLD_UPRIGHT_S = 10 s)")
+    ap.add_argument("--no-ref", action="store_true",
+                    help="don't draw the recorded postures (data/*_run*.csv) on the IMU plot")
     args = ap.parse_args()
     if args.log and args.log.exists():
         ap.error(f"{args.log} already exists; pick a new name (e.g. the next _runN)")
 
     tags = load_tags(args.tags)
+    ref_runs = [] if args.no_ref else load_reference_runs(skip=args.log)   # before the log exists
     reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
     reader.note("tag map " + " ".join(f"{k}={v.replace(' ', '_')}" for k, v in sorted(tags.items())))
     reader.start()
@@ -551,23 +659,26 @@ def main() -> int:
         plt.rcParams[k] = [x for x in plt.rcParams[k] if x not in ("c", "r")]
 
     fig = plt.figure(figsize=(17, 9.5))
-    fig.canvas.manager.set_window_title("Posture — live (body IMU + chair FSRs)")
+    fig.canvas.manager.set_window_title("Postura — ao vivo (IMU do corpo + FSRs da cadeira)")
     ax = fig.add_axes((0.04, 0.08, 0.39, 0.84))
     chair = ChairView(fig, (0.575, 0.37, 0.41, 0.50), (0.59, 0.335, 0.2, 0.013),
-                      (0.575, 0.03, 0.41, 0.27), args.map, reader)
+                      (0.575, 0.03, 0.41, 0.27), args.map, reader, editable=args.fsr_placement)
     ax.add_patch(Circle((0, 0), ALERT_DEG, fill=False, color="#888", lw=1.5))
     ax.add_patch(Circle((0, 0), CLEAR_DEG, fill=False, color="#888", lw=1, ls=":"))
-    ax.annotate(f"alert {ALERT_DEG:.0f}°", (ALERT_DEG * 0.71, ALERT_DEG * 0.71),
+    ax.annotate(f"alerta {ALERT_DEG:.0f}°", (ALERT_DEG * 0.71, ALERT_DEG * 0.71),
                 xytext=(4, 4), textcoords="offset points", fontsize=8, color="#666")
     ax.axhline(0, color="#ddd", lw=0.8, zorder=0)
     ax.axvline(0, color="#ddd", lw=0.8, zorder=0)
-    ax.set_xlim(-40, 35)
-    ax.set_ylim(-30, 45)
+    ax.set_xlim(-40, 40)
+    ax.set_ylim(-55, 30)
     ax.set_aspect("equal")
     ax.grid(alpha=0.25)
-    ax.set_xlabel("dpitch [deg]   (− forward · back +)")
-    ax.set_ylabel("droll [deg]")
-    ax.set_title("Live deviation from calibrated upright", fontsize=10)
+    # neck mount: dpitch = sideways lean, droll = forward/back (data/ captures)
+    ax.set_xlabel("dpitch [°]   (− esquerda · direita +)")
+    ax.set_ylabel("droll [°]   (− frente · trás +)")
+    ax.set_title("Desvio da postura calibrada (centro = ereto)", fontsize=10)
+    if ref_runs:
+        draw_reference(ax, reference_points(ref_runs), len({r.subject for r in ref_runs}))
 
     trail, = ax.plot([], [], color="#333", lw=2, alpha=0.5, zorder=4)
     dot = ax.scatter([0], [0], s=260, color=C_OK, edgecolor="white", lw=2.5, zorder=6)
@@ -577,25 +688,26 @@ def main() -> int:
                      fontsize=13, color="#333",
                      bbox=dict(boxstyle="round", fc="white", ec="#ccc", alpha=0.9))
     tag_badge = ax.text(0.02, 0.98, "", transform=ax.transAxes, ha="left", va="top",
-                        fontsize=16, weight="bold", zorder=7,
+                        fontsize=16, weight="bold", zorder=7, visible=bool(args.log),
                         bbox=dict(boxstyle="round,pad=0.5", lw=1.5))
     tag_set_at = [0.0]                                # monotonic time of the last tag key
 
     def on_key(ev):
         if ev.key in ("c", "r"):
             reader.send(ev.key)
-        elif ev.key == "m":
+        elif ev.key == "m" and args.fsr_placement:
             chair.start(M.WIZARD_ORDER)
-        elif ev.key == "escape":
+        elif ev.key == "escape" and args.fsr_placement:
             chair.cancel()
-        elif ev.key in tuple("0123456789"):
+        elif args.log and ev.key in tuple("0123456789"):     # tags only matter in a log
             reader.tag = int(ev.key)
             tag_set_at[0] = time.monotonic()
     fig.canvas.mpl_connect("key_press_event", on_key)
     fig.canvas.mpl_connect("button_press_event", chair.on_click)
 
-    keys = ("\n\nkeys\n· c calibrate\n· r clear cal\n· m map FSRs\n· Esc cancel map"
-            "\n· 0-9 tag (0 = transition)")
+    keys = ("\n\nteclas\n· c calibrar\n· r limpar calibração"
+            + ("\n· m mapear FSRs\n· Esc cancelar mapeamento" if args.fsr_placement else "")
+            + ("\n· 0-9 tag (0 = transição)" if args.log else ""))
 
     def update(_):
         rows, fsr, events, link, body_up = reader.snapshot()
@@ -604,20 +716,20 @@ def main() -> int:
         version = next((w for w in link.split() if w.startswith("ver=")), "")
         bad = next((w for w in link.split() if w.startswith("bad=")), "")
         if not reader.connected:
-            banner.set_text(f"waiting for {Path(args.port).name} …")
+            banner.set_text(f"aguardando {Path(args.port).name} …")
         elif not body_up and version:
-            banner.set_text(f"BODY PROTOCOL MISMATCH ({version})\nother firmware version? "
-                            "flash both boards")
+            banner.set_text(f"PROTOCOLO DO CORPO INCOMPATÍVEL ({version})\noutra versão de firmware? "
+                            "grave as duas placas")
         elif not body_up and bad:
-            banner.set_text(f"BODY PACKETS REJECTED ({bad})\nmalformed payloads")
+            banner.set_text(f"PACOTES DO CORPO REJEITADOS ({bad})\npayloads malformados")
         elif not body_up:
-            banner.set_text("BODY SILENT — no IMU data\n(trail = last samples)" + cutoff_hint(rows)
-                            if rows else "connected, waiting for the body …")
+            banner.set_text("CORPO EM SILÊNCIO — sem dados da IMU\n(rastro = últimas amostras)" + cutoff_hint(rows)
+                            if rows else "conectado, aguardando o corpo …")
         elif not imu_valid(rows[-1]):
-            banner.set_text(imu_text(rows[-1]) + "\nposture sample unavailable")
+            banner.set_text(imu_text(rows[-1]) + "\namostra de postura indisponível")
         elif not rows[-1]["cal"]:
-            banner.set_text("NOT CALIBRATED\nsit upright, press the chair button "
-                            "(or 'c' here)")
+            banner.set_text("NÃO CALIBRADO\nsente-se ereto e aperte o botão da cadeira "
+                            "(ou 'c' aqui)")
         else:
             banner.set_text("")
         banner.set_visible(bool(banner.get_text()))
@@ -634,36 +746,37 @@ def main() -> int:
             trail.set_data([], [])
             dot.set_visible(False)
 
-        name = tags.get(reader.tag, "(undefined)")
-        flash = time.monotonic() - tag_set_at[0] < 0.6     # confirms the key press
-        tag_badge.set_text(f"TAG {reader.tag} · {name}" + ("" if args.log else "\nnot logging"))
-        tag_badge.set_color(INK if reader.tag == 0 else "white")
-        tag_badge.get_bbox_patch().set(
-            fc=OPEN_FC if reader.tag == 0 else "#2a78d6",
-            ec="#0ca30c" if flash else (C_ALERT if not args.log else PLATE_EC),
-            lw=4 if flash else 1.5)
-
-        tag = (f"tag   {reader.tag} · {tags.get(reader.tag, '(undefined)')}"
-               + ("" if args.log else "  (not logging)"))
-        tail = (f"{tag}\nchair {link.removeprefix('rx ') or '—'}\n"
-                + "\nlast events\n" + "\n".join(f"· {e[:26]}" for e in events) + keys)
+        tag = ""
+        if args.log:
+            name = tag_label(tags, reader.tag)
+            flash = time.monotonic() - tag_set_at[0] < 0.6     # confirms the key press
+            clock, done = tag_clock(reader.tag, time.monotonic() - tag_set_at[0], args.hold)
+            tag_badge.set_text(f"TAG {reader.tag} · {name}   {clock}")
+            tag_badge.set_color(INK if reader.tag == 0 else "white")
+            tag_badge.get_bbox_patch().set(
+                fc=OPEN_FC if reader.tag == 0 else "#0ca30c" if done else "#2a78d6",
+                ec="#0ca30c" if flash else PLATE_EC, lw=4 if flash else 1.5)
+            tag = f"tag     {reader.tag} · {name}\n"
+        tail = (f"{tag}enlace  {link.removeprefix('rx ') or '—'}\n"
+                + "\núltimos eventos\n" + "\n".join(f"· {e[:26]}" for e in events) + keys)
         if not rows or not body_up:
-            status.set_text("dev   —\nchair — body silent\nbody  —\n\nmotor —\nbatt  —\n" + tail)
+            status.set_text("IMU —\ndesvio  —\ncadeira — corpo em silêncio\ncorpo   —\n\n"
+                            "motor   —\nbateria —\n" + tail)
         else:
             r = rows[-1]
             if not imu_valid(r):
-                colour, state = C_OVER, "— sample invalid"
+                colour, state = C_OVER, "— amostra inválida"
             elif r["alert"]:
-                colour, state = C_ALERT, "▲ ALERT"
+                colour, state = C_ALERT, "▲ ALERTA"
             elif r["cal"] and r["dev"] > ALERT_DEG:
-                colour, state = C_OVER, "● over thresh."
+                colour, state = C_OVER, "● acima do limiar"
             else:
-                colour, state = C_OK, ("✓ ok" if "imu" in r else "ok (IMU ?)") if r["cal"] else "— uncalibrated"
+                colour, state = C_OK, ("✓ ok" if "imu" in r else "ok (IMU ?)") if r["cal"] else "— não calibrado"
             dot.set_color(colour)
             dot.set_edgecolor("white")
             status.set_text(
-                f"{imu_text(r)}\ndev   {r['dev']:5.1f}°\n"
-                f"chair {state}\n" + "\n".join(body_lines(rows)) + "\n" + battery_text(r) + "\n" + tail)
+                f"{imu_text(r)}\ndesvio  {r['dev']:5.1f}°\n".replace(".", ",") +
+                f"cadeira {state}\n" + "\n".join(body_lines(rows)) + "\n" + battery_text(r) + "\n" + tail)
 
     _anim = FuncAnimation(fig, update, interval=50, cache_frame_data=False)  # noqa: F841
     plt.show()
