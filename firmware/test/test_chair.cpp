@@ -455,8 +455,11 @@ static void load(int seatFL, int seatFR, int seatRL, int seatRR, int back = SEAT
 
 // The fusion rule in the sketch: FSR baseline captured with the reference,
 // reason column, slumped / reclined / leaning / empty seat, spot map sides.
+static const char *fusionDump = nullptr;      // argv[1]: write this test's chair output
+
 static void testFusion() {
   const uint8_t B = 0x55;
+  size_t mark = Serial.out.size();
   sim::adcFn() = muxAdc;
   Serial.in = "r";
   runFor(1100);
@@ -547,9 +550,20 @@ static void testFusion() {
   CHECK_STR(reason(), "-1");
   CHECK(!fusionBase.rearOk);
   sim::adcFn() = nullptr;
+  if (fusionDump) {                            // replayed by analysis/test_fusion.py
+    size_t h = Serial.out.rfind("t_ms,", mark);
+    FILE *fp = fopen(fusionDump, "w");
+    CHECK(fp != nullptr && h != std::string::npos);
+    if (!fp) return;
+    std::string hdr = Serial.out.substr(h, Serial.out.find("\r\n", h) - h);
+    fprintf(fp, "# unit=raw\n%s\n%s", hdr.c_str(), Serial.out.substr(mark).c_str());
+    fclose(fp);
+  }
 }
 
-int main() {
+//   ./test_chair [fusion.out]   (also dumps testFusion's chair output)
+int main(int argc, char **argv) {
+  if (argc > 1) fusionDump = argv[1];
   for (int &p : sim::pin) p = HIGH;            // button released, LEDs off
   rng.VALUE = 200;
   setup();

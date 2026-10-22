@@ -204,7 +204,8 @@ def inputs(run: C.Run) -> Inputs:
     for cal in run.cals:
         if cal.in_file:
             recal[cal.row] = True
-            frozen[cal.start:cal.row] = True
+    for cap in run.captures:                   # also rejected / aborted ones, as the chair
+        frozen[cap.start:cap.end] = True
     ok_imu = (r["imu"] == 0).to_numpy() if "imu" in r else np.ones(n, bool)
     dp = np.where(ok_imu, r["dpitch"].to_numpy(float), np.nan)
     dr = np.where(ok_imu, r["droll"].to_numpy(float), np.nan)
@@ -314,28 +315,29 @@ def decide_v(x: Inputs, p: Params):
 
 
 def replay_v(x: Inputs, p: Params) -> np.ndarray:
-    """Vectorised equivalent of replay()'s alert (checked equal in the tests)."""
+    """Vectorised equivalent of replay()'s alert (checked equal in the tests). Frozen
+    rows (captures) are skipped as the chair skips them: the state, and a running
+    hold, carry over them."""
     code, bad, ok = decide_v(x, p)
-    n = len(bad)
+    keep = np.flatnonzero(~x.frozen)                        # the rows the gate sees
     usable = x.calibrated & ~np.isnan(x.base[:, 0])
-    if p.reject_cal:                           # FusionRule.calibrate() refuses these
+    if p.reject_cal:                                        # FusionRule.calibrate() refuses these
         usable &= x.base[:, SRL] + x.base[:, SRR] >= p.base_min
-    prev_usable = np.r_[False, usable[:-1]]
-    changed = np.r_[True, np.any(x.base[1:] != x.base[:-1], 1)]
-    newbase = usable & ~x.frozen & (x.recal | ~prev_usable | changed)
-    live = usable & ~x.frozen
-    run_bad = live & bad
-    idx = np.arange(n)
+    u, b, base, t = usable[keep], bad[keep], x.base[keep], x.t_ms[keep]
+    changed = np.r_[True, np.any(base[1:] != base[:-1], 1)]
+    newbase = u & (x.recal[keep] | ~np.r_[False, u[:-1]] | changed)
+    run_bad = u & b
+    k = np.arange(len(keep))
     first = run_bad & (~np.r_[False, run_bad[:-1]] | newbase)
-    start = np.maximum.accumulate(np.where(first, idx, 0))
-    held = run_bad & (x.t_ms - x.t_ms[start] >= hold_ms(p))
-    ev = np.full(n, np.nan)                                 # nan = state unchanged
-    ev[~x.frozen & ~usable] = 0
-    ev[live & ((code == EMPTY) | (code == INVALID))] = 0
-    ev[live & ok] = 0
-    ev[newbase] = 0                                         # reset, then this sample can't be held yet
-    ev[held & ~newbase] = 1
-    return pd.Series(ev).ffill().fillna(0).to_numpy() == 1
+    start = np.maximum.accumulate(np.where(first, k, 0))
+    held = run_bad & (t - t[start] >= hold_ms(p))
+    ev = np.full(len(keep), np.nan)                         # nan = state unchanged
+    c = code[keep]
+    ev[~u | (u & ((c == EMPTY) | (c == INVALID))) | (u & ok[keep]) | newbase] = 0
+    ev[held & ~newbase] = 1                                 # newbase: reset, can't be held yet
+    out = np.full(len(bad), np.nan)
+    out[keep] = ev
+    return pd.Series(out).ffill().fillna(0).to_numpy() == 1
 
 
 # --- evaluation ---

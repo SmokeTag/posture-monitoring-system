@@ -53,6 +53,36 @@ class Cal:
 
 
 @dataclass
+class Capture:
+    """A reference capture as the chair ran it: from the first '# calibrating'
+    (a repeat restarts it) to the event that ends it. Rows [start, end) are the
+    capture samples before the last one: the chair's gate is frozen on them."""
+    start: int
+    end: int
+    outcome: str                              # calibrated / rejected / aborted / lost / cleared / open
+
+
+_CAPTURE_END = {"# calibrated upright": "calibrated", "# calibrate rejected": "rejected",
+                "# calibration aborted": "aborted", "# body link lost": "lost",
+                "# calibration cleared": "cleared"}
+
+
+def find_captures(events: list[tuple[int, str]], n_rows: int) -> list[Capture]:
+    out, start = [], None
+    for n, text in events:
+        if text.startswith("# calibrating"):
+            start = n if start is None else start
+            continue
+        end = next((o for k, o in _CAPTURE_END.items() if text.startswith(k)), None)
+        if end and start is not None:
+            out.append(Capture(start, n, end))
+            start = None
+    if start is not None:
+        out.append(Capture(start, n_rows, "open"))
+    return out
+
+
+@dataclass
 class Run:
     path: Path
     subject: str
@@ -62,6 +92,7 @@ class Run:
     fsr_map: dict[str, str]                   # spot -> column ("c8".."c15")
     tags: dict[int, str]
     cals: list[Cal] = field(default_factory=list)
+    captures: list[Capture] = field(default_factory=list)
 
     @property
     def name(self) -> str:
@@ -119,11 +150,14 @@ def load(path: str | Path) -> Run:
     if not cols:
         raise ValueError(f"{path}: no column line")
     rows = pd.DataFrame(data, columns=cols).apply(pd.to_numeric, errors="coerce")
+    if "tag" not in rows:                     # the chair's own output, not a tagged log
+        rows["tag"] = 0
     rows["t"] = (rows["t_ms"] - rows["t_ms"].iloc[0]) / 1000.0
     rows["seg"] = (rows["tag"] != rows["tag"].shift()).cumsum() - 1
     rows["settled"] = settled(rows)
     r = Run(path, subject, run_n, rows, events, fsr_map, tags)
     r.cals = find_cals(rows, events)
+    r.captures = find_captures(events, len(rows))
     return r
 
 

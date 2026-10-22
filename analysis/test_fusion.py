@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import json
 import math
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -281,6 +283,60 @@ class EvaluationValidityTest(unittest.TestCase):
         # the same postures under a trusted window are scored
         self.assertEqual(len(F.evaluate([self.load("2026-10-21_Bad-Two_run1.csv",
                                                    long_log(False, dp_bad=1.0))], F.FUSION)), 2)
+
+    def test_rejected_capture_freezes_the_gate(self):
+        """'# calibrating' .. '# calibrate rejected': no decisions, reference unchanged."""
+        lines = long_log(False).splitlines()
+        i = next(k for k, l in enumerate(lines) if l[0].isdigit() and l.endswith(",2")) + 30
+        n_capture = 20
+        lines.insert(i, "# calibrating (hold upright 1 s), from button")
+        lines.insert(i + n_capture, "# calibrate rejected: seat rear unloaded "
+                                    "(sit back fully and recalibrate) rear=0")
+        x = self.load("2026-10-21_Rej-One_run1.csv", "\n".join(lines) + "\n")
+        cap = x.run.captures[-1]
+        self.assertEqual(cap.outcome, "rejected")
+        self.assertEqual(cap.end - cap.start, n_capture - 1)
+        self.assertTrue(x.frozen[cap.start:cap.end].all())
+        self.assertFalse(x.frozen[cap.end])
+        self.assertFalse(x.recal[cap.start:cap.end + 1].any())
+        self.assertEqual(len(x.run.cals), 1)
+        alert, code = F.replay(x, F.FUSION)
+        np.testing.assert_array_equal(alert, F.replay_v(x, F.FUSION))
+        # frozen: the alert held through the capture is the one before it
+        self.assertTrue((alert[cap.start:cap.end] == alert[cap.start - 1]).all())
+
+
+class FirmwareReplayTest(unittest.TestCase):
+    """The real chair.ino's output (test_chair's fusion scenario: rejected captures,
+    slump, recline, lean, empty seat, clear) replayed by the Python rule."""
+
+    @classmethod
+    def setUpClass(cls):
+        tests = C.ROOT / "firmware" / "test"
+        subprocess.run(["make", "-s", "-C", str(tests), "test_chair"], check=True, capture_output=True)
+        cls.dir = tempfile.TemporaryDirectory()
+        out = Path(cls.dir.name) / "fusion.out"
+        subprocess.run([str(tests / "test_chair"), str(out)], check=True, capture_output=True)
+        m = json.loads((Path(F.__file__).with_name("chair_map.json")).read_text())
+        fsr_map = "# fsr map " + " ".join(f"c{ch}={spot}" for spot, ch in m.items())
+        log = Path(cls.dir.name) / "2026-10-22_Firmware-Test_run1.csv"
+        log.write_text(fsr_map + "\n" + out.read_text())
+        cls.x = F.inputs(C.load(log))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def test_alert_and_reason_match(self):
+        x, rows = self.x, self.x.run.rows
+        self.assertEqual([c.outcome for c in x.run.captures], ["rejected", "calibrated", "rejected"])
+        alert, code = F.replay(x, F.FUSION)
+        np.testing.assert_array_equal(alert, rows["alert"].to_numpy() == 1)
+        logged = rows["reason"].to_numpy()
+        decided = logged >= 0
+        self.assertGreater(decided.sum(), 300)
+        np.testing.assert_array_equal(code[decided], logged[decided])
+        self.assertEqual(set(logged[decided]), {F.OK, F.IMU_DEV, F.SLUMP, F.LEAN, F.RECLINE_OK, F.EMPTY})
 
 
 class ReplayTest(unittest.TestCase):
