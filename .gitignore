@@ -34,3 +34,4 @@ firmware/test/test_body
 firmware/test/test_system
 firmware/test/test_lsm6
 firmware/test/test_fastmath
+firmware/test/test_fusion
