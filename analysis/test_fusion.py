@@ -101,12 +101,37 @@ class LoaderTest(unittest.TestCase):
         self.assertEqual(base["seat_front_left"], 1.0)   # c8
         self.assertEqual(base["back_lower_left"], 7.0)   # c14
 
+    def test_dropped_rows_untrust_the_window(self):
+        """Rows the chair dropped (sdrop) inside the capture: no silent reconstruction."""
+        lines = synthetic().splitlines()
+        first = next(i for i, l in enumerate(lines) if l.startswith("1"))   # data rows
+        del lines[first + 15:first + 20]                                   # 5 capture rows lost
+        self.path.write_text("\n".join(lines) + "\n")
+        with self.assertWarnsRegex(UserWarning, "calid=6 .*'# calibrating' not right before"):
+            run = C.load(self.path)
+        cal = run.cals[1]
+        self.assertFalse(cal.trusted)
+        x = F.inputs(run)
+        self.assertTrue(np.isnan(x.base[cal.row:]).all())                  # not scored
+        self.assertFalse(F.replay_v(x, F.FUSION).any())
+
+    def test_seq_gap_untrusts_the_window(self):
+        lines = synthetic().splitlines()
+        i = next(i for i, l in enumerate(lines) if l.startswith("1")) + 16   # a capture row
+        f = lines[i].split(",")
+        f[10] = str(int(f[10]) + 3)                                         # 2 body samples lost
+        lines[i] = ",".join(f)
+        self.path.write_text("\n".join(lines) + "\n")
+        with self.assertWarnsRegex(UserWarning, "calid=6 .*seq gap"):
+            self.assertFalse(C.load(self.path).cals[1].trusted)
+
     def test_real_calibration_windows(self):
         """On every capture the window's IMU mean reproduces the logged reference."""
         for run in C.runs():
             for cal in run.cals:
                 if not cal.in_file:
                     continue
+                self.assertTrue(cal.trusted, f"{run.name} calid={cal.calid}")
                 w = run.rows.iloc[cal.start:cal.stop]
                 self.assertEqual(int(w["calid"].iloc[-1]), cal.calid)
                 self.assertNotIn(cal.calid, set(w["calid"].iloc[:-1]))

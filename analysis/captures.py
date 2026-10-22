@@ -21,6 +21,7 @@ capture window is the 19 rows before the event + the first row after it.
 from __future__ import annotations
 
 import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -48,6 +49,7 @@ class Cal:
     stop: int = 0
     in_file: bool = True                      # False: captured before logging started
     fsr: dict[str, float] | None = None       # FSR baseline logged by the chair (c8.. -> mean), if any
+    trusted: bool = True                      # False: logged window incomplete (dropped rows/events)
 
 
 @dataclass
@@ -141,14 +143,43 @@ def find_cals(rows: pd.DataFrame, events: list[tuple[int, str]]) -> list[Cal]:
         if m.group(4):                          # chair firmware since 2026-10-22: c8..c15 means
             vals = [float(v) for v in m.group(4).split(",")]
             logged = {f"c{8 + i}": v for i, v in enumerate(vals)}
-        cals.append(Cal(cid, n, float(m.group(1)), float(m.group(2)),
-                        max(0, n - (CAL_SAMPLES - 1)), n + 1, fsr=logged))
+        cal = Cal(cid, n, float(m.group(1)), float(m.group(2)),
+                  max(0, n - (CAL_SAMPLES - 1)), n + 1, fsr=logged)
+        if logged is None:
+            problem = window_problem(rows, events, cal)
+            if problem:
+                cal.trusted = False
+                warnings.warn(f"calid={cid} at row {n}: capture window not reconstructable "
+                              f"({problem}); calibration untrusted", stacklevel=3)
+        cals.append(cal)
     known = {c.calid for c in cals}
     first = rows.loc[rows["cal"] == 1, "calid"]
     if len(first) and int(first.iloc[0]) not in known:
         i = int(first.index[0])
         cals.insert(0, Cal(int(first.iloc[0]), i, start=i, stop=i + CAL_SAMPLES, in_file=False))
     return cals
+
+
+def window_problem(rows: pd.DataFrame, events: list[tuple[int, str]], cal: Cal) -> str:
+    """Why rows [start, stop) are not exactly the CAL_SAMPLES capture samples, or ''.
+    The chair drops whole rows/events when the USB host lags (sdrop/edrop), so
+    the 19 rows before '# calibrated' may reach back into other postures."""
+    w = rows.iloc[cal.start:cal.stop]
+    if len(w) != CAL_SAMPLES:
+        return f"{len(w)} rows"
+    if not any(n == cal.start and t.startswith("# calibrating") for n, t in events):
+        return "'# calibrating' not right before the window"
+    if any(cal.start < n < cal.row and t.startswith("# calibrat") for n, t in events):
+        return "another calibration event inside the window"
+    seq, boot = w["seq"].to_numpy(np.int64), w["boot"].to_numpy()
+    if (boot != boot[0]).any() or ((np.diff(seq) % 65536) != 1).any():
+        return "body samples missing (seq gap) or another body session"
+    if "imu" in w and (w["imu"] != 0).any():
+        return "invalid IMU sample"
+    calid = w["calid"].to_numpy()
+    if (calid[:-1] != calid[0]).any() or calid[0] == cal.calid:
+        return "calid changes inside the window"
+    return ""
 
 
 def settled(rows: pd.DataFrame, skip_s: float = SETTLE_S) -> np.ndarray:

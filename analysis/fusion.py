@@ -188,6 +188,8 @@ def inputs(run: C.Run) -> Inputs:
     base = np.full((n, 8), np.nan)
     calid = r["calid"].to_numpy()
     for cal in run.cals:
+        if not cal.trusted:                    # incomplete capture window: rows not scored
+            continue
         m = calid == cal.calid
         base[m] = [run.fsr_baseline(cal)[s] for s in C.SPOTS]
     recal = np.zeros(n, bool)
