@@ -32,19 +32,27 @@
  *
  * Calibration: sit upright and press the button (D9 -> GND, INPUT_PULLUP,
  * software debounce) or send 'c'. The reference is the mean of the next
- * CAL_SAMPLES body samples (1 s). 'r' clears it. No alerts until calibrated,
- * and none while the body is silent. 'm' asks the body for a motor test buzz.
+ * CAL_SAMPLES body samples (1 s), and so is the FSR baseline (each FSR's mean
+ * over the same samples). A capture with the seat rear unloaded (perched
+ * forward, empty chair: FsrBaseline.rearOk false) is rejected like an aborted
+ * one (previous state kept). 'r' clears both. No alerts until calibrated, and
+ * none while the body is silent. 'm' asks the body for a motor test buzz.
+ *
+ * Alert: IMU + FSR fusion (PostureLink/Fusion.h; docs/decisao-fusao-imu-fsr.md):
+ * IMU deviation, slid forward (seat rear unloaded), FSR-confirmed lean; a
+ * backward tilt with the hips back (reclined) is accepted and an empty seat
+ * never alerts. Spot <-> channel: FSR_SPOT_CH below.
  * Headers are sent on USB connection.
  *
  * Status LED (onboard RGB; colours in PostureLink/StatusLed.h): red fast =
- * radio fault or the body's IMU not delivering, orange = no body, blue =
+ * radio fault or the body's IMU not delivering (2 s: capture rejected), orange = no body, blue =
  * linked, green fast = capturing the reference, green = calibrated, red
  * slow = posture alert (same 700 ms / 1 s rhythm as the body's motor).
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
  *   t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
- *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,...,c15
+ *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,...,c15,reason
  *   t_ms  = this board's millis() when the row was written (sample received);
  *           never compare it with the body's t_ms
  *   cal / calid / alert = the chair's decision after this sample: reference
@@ -68,13 +76,19 @@
  *              more; -1 = unknown
  *   c8..c15 = FSRs, always raw 12-bit ADC counts (0..4095, open ~0).
  *             Convert to resistance/conductance on the host.
+ *   reason = why the alert decision is what it is (Fusion.h Reason): 0 ok,
+ *           1 IMU deviation, 2 slumped (slid forward), 3 lean, 4 reclined
+ *           (backward tilt accepted), 5 empty seat, 6 invalid IMU; -1 no
+ *           decision (not calibrated, capturing, body silent). Since
+ *           2026-10-22; older logs end at c15.
  *   imu = 0 valid, 1 init, 2 I2C/short read, 3 no new data, 4 invalid vector;
  *         -1 when body silent. Invalid/silent angles and deviations are nan.
  *   binh = body's previous applied state inhibited a chair alert (BF_INH).
  *   vbat = body battery mV, its last reading (0 = none yet; on USB the
  *          charger output); -1 when body silent. Below 3300 on battery the
  *          body powers off (PostureLink/Battery.h): the link then goes silent.
- * Events: "# alert ON/OFF", "# calibrat... calid=N", "# body link up/lost",
+ * Events: "# alert ON/OFF", "# calibrat... calid=N" ("# calibrated upright:"
+ * also gives fsr=<baseline c8..c15>), "# calibrate rejected: ...", "# body link up/lost",
  * "# body new session". The body's boot id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
@@ -102,6 +116,7 @@
 #include <Adafruit_TinyUSB.h>                  // needed for USB Serial on this core
 #include <nrf_to_nrf.h>
 #include <PostureLink.h>
+#include <Fusion.h>
 #include <SerialOut.h>
 #include <RandomId.h>
 #include <StatusLed.h>
@@ -118,10 +133,25 @@ const unsigned long SCAN_MS = 50;              // 20 Hz FSR scan rate
 
 const int   CAL_SAMPLES = 20;                  // 1 s of body samples averaged into the reference
 
+// FSR channel (C8..C15) at each chair spot, Spot order (Fusion.h). Same as
+// analysis/chair_map.json (sitter's left/right); the chair wiring is fixed,
+// so re-mapping the chair means updating this table too.
+const uint8_t FSR_SPOT_CH[N_SPOTS] = {
+  8,   // seat_front_left
+  9,   // seat_front_right
+  10,  // seat_rear_left
+  11,  // seat_rear_right
+  14,  // back_lower_left
+  12,  // back_lower_right
+  15,  // back_upper_left
+  13,  // back_upper_right
+};
+
 const int   BTN_PIN     = D9;                  // calibrate button to GND
 const int   DEBOUNCE_MS = 25;                  // input must be stable this long
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;   // alert LED, as the body's motor
 const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid over this span of samples = fault
+const unsigned long REJECT_LED_MS = 2000;      // rejected capture: red fast this long
 
 nrf_to_nrf radio;
 StatusLed led(LED_RED, LED_GREEN, LED_BLUE, 255);   // USB powered: full brightness
@@ -150,9 +180,15 @@ bool  calibrated = false;
 int   calLeft = 0;                             // >0 while capturing the reference
 float calPSum = 0, calRSum = 0;
 float pitchRef = 0, rollRef = 0;
+float calFsrSum[N_FSR] = {};                   // FSR baseline capture, by channel
+float fsrBase[N_FSR] = {};                     // FSR baseline (raw means), by channel
+FsrBaseline fusionBase;
 uint8_t calId = 0;                             // ChairAck.calId: random at boot, new on every capture/clear
 
-AlertGate gate;
+FusionGate gate;
+int reason = -1;                               // Reason of the last decision; -1 = none
+unsigned long rejectedAt = 0;                  // last capture rejected (LED: red fast, REJECT_LED_MS)
+bool rejectShown = false;
 unsigned long alertAt = 0;                     // alert ON time: LED pulse phase
 
 bool btnRaw = HIGH, btnState = HIGH;           // last read / debounced level
@@ -181,6 +217,7 @@ bool chairHeader(uint8_t i, Line &l) {
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
             "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
+      l.str(",reason");
       return true;
   }
   return false;
@@ -192,7 +229,8 @@ void updateStatusLed(unsigned long t) {
   bool fast = phaseOn(t, 0, 2 * BLINK_FAST_MS, BLINK_FAST_MS);
   // IMU fault = invalid across received samples; a silent radio is not an IMU fault
   bool imuFault = bodyUp && lastBodyAt - imuOkAt >= IMU_FAULT_MS;
-  if (radioFailed || imuFault) led.set(fast ? RGB_RED : RGB_OFF);
+  if (rejectShown && t - rejectedAt >= REJECT_LED_MS) rejectShown = false;
+  if (radioFailed || imuFault || rejectShown) led.set(fast ? RGB_RED : RGB_OFF);
   else if (!bodyUp) led.set(RGB_ORANGE);
   else if (calLeft > 0) led.set(fast ? RGB_GREEN : RGB_OFF);
   else if (gate.alert) led.set(phaseOn(t, alertAt, PULSE_PERIOD_MS, PULSE_ON_MS) ? RGB_RED : RGB_OFF);
@@ -234,12 +272,15 @@ void startCalibration(const char *src) {
   }
   calLeft = CAL_SAMPLES;
   calPSum = calRSum = 0;
+  for (int i = 0; i < N_FSR; i++) calFsrSum[i] = 0;
   l.str("# calibrating (hold upright 1 s), from ").str(src);
   out.event(l);
 }
 
 void clearCalibration() {
   calibrated = false; calLeft = 0;
+  for (int i = 0; i < N_FSR; i++) fsrBase[i] = 0;
+  fusionBase = FsrBaseline();
   newCalId();
   if (gate.alert) setAlert(false, 0);
   gate.reset();
@@ -276,7 +317,7 @@ void pollSerial() {
 }
 
 // t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
-// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8..c15
+// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8..c15,reason
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   Line l;
   l.u32(t).chr(',').u32(calibrated).chr(',').u32(calId).chr(',').fix(dev, 1).chr(',')
@@ -295,7 +336,55 @@ void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   l.chr(',').i32(bodyUp ? body.imu : -1).chr(',')
    .i32(bodyUp ? !!(body.flags & BF_INH) : -1).chr(',').i32(bodyUp ? body.vbat : -1);
   for (int i = 0; i < N_FSR; i++) l.chr(',').i32(fsr[i]);
+  l.chr(',').i32(reason);
   out.row(l);
+}
+
+// Fusion decision (Fusion.h) on this sample + the FSRs of the last scan.
+void decideAlert(float dPitch, float dRoll, float dev, unsigned long t) {
+  float spot[N_SPOTS];
+  for (int s = 0; s < N_SPOTS; s++) spot[s] = fsr[FSR_SPOT_CH[s] - FIRST_CH];
+  Decision d = decide(dPitch, dRoll, spot, fusionBase);
+  reason = d.reason;
+  if (d.reason == R_EMPTY || d.reason == R_INVALID) {   // no-one seated: no alert, hold restarts
+    if (gate.alert) setAlert(false, dev);
+    gate.reset();
+  } else if (gate.update(d.bad, d.ok, t)) {
+    setAlert(gate.alert, dev);
+  }
+}
+
+// End of a capture: IMU reference + FSR baseline, unless the seat rear
+// carried no load (perched forward or an empty chair: no slump detection
+// with that baseline). A rejected capture is like an aborted one: the
+// previous state (reference or none) stays.
+void finishCapture(unsigned long t) {
+  float base[N_FSR], spot[N_SPOTS];
+  for (int i = 0; i < N_FSR; i++) base[i] = calFsrSum[i] / CAL_SAMPLES;
+  for (int s = 0; s < N_SPOTS; s++) spot[s] = base[FSR_SPOT_CH[s] - FIRST_CH];
+  FsrBaseline fb = FsrBaseline::of(spot);
+  if (!fb.rearOk) {
+    rejectedAt = t;
+    rejectShown = true;
+    Line l;
+    l.str("# calibrate rejected: seat rear unloaded (sit back fully and recalibrate) rear=")
+     .fix(fb.rear, 0);
+    out.event(l);
+    return;
+  }
+  pitchRef = calPSum / CAL_SAMPLES;
+  rollRef  = calRSum / CAL_SAMPLES;
+  for (int i = 0; i < N_FSR; i++) fsrBase[i] = base[i];
+  fusionBase = fb;
+  calibrated = true;
+  newCalId();
+  if (gate.alert) setAlert(false, 0);
+  gate.reset();
+  Line l;
+  l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
+   .str(" calid=").u32(calId).str(" fsr=");
+  for (int i = 0; i < N_FSR; i++) { if (i) l.chr(','); l.fix(fsrBase[i], 1); }
+  out.event(l);
 }
 
 // One body sample: calibration capture, alert decision, ACK, CSV row.
@@ -309,6 +398,7 @@ void onBodySample(unsigned long t) {
     calLeft = 0;
     if (gate.alert) setAlert(false, NAN);
     gate.reset();
+    reason = calibrated ? R_INVALID : -1;
     updateAck(false);                         // health heartbeat is not a posture decision
     printRow(t, NAN, NAN, NAN);
     return;
@@ -316,23 +406,14 @@ void onBodySample(unsigned long t) {
   imuOkAt = t;
   if (calLeft > 0) {
     calPSum += body.pitch; calRSum += body.roll;
-    if (--calLeft == 0) {
-      pitchRef = calPSum / CAL_SAMPLES;
-      rollRef  = calRSum / CAL_SAMPLES;
-      calibrated = true;
-      newCalId();
-      if (gate.alert) setAlert(false, 0);
-      gate.reset();
-      Line l;
-      l.str("# calibrated upright: pitch=").fix(pitchRef, 1).str(" roll=").fix(rollRef, 1)
-       .str(" calid=").u32(calId);
-      out.event(l);
-    }
+    for (int i = 0; i < N_FSR; i++) calFsrSum[i] += fsr[i];
+    if (--calLeft == 0) finishCapture(t);
   }
 
   float dPitch = body.pitch - pitchRef, dRoll = body.roll - rollRef;
   float dev = calibrated ? deviation(body.pitch, body.roll, pitchRef, rollRef) : 0;
-  if (calibrated && calLeft == 0 && gate.update(dev, t)) setAlert(gate.alert, dev);
+  reason = -1;
+  if (calibrated && calLeft == 0) decideAlert(dPitch, dRoll, dev, t);
 
   updateAck(true);
   printRow(t, dev, dPitch, dRoll);
@@ -476,7 +557,7 @@ void loop() {
   if (t - lastScan >= SCAN_MS) {
     lastScan = t;
     scanFsrs();
-    if (!bodyUp) printRow(t, NAN, NAN, NAN);
+    if (!bodyUp) { reason = -1; printRow(t, NAN, NAN, NAN); }
   }
 
   if (t - lastReport >= 1000) report(t);

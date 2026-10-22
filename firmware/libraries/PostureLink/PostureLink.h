@@ -132,19 +132,22 @@ inline float deviation(float pitch, float roll, float pitchRef, float rollRef) {
 }
 
 // Over ALERT_DEG for ALERT_HOLD_MS -> alert; below CLEAR_DEG -> clear.
+// t = millis(), 32 bit: the hold is a u32 difference, right across the wrap;
+// `holding` (not a 0 sentinel) marks a running hold, so t = 0 is an ordinary time.
 struct AlertGate {
   bool alert = false;
-  unsigned long overSince = 0;                 // 0: not over threshold
+  bool holding = false;                        // over threshold since overSince
+  uint32_t overSince = 0;
 
-  void reset() { alert = false; overSince = 0; }
+  void reset() { alert = false; holding = false; }
 
   // Returns true when `alert` changed.
-  bool update(float dev, unsigned long t) {
+  bool update(float dev, uint32_t t) {
     if (dev > ALERT_DEG) {
-      if (!overSince) overSince = t ? t : 1;
-      if (!alert && t - overSince >= ALERT_HOLD_MS) { alert = true; return true; }
+      if (!holding) { holding = true; overSince = t; }
+      if (!alert && (uint32_t)(t - overSince) >= ALERT_HOLD_MS) { alert = true; return true; }
     } else {
-      overSince = 0;
+      holding = false;
       if (alert && dev < CLEAR_DEG) { alert = false; return true; }
     }
     return false;

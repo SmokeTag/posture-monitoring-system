@@ -4,7 +4,7 @@
 |--------|-------|------|
 | `chair/` | XIAO nRF52840 Sense | chair unit ("brain"): 8 FSRs via CD74HC4067 + ESB receiver; calibrates, decides, logs |
 | `body/`  | XIAO nRF52840 Sense | body unit: IMU + ESB transmitter + vibration motor (link-loss fallback) |
-| `libraries/PostureLink/` | — | shared ESB protocol + alert rule (both sketches) |
+| `libraries/PostureLink/` | — | shared ESB protocol + alert rules: IMU-only (body fallback), IMU + FSR fusion (`Fusion.h`, chair) |
 | `archive/xiao_imu_test/` | XIAO nRF52840 Sense | IMU bring-up + posture CSV logging (produced the IMU captures in `data/`) |
 | `archive/uno_fsr_test/`  | Arduino Uno | single-FSR402 characterization (produced the Campaign B captures in `data/`) |
 
@@ -60,7 +60,10 @@ make -C firmware/test
 ```
 
 Unit tests for `libraries/PostureLink` (link freshness, seq bookkeeping,
-decision age, payload validation, non-blocking serial output), plus
+decision age, payload validation, non-blocking serial output); `test_fusion`
+checks the chair's alert rule (`Fusion.h`) against `analysis/fusion.py` on
+real log excerpts (`test/fixtures/fusion_cases.txt`, regenerate with
+`.venv/bin/python analysis/fusion.py --fixture` after changing the rule); plus
 `chair.ino` and `body.ino` themselves built on host stubs (`test/stub/`: fake
 radio, USB serial, IMU) and driven through link loss, duplicates, reboots, a
 stalled USB host and a `millis()` wrap; `test_system` runs both sketches
@@ -81,7 +84,14 @@ lines are counted in the stats line (`sdrop`/`edrop`); the header is re-sent
 whenever a host opens the port.
 
 The chair's `c8..c15` columns always contain raw 12-bit ADC counts (0..4095,
-open FSR ≈0), announced by `# unit=raw`. Headers are sent automatically on
+open FSR ≈0), announced by `# unit=raw`. The last column, `reason`, is the
+fusion rule's reason code (`Fusion.h`; -1 = no decision), and the
+`# calibrated upright:` event carries the FSR baseline (`fsr=` c8..c15 means).
+Spot ↔ channel is the `FSR_SPOT_CH` table in `chair.ino`, a copy of
+`analysis/chair_map.json`: re-mapping the chair means updating both. A
+capture with the seat rear unloaded (baseline < `BASE_MIN`: perched forward,
+empty chair) is rejected — `# calibrate rejected: ...`, LED red fast for 2 s,
+previous state kept, as an aborted capture. Headers are sent automatically on
 connection/reconnection; there is no header command. The live view opens the
 port with DTR low, then raises it after pyserial's initial input flush so the
 header is not discarded. `analysis/live_posture.py` converts these
@@ -170,7 +180,7 @@ After 20 consecutive failed samples, the body attempts checked reconfiguration
 at most once per second, while continuing its 20 Hz heartbeat. Startup failure
 also retries. `BodyPacket` is 21 bytes (19 in v3, + `vbat` in v4); `ChairAck`
 remains 15 bytes but requires the same version. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
-buffer (still within TinyUSB's 256-byte FIFO): widest chair row 135 bytes,
+buffer (still within TinyUSB's 256-byte FIFO): widest chair row 138 bytes,
 body row 69; maximum synthetic stats plus drop counters fit (159/161 bytes).
 
 On Seeeduino:nrf52 1.1.13 the body enables the core's DWT cycle clock before

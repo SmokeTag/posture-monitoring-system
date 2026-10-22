@@ -31,6 +31,8 @@ extern int adc;                                // every analogRead()
 namespace sim {
 inline int &vbat() { static int raw = 2997; return raw; }   // analogRead(PIN_VBAT); 2997 ~ 3.9 V
 inline int rawForMv(int mv) { return (int)(mv / 1000.0 / 1.8 * 4096 * 510 / 1510 + 0.5); }
+// Optional per-read override of `adc` (e.g. per mux channel, from sim::pin); null = adc.
+inline int (*&adcFn())() { static int (*f)() = nullptr; return f; }
 }
 
 inline uint32_t millis() { return sim::now; }
@@ -42,7 +44,7 @@ inline void digitalWrite(int p, int v) { sim::pin[p] = v; }
 inline int digitalRead(int p) { return sim::pin[p]; }
 inline uint32_t &analogWriteCalls() { static uint32_t count = 0; return count; }
 inline void analogWrite(int p, int v) { analogWriteCalls()++; sim::pin[p] = v; }
-inline int analogRead(int p) { return p == PIN_VBAT ? sim::vbat() : sim::adc; }
+inline int analogRead(int p) { return p == PIN_VBAT ? sim::vbat() : sim::adcFn() ? sim::adcFn()() : sim::adc; }
 inline void delay(uint32_t ms) { sim::now += ms; }
 inline void analogReference(int) {}
 inline void analogReadResolution(int) {}

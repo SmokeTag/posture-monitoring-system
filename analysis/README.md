@@ -26,6 +26,15 @@ python3 -m venv .venv
 - `test_live_posture.py` — `live_posture.py`'s parsing and body-status logic,
   on the real chair firmware's output (builds and runs `firmware/test/test_system`):
   `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s analysis`.
+- `captures.py` — loader for the `data/` captures: rows, `#` events, FSR map →
+  spot names, tag map, calibrations (calid + 1 s capture window → FSR baseline),
+  tag segments and settled samples (2 s after each tag change dropped).
+- `fusion.py` — the IMU + FSR alert rule as the chair would run it (`decide()` +
+  timing gate, ready to port), replay of all runs, current vs fusion tables and
+  leave-one-subject-out search: `.venv/bin/python analysis/fusion.py [--quick]`;
+  `--fixture` rewrites the C++ cross-check (`firmware/test/fixtures/`).
+  Findings (PT-BR): [`../docs/decisao-fusao-imu-fsr.md`](../docs/decisao-fusao-imu-fsr.md).
+- `test_fusion.py` — loader and rule tests (incl. replay ≡ logged firmware alert).
 - `chair_map.py` — the spot names, the press-to-map logic and
   `chair_map.json` (channel ↔ spot; written by `live_posture.py`). How-to (PT-BR):
   [`../docs/guia-live-posture.md`](../docs/guia-live-posture.md).
