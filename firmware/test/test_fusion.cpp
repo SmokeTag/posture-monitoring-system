@@ -93,7 +93,22 @@ static void testGate() {
   CHECK(!g.update(true, false, 11999));
   CHECK(g.update(true, false, 12000));
   g.reset();
-  CHECK(!g.alert); CHECK_EQ(g.overSince, 0ul);
+  CHECK(!g.alert); CHECK(!g.holding);
+
+  // t = 0 is an ordinary time, not "no hold" (was: alert on the first call)
+  FusionGate z;
+  CHECK(!z.update(true, false, 0));
+  CHECK(!z.alert);
+  CHECK(!z.update(true, false, ALERT_HOLD_MS - 1));
+  CHECK(z.update(true, false, ALERT_HOLD_MS));
+  // across the 32-bit millis() wrap, also landing exactly on 0
+  FusionGate w;
+  const uint32_t t0 = 0xFFFFFFFFu - 999;
+  CHECK(!w.update(true, false, t0));
+  CHECK(!w.update(true, false, 0));
+  CHECK(!w.update(true, false, ALERT_HOLD_MS - 1001));
+  CHECK(w.update(true, false, ALERT_HOLD_MS - 1000));
+  CHECK(w.update(false, true, 5000));
 }
 
 // fixtures/fusion_cases.txt: B = baseline + gate state, S = one sample + expected result.
@@ -116,7 +131,7 @@ static void testPythonCrossCheck(const char *path) {
       base = FsrBaseline::of(m);
       gate.reset();
       gate.alert = alert;
-      if (held >= 0) gate.overSince = T0 - held;
+      if (held >= 0) { gate.holding = true; gate.overSince = T0 - held; }
       prev = gate.alert;
       excerpts++;
     } else if (line[0] == 'S') {

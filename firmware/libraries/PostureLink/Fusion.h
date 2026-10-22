@@ -91,19 +91,21 @@ inline Decision decide(float dp, float dr, const float f[N_SPOTS], const FsrBase
 
 // bad for ALERT_HOLD_MS -> alert; while alerted an ok sample clears it; a
 // sample neither bad nor ok holds the state and restarts the hold.
+// t = millis(), u32 arithmetic across the wrap; `holding` as in AlertGate.
 struct FusionGate {
   bool alert = false;
-  unsigned long overSince = 0;                 // 0: not bad
+  bool holding = false;                        // bad since overSince
+  uint32_t overSince = 0;
 
-  void reset() { alert = false; overSince = 0; }
+  void reset() { alert = false; holding = false; }
 
   // Returns true when `alert` changed.
-  bool update(bool bad, bool ok, unsigned long t) {
+  bool update(bool bad, bool ok, uint32_t t) {
     if (bad) {
-      if (!overSince) overSince = t ? t : 1;
-      if (!alert && t - overSince >= ALERT_HOLD_MS) { alert = true; return true; }
+      if (!holding) { holding = true; overSince = t; }
+      if (!alert && (uint32_t)(t - overSince) >= ALERT_HOLD_MS) { alert = true; return true; }
     } else {
-      overSince = 0;
+      holding = false;
       if (alert && ok) { alert = false; return true; }
     }
     return false;

@@ -81,6 +81,33 @@ static void testBatteryCutoffRule() {
 
 // ---------------------------------------------------------------- BodyLink
 
+// ---------------------------------------------------------------- AlertGate (body fallback)
+
+static void testAlertGate() {
+  AlertGate g;
+  CHECK(!g.update(15, 1000));
+  CHECK(!g.update(15, 1000 + ALERT_HOLD_MS - 1));
+  CHECK(g.update(15, 1000 + ALERT_HOLD_MS));
+  CHECK(!g.update(8, 5000));                     // between clear and alert: held
+  CHECK(g.alert);
+  CHECK(g.update(6, 5050));                      // below CLEAR_DEG: cleared
+  // t = 0 is an ordinary time (was: overSince 0 sentinel -> 1, alert at once)
+  AlertGate z;
+  CHECK(!z.update(15, 0));
+  CHECK(!z.alert);
+  CHECK(!z.update(15, ALERT_HOLD_MS - 1));
+  CHECK(z.update(15, ALERT_HOLD_MS));
+  // across the 32-bit millis() wrap, landing exactly on 0
+  AlertGate w;
+  CHECK(!w.update(15, 0xFFFFFFFFu - 999));
+  CHECK(!w.update(15, 0));
+  CHECK(!w.update(15, ALERT_HOLD_MS - 1001));
+  CHECK(w.update(15, ALERT_HOLD_MS - 1000));
+  w.update(8, ALERT_HOLD_MS);                    // dips under ALERT_DEG: hold restarts
+  w.reset();
+  CHECK(!w.alert && !w.holding);
+}
+
 static ChairAck mkAck(uint8_t flags, uint8_t buzz = 0, float p = 1.5f, float r = -2.5f) {
   ChairAck a = {};
   a.ver = PROTO_VER; a.calId = 1;
@@ -670,6 +697,7 @@ int main() {
   testVbatConversion();
   testBootCheck();
   testBatteryCutoffRule();
+  testAlertGate();
   testParseChairAck();
   testParseBodyPacket();
   testImuTelemetryAndGuard();
