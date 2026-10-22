@@ -144,6 +144,9 @@ class ChairReader(threading.Thread):
         self.connected = False
         self.body_up = False                          # latest data row came from the body
         self.tag = 0                                  # posture tag appended to logged rows
+        self.tail: list[str] = []                     # data columns after c15 (e.g. reason)
+        self.raw_fsr: dict[int, float] = {}           # latest c8..c15 as sent (raw ADC in unit=raw)
+        self.cal_event: tuple[str, float] | None = None   # latest "# calibrat…" event, monotonic t
 
     def send(self, ch: str):
         if self.ser:
@@ -213,17 +216,21 @@ class ChairReader(threading.Thread):
                 self.raw = line.startswith("# unit=raw")
             elif line.startswith("#"):
                 self.events.append(line[2:])
+                if line.startswith("# calibrat"):
+                    self.cal_event = (line[2:], time.monotonic())
             elif line.startswith("t_ms,"):
+                self.tail = tail_fields(line)
                 fields = header_fields(line)
                 if fields != self.fields:
                     self.fields = fields
                     self.rows.clear()                 # other columns: other firmware
             else:
-                parsed = parse_row(line, self.fields)
+                parsed = parse_row(line, self.fields, self.tail)
                 if parsed is None:
                     return
                 row, fsr = parsed
                 if fsr is not None:
+                    self.raw_fsr = dict(zip(M.CHANNELS, fsr))
                     self.fsr.append((time.monotonic(),
                                      {c: self._to_us(v) for c, v in zip(M.CHANNELS, fsr)}))
                 self.body_up = row["seq"] >= 0        # seq=-1: body silent, IMU fields void
@@ -243,9 +250,17 @@ def header_fields(line: str) -> list[str]:
     return cols[:cols.index(fsr[0])] if fsr[0] in cols else cols
 
 
-def parse_row(line: str, fields: list[str]):
+def tail_fields(line: str) -> list[str]:
+    """Columns of a chair header line after the FSRs c8..c15 (e.g. reason)."""
+    cols = line.strip().split(",")
+    last = f"c{M.CHANNELS[-1]}"
+    return cols[cols.index(last) + 1:] if last in cols else []
+
+
+def parse_row(line: str, fields: list[str], tail: list[str] = ()):
     """(row dict, FSR values or None) for one CSV row of a chair with these
-    data columns; None if it isn't one."""
+    data columns (+ the `tail` ones after the FSRs, into the row too); None if
+    it isn't one."""
     parts = line.strip().split(",")
     if len(parts) < len(fields) or not parts[0].isdigit():
         return None
@@ -253,8 +268,11 @@ def parse_row(line: str, fields: list[str]):
         vals = [float(v) for v in parts]
     except ValueError:
         return None
-    fsr = vals[len(fields):len(fields) + len(M.CHANNELS)]
-    return dict(zip(fields, vals)), (fsr if len(fsr) == len(M.CHANNELS) else None)
+    n = len(fields) + len(M.CHANNELS)
+    fsr = vals[len(fields):n]
+    row = dict(zip(fields, vals))
+    row.update(zip(tail, vals[n:]))
+    return row, (fsr if len(fsr) == len(M.CHANNELS) else None)
 
 
 def decision_row(rows: list[dict], i: int):
@@ -354,7 +372,7 @@ def rx_summary(text: str) -> str:
 
 REF_POSTURES = {                              # display group -> (tags, label, label offset pt, ha)
     "curvado": ([2], "curvado p/ frente", (10, 0), "left"),
-    "cabeca": ([3], "cabeça p/ frente", (10, 0), "left"),
+    "cabeca": ([3], "cabeça p/ frente", (8, -12), "left"),
     "escorregado": ([4], "escorregado", (-10, 0), "right"),
     "esq": ([5], "inclinado à esq.", (-10, 0), "right"),
     "dir": ([6], "inclinado à dir.", (10, 0), "left"),
