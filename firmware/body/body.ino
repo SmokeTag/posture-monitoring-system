@@ -22,6 +22,10 @@
  * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength). Pulsed
  * PULSE_ON_MS every PULSE_PERIOD_MS while alerting. A motor test ('m' here,
  * or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
+ * Motor mute (data captures, 'q' on the chair): while the held ChairAck has
+ * CF_MUTE, alert pulses keep the PWM at 0; the alert logic, LED and `motor`
+ * column run as usual (= would buzz) and a motor test still buzzes. Held
+ * through link loss like the reference; never saved: a reboot unmutes.
  *
  * Status LED (onboard RGB, dimmed to LED_LEVEL for the battery; colours in
  * PostureLink/StatusLed.h): red while the motor runs; otherwise red fast =
@@ -41,7 +45,7 @@
  *
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one
  * row per sample (20 Hz), written AFTER that sample's ACK was digested:
- *   t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat
+ *   t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat,mute
  *   t_ms  = this board's millis() (never compare it with the chair's)
  *   seq   = BodyPacket.seq sent for this sample (boot id: header line 0)
  *   ctl   = who decides: 1 = chair (valid ChairAcks arriving), 2 = fallback
@@ -49,7 +53,8 @@
  *   cal / calid = the body holds the chair's reference / its id (0 = none)
  *   dev   = degrees from that reference (0 if none)
  *   alert = alert in effect (chair's in ctl 1, local in ctl 2)
- *   motor = motor output commanded on now (PWM; not a measurement)
+ *   motor = motor output commanded on now (not a measurement); with mute,
+ *           when it would buzz (the PWM stays 0 unless a test runs)
  *   test  = a motor-test buzz is running (motor on for the test, not an alert)
  *   aseq / age = body sample the ChairAck held was decided on, and seq - aseq
  *           (1 normally: decided on the previous sample); age 254 = 254 or
@@ -59,8 +64,9 @@
  *   imu = 0 valid, 1 init, 2 bus/short read, 3 no fresh data, 4 invalid vector
  *   inh = a chair alert was inhibited locally (invalid IMU or old decision)
  *   vbat = battery mV, last reading (0 = none yet; on USB: the charger output)
+ *   mute = motor muted by the chair (CF_MUTE held): alerts don't buzz
  *   Invalid samples have nan dev/pitch/roll. Saved calibration is retained.
- * Events: "# link up/lost", "# alert ON/OFF", "# motor test (...)",
+ * Events: "# link up/lost", "# alert ON/OFF", "# motor test (...)", "# motor muted/unmuted",
  * "# battery low (...)" just before System OFF (only seen if a host is there).
  * Header: "# resetreas=0x..." (POWER->RESETREAS at boot: 1 pin, 2 watchdog,
  * 4 soft reset, 0x100000 VBUS wake) and "# vbat=... usb=...".
@@ -102,9 +108,6 @@ const unsigned long SAMPLE_MS = 50;            // 20 Hz
 // Alert output: motor driver (active HIGH, PWM)
 const int MOTOR_PIN  = D10;
 const int MOTOR_DUTY = 255;                    // 0..255 (255 = always on); lower = weaker buzz
-#ifndef MOTOR_MUTED
-#define MOTOR_MUTED 0                          // 1 = capture build: PWM held at 0 (the buzz shakes
-#endif                                         // the IMU); alert logic, LED and `motor` column unchanged
 const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (LiPo: ~1/8)
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;
@@ -136,8 +139,10 @@ SerialOut<decltype(Serial)> out(Serial, bodyHeader);
 
 // alert state
 AlertGate localGate;                           // only used in fallback
-bool alert = false, motorOn = false;
+bool alert = false, motorOn = false;          // motorOn: commanded (with mute: would buzz)
+bool motorDriven = false;                      // PWM actually on
 bool outputInitialized = false;
+bool mutedShown = false;                       // mute state last reported as an event
 unsigned long alertStart = 0;
 unsigned long lastSample = 0;
 unsigned long testUntil = 0;                   // motor test buzz; 0 = idle
@@ -152,14 +157,21 @@ void anglesFromAccel(float aX, float aY, float aZ, float &pitch, float &roll) {
   roll  = atan2f(aY, aZ) * RAD_TO_DEGF;
 }
 
+bool testRunning(unsigned long t) { return testUntil && (int32_t)(t - testUntil) < 0; }
+
+// Muted by the chair (CF_MUTE in the ChairAck held): a reboot clears it.
+bool motorMuted() { return chairLink.haveAck && (chairLink.ack.flags & CF_MUTE); }
+
 void setMotor(bool on) {
+  bool drive = on && (!motorMuted() || testRunning(millis()));
   // analogWrite restarts a hardware PWM sequence even for the same duty.
   // Do not flood the peripheral from the idle loop; always initialize it once.
-  if (outputInitialized && on == motorOn) return;
+  if (outputInitialized && drive == motorDriven) { motorOn = on; return; }
   outputInitialized = true;
-  if (motorOn && !on) motorOffAt = millis();
+  if (motorDriven && !drive) motorOffAt = millis();
   motorOn = on;
-  analogWrite(MOTOR_PIN, on && !MOTOR_MUTED ? MOTOR_DUTY : 0);
+  motorDriven = drive;
+  analogWrite(MOTOR_PIN, drive ? MOTOR_DUTY : 0);
 }
 
 void updateStatusLed(unsigned long t) {
@@ -178,7 +190,7 @@ bool bodyHeader(uint8_t i, Line &l) {
              .hex8(bootId); return true;
     case 1: if (!imuReady) l.str("# IMU not initialized"); return true;
     case 2: if (radioFailed) l.str("# radio init FAILED"); return true;
-    case 3: l.str("t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat"); return true;
+    case 3: l.str("t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat,mute"); return true;
     case 4: l.str("# proto=").u32(PROTO_VER); return true;
     case 5: {
       uint32_t r = readResetReason();
@@ -191,8 +203,6 @@ bool bodyHeader(uint8_t i, Line &l) {
 }
 
 void event(const char *s) { Line l; l.str(s); out.event(l); }
-
-bool testRunning(unsigned long t) { return testUntil && (int32_t)(t - testUntil) < 0; }
 
 void setAlert(bool on, float dev) {
   if (on == alert) return;
@@ -231,7 +241,8 @@ void sendSample(unsigned long t, float pitch, float roll) {
   pkt.roll = roll;
   pkt.ctl = chairLink.control();
   pkt.imu = imuStatus;
-  pkt.flags = (inhibited ? BF_INH : 0) | (alert ? BF_ALERT : 0) | (motorOn ? BF_MOTOR : 0) | (testRunning(t) ? BF_TEST : 0);
+  pkt.flags = (inhibited ? BF_INH : 0) | (alert ? BF_ALERT : 0) | (motorOn ? BF_MOTOR : 0) | (testRunning(t) ? BF_TEST : 0)
+            | (motorMuted() ? BF_MUTE : 0);
   if (chairLink.haveAck) {
     pkt.calId = held.calId;
     if (held.flags & CF_CAL) pkt.flags |= BF_CAL;
@@ -260,6 +271,10 @@ void sendSample(unsigned long t, float pitch, float roll) {
   if (r.linkChanged) {
     localGate.reset();
     event(chairLink.watch.up ? "# link up (chair decides)" : "# link lost: fallback, IMU only");
+  }
+  if (motorMuted() != mutedShown) {
+    mutedShown = !mutedShown;
+    event(mutedShown ? "# motor muted (chair): alerts don't buzz" : "# motor unmuted (chair)");
   }
 }
 
@@ -300,7 +315,7 @@ void printBodyRow(unsigned long t, float pitch, float roll, float dev, bool cal)
    .u32(alert).chr(',').u32(motorOn).chr(',').u32(testRunning(t)).chr(',')
    .i32(known ? (int32_t)ack.basisSeq : -1).chr(',').i32(known ? (int32_t)age : -1).chr(',')
    .fix(pitch, 1).chr(',').fix(roll, 1).chr(',').u32(imuStatus).chr(',').u32(inhibited)
-   .chr(',').u32(battery.mv);
+   .chr(',').u32(battery.mv).chr(',').u32(motorMuted());
   out.row(l);
 }
 
@@ -438,7 +453,7 @@ void checkBatteryAtBoot() {
 
 void checkBattery(uint32_t t) {
 #if defined(PIN_VBAT)
-  if (battery.due(t, motorOn, motorOffAt) && battery.update(t, readVbatMv(), usbPresent()))
+  if (battery.due(t, motorDriven, motorOffAt) && battery.update(t, readVbatMv(), usbPresent()))
     powerOff("cutoff");
 #else
   (void)t;

@@ -113,11 +113,13 @@ static void testHeaderAndRows() {
   CHECK_STR(v[1], "# unit=raw");
   CHECK_STR(v[2], "t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
                   "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,c9,c10,c11,c12,c13,c14,c15,"
-                  "reason");
-  // a body-silent row: boot..bage, imu, binh, vbat all -1 ("no sample"), no decision; 31 fields
+                  "reason,mute,bmute");
+  // a body-silent row: boot..bage, imu, binh, vbat all -1 ("no sample"), no decision; 33 fields
   auto f = split(v.back());
-  CHECK_EQ(f.size(), 31u);
+  CHECK_EQ(f.size(), 33u);
   CHECK_STR(f[30], "-1");
+  CHECK_STR(f[31], "0");                       // not muted
+  CHECK_STR(f[32], "-1");                      // body silent: its mute unknown
   CHECK_STR(f[2], std::to_string(calId));      // chair's reference id, even with no body
   for (int i = 9; i <= 21; i++) CHECK_STR(f[i], "-1");
 }
@@ -131,7 +133,7 @@ static void testFixedRawUnits() {
     Serial.in = commands[n];
     runFor(100);
     auto f = split(outLines().back());
-    CHECK_EQ(f.size(), 31u);
+    CHECK_EQ(f.size(), 33u);
     for (int i = 22; i < 30; i++) CHECK_STR(f[i], std::to_string(values[n]));
   }
   CHECK_EQ(count("# unit=ohms"), 0);
@@ -256,7 +258,8 @@ static std::vector<std::string> lastRowFields() {
 }
 // chair CSV columns
 enum { C_CAL = 1, C_CALID, C_DEV, C_ALERT, C_BOOT = 9, C_SEQ, C_BCTL, C_BCAL, C_BCALID,
-       C_BALERT, C_BMOTOR, C_BTEST, C_BSEQ, C_BAGE, C_IMU, C_BINH, C_FSR };
+       C_BALERT, C_BMOTOR, C_BTEST, C_BSEQ, C_BAGE, C_IMU, C_BINH, C_FSR,
+       C_REASON = 30, C_MUTE, C_BMUTE };
 
 // The ACK preloaded after each sample carries the decision of the row just
 // printed, with that row's boot/seq as its basis; other rewrites say so.
@@ -344,6 +347,58 @@ static void testBodyReportColumns() {
   CHECK_STR(f[C_BAGE], "-1");
 }
 
+// 'q'/'v' set CF_MUTE in the ACK (decision and basis untouched); the row
+// shows the chair's mute and the body's report; a host closing the port
+// unmutes (the safe default), and a reconnect doesn't bring it back.
+static void testMotorMute() {
+  const uint8_t B = 0x45;
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  CHECK(!(sentAck().flags & CF_MUTE));
+  ChairAck before = sentAck();
+  int on0 = count("# motor muted"), off0 = count("# motor unmuted");
+  Serial.in = "q";
+  runFor(1);
+  CHECK(muted);
+  CHECK_EQ(sentAck().flags, before.flags | CF_MUTE);
+  CHECK_EQ(sentAck().basisSeq, before.basisSeq);
+  CHECK_EQ(sentAck().basisBoot, before.basisBoot);
+  CHECK_EQ(count("# motor muted (alerts still decided and logged), from serial"), on0 + 1);
+  sample(B, s++, 0);
+  CHECK(sentAck().flags & CF_MUTE);            // every new decision keeps it
+  auto f = lastRowFields();
+  CHECK_STR(f[C_MUTE], "1");
+  CHECK_STR(f[C_BMUTE], "0");                  // the body hasn't applied it yet
+  BodyPacket p = {};
+  p.ver = PROTO_VER; p.boot = B; p.seq = s++; p.pitch = 0; p.roll = 0;
+  p.ctl = CTL_CHAIR; p.flags = BF_MUTE; p.calId = calId; p.age = AGE_NONE;
+  pushPkt(p);
+  runFor(50);
+  CHECK_STR(lastRowFields()[C_BMUTE], "1");
+  Serial.in = "Q";                             // re-sent: stays muted, logged again
+  runFor(1);
+  CHECK(muted);
+  CHECK_EQ(count("# motor muted"), on0 + 2);
+  Serial.in = "v";
+  runFor(1);
+  CHECK(!muted);
+  CHECK(!(sentAck().flags & CF_MUTE));
+  CHECK_EQ(count("# motor unmuted, from serial"), off0 + 1);
+  // the capture tool closes the port: unmuted, and still so after it returns
+  Serial.in = "q";
+  runFor(1);
+  CHECK(sentAck().flags & CF_MUTE);
+  Serial.dtrOn = false;
+  runFor(5);
+  CHECK(!muted);
+  CHECK(!(sentAck().flags & CF_MUTE));
+  Serial.dtrOn = true;
+  runFor(5);
+  CHECK(!muted);
+  sample(B, s++, 0);
+  CHECK_STR(lastRowFields()[C_MUTE], "0");
+  CHECK(!(sentAck().flags & CF_MUTE));
+}
+
 // Packets of another format / incoherent ones are counted as bad and are no
 // sample: no row, no link renewal, no decision.
 static void testRejectedPackets() {
@@ -394,10 +449,11 @@ static void testWidestRow() {
   gate.alert = true;
   BodyPacket p = {};
   p.ver = PROTO_VER; p.boot = B; p.seq = 65535; p.pitch = -90; p.roll = -180;
-  p.ctl = CTL_FALLBACK; p.flags = BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST; p.calId = 255;
+  p.ctl = CTL_FALLBACK; p.flags = BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST | BF_MUTE; p.calId = 255;
   p.age = 254; p.ackSeq = 10000; p.vbat = 65535;
   for (int i = 0; i < 8; i++) fsr[i] = 4095;
   sim::adc = 4095;
+  muted = true;
   sim::now = 0xFFFFFFFEu;
   seqs = SeqTracker();                         // a fresh body session (seq 65535 not a dup)
   bodyUp = true;
@@ -415,10 +471,11 @@ static void testWidestRow() {
   std::string fsrs;
   for (int i = 0; i < 8; i++) fsrs += ",4095";
   CHECK_STR(row, "4294967295,1,255,402.5,1,-180.0,-360.0,-90.0,-180.0,255,65535,"
-                 "2,1,255,1,1,1,10000,254,0,0,65535" + fsrs + ",1");
-  CHECK_EQ(row.size(), 137u);                  // reason -1 (no decision) is 1 byte wider: 138
+                 "2,1,255,1,1,1,10000,254,0,0,65535" + fsrs + ",1,1,1");
+  CHECK_EQ(row.size(), 141u);                  // reason -1 / bmute -1: 1 byte wider each
   seqs.clearCounts();
   s = 0;
+  muted = false;
   runFor(1);
   sim::adc = SEATED;
 
@@ -476,7 +533,7 @@ static void testFusion() {
   CHECK_EQ(count("# calibrate rejected: seat rear unloaded (sit back fully and recalibrate) rear=0"), 1);
   CHECK(rejectShown);                          // LED: red fast for REJECT_LED_MS
   CHECK_EQ(sim::pin[LED_GREEN], 255);
-  CHECK_STR(lastRowFields()[30], "-1");
+  CHECK_STR(lastRowFields()[C_REASON], "-1");
   for (int i = 0; i < 50; i++) sample(B, s++, 0, 3);   // slid-like, small IMU: no alert, uncalibrated
   CHECK(!gate.alert);
   CHECK(!rejectShown);
@@ -490,7 +547,7 @@ static void testFusion() {
                  " fsr=2000.0,2200.0,2600.0,2400.0,2000.0,2000.0,2000.0,2000.0"), 1);
   CHECK(fusionBase.rearOk && fusionBase.lrOk);
   CHECK(fabsf(fusionBase.rear - 5000) < 0.01f);
-  auto reason = [] { return lastRowFields()[30]; };   // last column
+  auto reason = [] { return lastRowFields()[C_REASON]; };   // last column
   auto run = [](float pitch, float roll, int n) {
     for (int i = 0; i < n; i++) { push(B, s++, pitch, roll); runFor(50); }
   };
@@ -582,6 +639,7 @@ int main(int argc, char **argv) {
   testAckBasisAndCalId();
   testBodyReportColumns();
   testRejectedPackets();
+  testMotorMute();
   testWidestRow();
   testFusion();
   CHECK_EQ(Serial.blocked, 0);

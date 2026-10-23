@@ -44,14 +44,15 @@ DFU mode"). That message also shows up now and then on a plain port: just run
 the upload again. The XIAO is native USB CDC, so the baud rate is
 ignored; serial input is line-buffered (type, then Enter).
 
-**Capture build (motor muted):** the buzz shakes the IMU, so for data
-captures flash the body with the motor PWM held off. Everything else (alert,
-red LED, `motor` column) behaves as usual. Flash the normal build afterwards.
-
-```bash
-arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries \
-  --build-property "compiler.cpp.extra_flags=-DMOTOR_MUTED=1" firmware/body
-```
+**Motor mute (data captures):** the buzz would steer the sitter (and shake
+the IMU), so captures run with the motor muted at runtime — no special build.
+Send `q` to the chair (`v` unmutes); `analysis/live_posture.py --motor-muted`
+does it on every connection. The chair sets `CF_MUTE` in the ChairAck and the
+body keeps the PWM at 0 on alerts; the chair still decides and logs `alert`,
+the body's `motor`/`bmotor` and red LED still show when it would buzz, and a
+motor test (`m`) still buzzes. The body keeps the mute through link loss
+(fallback). Nothing is saved: a reboot of either board, or the host closing
+the chair's port, unmutes. Columns: chair `mute`, `bmute`; body `mute`.
 
 ## Tests (host, no board)
 
@@ -99,15 +100,16 @@ counts to conductance/resistance with the shared 3.3 kΩ pull-down on SIG
 (the result includes the mux's ~100 Ω R_on) and still reads older
 firmware/logs in ohms.
 
-**ESB protocol v4 — flash both boards together.** Both payloads start with a
+**ESB protocol v5 — flash both boards together.** Both payloads start with a
 version byte (`PROTO_VER`) and have a fixed size; a board running the older
-formats (v1/v2/v3) are rejected in both directions (`ver=` counts incompatible
-formats, `bad=` counts malformed payloads). Only valid v4 ACKs keep control
+formats (v1–v4) are rejected in both directions (`ver=` counts incompatible
+formats, `bad=` counts malformed payloads). Only valid v5 ACKs keep control
 fresh; the body falls back after 1 s without one. Each USB header includes
-`# proto=4`. Besides pitch/roll, each body packet
+`# proto=5`. Besides pitch/roll, each body packet
 reports what the body applied (who decides, reference id, alert, motor/test)
 the age of the chair decision it holds, counted in body samples, and (v4) its
-battery voltage (`vbat`, mV) — the
+battery voltage (`vbat`, mV) and (v5) whether it holds the chair's motor
+mute (`BF_MUTE`) — the
 boards' clocks are never compared. The chair CSV puts that next to its own
 decision; timeline and columns: `libraries/PostureLink/PostureLink.h` and the
 header of `chair/chair.ino`. Ids are best effort (1-byte body boot id and
@@ -178,10 +180,11 @@ invalid; FSR data remains available.
 
 After 20 consecutive failed samples, the body attempts checked reconfiguration
 at most once per second, while continuing its 20 Hz heartbeat. Startup failure
-also retries. `BodyPacket` is 21 bytes (19 in v3, + `vbat` in v4); `ChairAck`
-remains 15 bytes but requires the same version. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
-buffer (still within TinyUSB's 256-byte FIFO): widest chair row 138 bytes,
-body row 69; maximum synthetic stats plus drop counters fit (159/161 bytes).
+also retries. `BodyPacket` is 21 bytes (19 in v3, + `vbat` in v4; v5 only adds flag
+bits: `BF_MUTE`, `CF_MUTE`); `ChairAck` remains 15 bytes but requires the
+same version. `ack = ctl + bad + ver`. USB lines use a fixed 176-byte content
+buffer (still within TinyUSB's 256-byte FIFO): widest chair row 142 bytes,
+body row 71; maximum synthetic stats plus drop counters fit (159/161 bytes).
 
 On Seeeduino:nrf52 1.1.13 the body enables the core's DWT cycle clock before
 starting the radio. Without it, `micros()` uses 1024-Hz RTOS ticks (~977 µs),
@@ -207,7 +210,7 @@ is outside this change.
 ### Bench validation pending
 
 1. Flash **both** boards, verify `Device programmed` plus serial (DFU failure
-   may still exit 0). Reopen ports without commands: one v4 header per connect.
+   may still exit 0). Reopen ports without commands: one v5 header per connect.
 2. Baseline: `imu=0`, `inh/binh=0`, `ver=bad=0`, 20 Hz and decision/applied joins
    consistent. Compare retx with a baseline in the same RF conditions.
 3. Button/serial calibration, tilt/return, alert pulses and a manual motor test:

@@ -53,8 +53,9 @@ const uint16_t SEQ_MAX_GAP = 64;               // samples, ~3 s at 20 Hz; while 
 
 // Protocol version: byte 0 of both payloads; with the exact size it rejects a
 // peer running another format (v1, before this field, was 12 + 12 bytes; v3
-// had no vbat: 19 + 15). Both boards must run the same version.
-const uint8_t PROTO_VER = 4;
+// had no vbat: 19 + 15; v4 had no motor mute: same sizes, the version byte
+// alone tells them apart). Both boards must run the same version.
+const uint8_t PROTO_VER = 5;
 
 // Per-sample validity, independent of the radio link. RANGE also includes
 // motion with too little gravity to estimate posture; it is not a chip diagnosis.
@@ -81,6 +82,8 @@ enum : uint8_t {                               // BodyPacket.flags
   BF_MOTOR = 1 << 2,                           // motor output commanded on now (not measured)
   BF_TEST  = 1 << 3,                           // a motor-test buzz is running (not a posture alert)
   BF_INH   = 1 << 4,                           // chair alert suppressed by local IMU guard
+  BF_MUTE  = 1 << 5,                           // holds the chair's CF_MUTE: alerts don't reach the
+                                               // motor (BF_MOTOR still = would buzz)
 };
 const uint8_t AGE_MAX = 254;                   // BodyPacket.age: 254 = 254 samples or more
 const uint8_t AGE_NONE = 255;                  //   unknown: no ChairAck held, or not based on a
@@ -105,6 +108,8 @@ struct __attribute__((packed)) BodyPacket {
 enum : uint8_t {                               // ChairAck.flags
   CF_CAL   = 1 << 0,                           // reference valid (pitchRef/rollRef)
   CF_ALERT = 1 << 1,                           // chair says: alert now
+  CF_MUTE  = 1 << 2,                           // data capture: alerts don't buzz (motor test does);
+                                               // held through link loss, gone on a body reboot
 };
 struct __attribute__((packed)) ChairAck {
   uint8_t  ver;                                // PROTO_VER
@@ -118,7 +123,7 @@ struct __attribute__((packed)) ChairAck {
                                                // (chair boot, body link timeout, calibration cleared)
 };
 
-static_assert(sizeof(BodyPacket) == 21 && sizeof(ChairAck) == 15, "v4 payload ABI");
+static_assert(sizeof(BodyPacket) == 21 && sizeof(ChairAck) == 15, "v5 payload ABI");
 
 // --- Posture alert ---
 const float ALERT_DEG = 10.0f;                 // analysis/archive/VALIDATION.md: upright p95 6.4°, bad p05 18.6°
@@ -170,7 +175,7 @@ inline bool parseChairAck(const void *buf, uint8_t len, ChairAck &out) {
   ChairAck a;
   memcpy(&a, buf, sizeof(a));
   if (a.ver != PROTO_VER || a.calId == 0) return false;
-  if (a.flags & ~(CF_CAL | CF_ALERT)) return false;
+  if (a.flags & ~(CF_CAL | CF_ALERT | CF_MUTE)) return false;
   if ((a.flags & CF_ALERT) && !(a.flags & CF_CAL)) return false;
   if ((a.flags & CF_CAL) && !anglesOk(a.pitchRef, a.rollRef)) return false;
   if (!a.basisBoot && a.basisSeq) return false;
@@ -194,10 +199,10 @@ inline bool parseBodyPacket(const void *buf, uint8_t len, BodyPacket &out) {
   if (p.imu == IMU_OK ? !anglesOk(p.pitch, p.roll)
                       : !(floatIsNan(p.pitch) && floatIsNan(p.roll))) return false;
   if (p.ctl > CTL_FALLBACK) return false;
-  if (p.flags & ~(BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST | BF_INH)) return false;
+  if (p.flags & ~(BF_CAL | BF_ALERT | BF_MOTOR | BF_TEST | BF_INH | BF_MUTE)) return false;
   if ((p.flags & BF_ALERT) && !(p.flags & BF_CAL)) return false;
   if ((p.flags & BF_INH) && (p.ctl != CTL_CHAIR || !(p.flags & BF_CAL) || (p.flags & BF_ALERT))) return false;
-  if (p.ctl == CTL_NONE && (p.calId || (p.flags & BF_CAL) || p.age != AGE_NONE)) return false;
+  if (p.ctl == CTL_NONE && (p.calId || (p.flags & (BF_CAL | BF_MUTE)) || p.age != AGE_NONE)) return false;
   if (p.ctl != CTL_NONE && !p.calId) return false;
   if (p.age == AGE_NONE ? p.ackSeq != 0
                         : p.age < AGE_MAX && (uint16_t)(p.seq - p.ackSeq) != p.age) return false;

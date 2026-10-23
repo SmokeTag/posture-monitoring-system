@@ -108,6 +108,52 @@ class Connection(unittest.TestCase):
         port.close.assert_called_once()
 
 
+    def test_motor_muted_sends_q_on_every_connection(self):
+        """--motor-muted: 'q' right after each (re)connection (the chair
+        unmutes whenever the port closes); without it, nothing is sent."""
+        class Stop(Exception):
+            pass
+
+        for muted, expected in ((True, [b"q", b"q"]), (False, [])):
+            writes = []
+
+            class Port:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *exc):
+                    return False
+
+                def write(self, value):
+                    writes.append(value)
+
+                def readline(self):
+                    raise LP.serial.SerialException("unplugged")
+
+            r = LP.ChairReader("/dev/null", None, trail_n=60, motor_muted=muted)
+            with patch.object(r, "_open_port", side_effect=lambda: Port()), \
+                    patch.object(LP.time, "sleep", side_effect=[None, Stop()]):
+                with self.assertRaises(Stop):
+                    r.run()
+            self.assertEqual(writes, expected)
+
+
+class MotorMute(unittest.TestCase):
+    """The motor line with the body's bmute report (protocol v5)."""
+
+    def motor(self, **kw):
+        r = row(100)
+        r.update(kw)
+        return LP.body_lines([r])[2]
+
+    def test_lines(self):
+        self.assertEqual(self.motor(bmute=1), "motor   ○ mudo")
+        self.assertEqual(self.motor(bmute=1, bmotor=1, balert=1), "motor   ○ mudo (teria vibrado)")
+        self.assertEqual(self.motor(bmute=1, bmotor=1, btest=1), "motor   ● teste")   # really buzzes
+        self.assertEqual(self.motor(bmute=0, bmotor=1, balert=1), "motor   ● alerta")
+        self.assertEqual(self.motor(bmotor=1, balert=1), "motor   ● alerta")          # v4: no bmute
+
+
 class RealFirmwareStream(unittest.TestCase):
     """The chair stream of firmware/test/test_system, through ChairReader."""
 
