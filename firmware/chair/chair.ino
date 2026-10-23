@@ -76,7 +76,9 @@
  *     balert = alert in effect on the body (in bctl 2 it is its own decision)
  *     bmotor = motor output commanded on (not a measurement; muted: would
  *              buzz); btest = a motor-test buzz is running (motor on, but
- *              not a posture alert)
+ *              not a posture alert). While the motor really runs (not
+ *              muted) the body repeats its last reading taken with it off
+ *              (motor shake), so pitch/roll hold still on those rows
  *     bseq   = the seq of the chair row whose decision the body holds: join
  *              on seq == bseq (same boot); -1 = unknown (none held, or not
  *              made on a sample: chair boot, link timeout, calibration cleared)

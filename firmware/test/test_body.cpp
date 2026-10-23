@@ -420,6 +420,36 @@ static void testMotorMute() {
   CHECK_EQ(sim::pin[MOTOR_PIN], 0);
 }
 
+// The buzz shakes the IMU: while the PWM runs the body sends (and logs) the
+// last reading taken with it off; with the motor off, live readings again.
+static void testShakeHold() {
+  tilt(15);
+  ackWith(CF_CAL);
+  runFor(200);
+  ackWith(CF_CAL | CF_ALERT);                  // the chair alerts: the motor pulses
+  for (int i = 0; i < 2000 && !motorDriven; i++) runFor(1);
+  CHECK(motorDriven);
+  tilt(0);                                     // what a shaken reading may show
+  int held = 0, live = 0;
+  float last = 15;                             // read before the motor started
+  for (int i = 0; i < 1500; i++) {
+    bool shaking = motorDriven;                // as readImu() sees it in this loop()
+    size_t k = radio.sent.size();
+    runFor(1);
+    if (radio.sent.size() == k) continue;
+    BodyPacket q;
+    memcpy(&q, radio.sent.back().data(), sizeof q);
+    if (shaking) { CHECK(fabsf(q.pitch - last) < 0.1f); held++; }   // the last quiet one
+    else { CHECK(fabsf(q.pitch) < 0.1f); live++; last = q.pitch; }
+  }
+  CHECK(held >= 10);
+  CHECK(live >= 3);
+  CHECK_EQ(alert, 1);                          // the alert itself is untouched
+  ackWith(CF_CAL);
+  runFor(200);
+  CHECK_EQ(sim::pin[MOTOR_PIN], 0);
+}
+
 int main(int argc, char **argv) {
   resetReasonSim() = 4;                       // soft reset (e.g. after an upload)
   if (argc > 1 && !strcmp(argv[1], "bootlow")) return testBootLow();
@@ -484,7 +514,7 @@ int main(int argc, char **argv) {
   CHECK_EQ(rowField(F_CTL), CTL_FALLBACK);
   CHECK_EQ(rowField(F_ALERT), 1);
   tilt(0);
-  runFor(200);
+  runFor(PULSE_PERIOD_MS);                     // the first reading with the motor off clears it
   CHECK_EQ(rowField(F_ALERT), 0);
 
   // radio failures: every retry counted (15 per failed write), noack = sent
@@ -539,6 +569,7 @@ int main(int argc, char **argv) {
   CHECK_EQ(rowField(F_MOTOR), 0);
   CHECK_EQ(rowField(F_TEST), 0);
   testMotorMute();
+  testShakeHold();
   // every packet sent in this run is a well-formed packet
   int badSent = 0;
   for (auto &b : radio.sent) badSent += !parseBodyPacket(b.data(), (uint8_t)b.size(), chk);

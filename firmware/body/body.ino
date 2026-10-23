@@ -22,6 +22,10 @@
  * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength). Pulsed
  * PULSE_ON_MS every PULSE_PERIOD_MS while alerting. A motor test ('m' here,
  * or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
+ * Motor shake: the buzz shakes the IMU (±10° in its first ~100 ms; it cleared
+ * alerts in the 2026-10-22 validation), so a reading taken while the PWM runs
+ * is replaced by the last one taken with it off (for at most SHAKE_HOLD_MAX_MS):
+ * pitch/roll (row and packet) hold still while the motor runs.
  * Motor mute (data captures, 'q' on the chair): while the held ChairAck has
  * CF_MUTE, alert pulses keep the PWM at 0; the alert logic, LED and `motor`
  * column run as usual (= would buzz) and a motor test still buzzes. Held
@@ -112,6 +116,7 @@ const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;
 const unsigned long MOTOR_TEST_MS   = 500;
+const unsigned long SHAKE_HOLD_MAX_MS = 1000;  // > PULSE_ON_MS, MOTOR_TEST_MS: then the shaken reading
 const unsigned long LOWBAT_BLINK_MS = 150;     // battery-low blink: 3 x (on, off)
 const uint32_t WDT_TIMEOUT_S = 4;              // >> a radio.write() with all retries (~20 ms)
 
@@ -131,6 +136,8 @@ bool imuReady = false, inhibited = false, versionNoted = false;
 uint8_t imuStatus = IMU_INIT, failedSamples = 0;
 uint32_t lastImuInit = 0;
 uint32_t imuOkAt = 0;                          // last valid IMU sample (status LED)
+float quietPitch = NAN, quietRoll = NAN;       // last valid reading with the motor off...
+uint32_t quietAt = 0;                          // ...and when
 ImuControlGuard imuGuard;
 
 bool bodyHeader(uint8_t i, Line &l);
@@ -283,7 +290,7 @@ void sendSample(unsigned long t, float pitch, float roll) {
 // A returning transaction restores a manual test or the previous pulse only
 // for a valid sample. No claim is made that software can recover a wedged bus.
 uint8_t readImu(uint32_t t, float &pitch, float &roll) {
-  bool wasOn = motorOn;
+  bool wasOn = motorOn, shaking = motorDriven;
   setMotor(false);
   if (!imuReady && (uint32_t)(t - lastImuInit) >= 1000) {
     lastImuInit = t;
@@ -301,6 +308,11 @@ uint8_t readImu(uint32_t t, float &pitch, float &roll) {
     if (failedSamples < 20) failedSamples++;
     if (failedSamples >= 20) imuReady = false;
   } else failedSamples = 0;
+  if (status != IMU_OK) quietPitch = quietRoll = NAN;
+  else if (!shaking) { quietPitch = pitch; quietRoll = roll; quietAt = t; }
+  else if (floatIsFinite(quietPitch) && (uint32_t)(t - quietAt) <= SHAKE_HOLD_MAX_MS) {
+    pitch = quietPitch; roll = quietRoll;      // the motor was running: shaken reading
+  }
   if (testRunning(t) || (status == IMU_OK && wasOn)) setMotor(true);
   return status;
 }
