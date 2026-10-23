@@ -22,7 +22,7 @@
  * motor fed from 3V3; PWM duty MOTOR_DUTY sets the strength). Pulsed
  * PULSE_ON_MS every PULSE_PERIOD_MS while alerting. A motor test ('m' here,
  * or 'm' on the chair) buzzes once (MOTOR_TEST_MS).
- * Motor shake: the buzz shakes the IMU (±10° in its first ~100 ms; it cleared
+ * Motor shake: the buzz shakes the IMU (±10° in its first ~100-150 ms; it cleared
  * alerts in the 2026-10-22 validation), so a reading taken while the PWM runs
  * is replaced by the last one taken with it off (for at most SHAKE_HOLD_MAX_MS):
  * pitch/roll (row and packet) hold still while the motor runs.
@@ -116,7 +116,7 @@ const uint8_t LED_LEVEL = 32;                  // status LED brightness 0..255 (
 const unsigned long IMU_FAULT_MS = 250;        // no valid IMU sample this long = fault
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;
 const unsigned long MOTOR_TEST_MS   = 500;
-const unsigned long SHAKE_HOLD_MAX_MS = 1000;  // > PULSE_ON_MS, MOTOR_TEST_MS: then the shaken reading
+const unsigned long SHAKE_HOLD_MAX_MS = 1500;  // > a test run into a pulse (<= ~1 s): then the shaken reading
 const unsigned long LOWBAT_BLINK_MS = 150;     // battery-low blink: 3 x (on, off)
 const uint32_t WDT_TIMEOUT_S = 4;              // >> a radio.write() with all retries (~20 ms)
 
