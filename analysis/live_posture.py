@@ -33,8 +33,14 @@ the tag names from tags.json go in as a `# tag map` line. The badge times the
 hold: a countdown (--hold s; 10 s for upright) that turns green when done, a
 stopwatch for transition. Without --log the tag badge and keys are hidden. The UI text is PT-BR (shown at a science fair).
 
+With --motor-muted (data captures), 'q' goes to the chair on every
+(re)connection: the body's motor doesn't buzz on alerts (a motor test still
+does) while the chair keeps deciding and logging `alert`. The chair unmutes
+when the port closes, so the motor is back on once this app quits.
+
     .venv/bin/python analysis/live_posture.py
     .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0 --log data/<name>.csv
+    .venv/bin/python analysis/live_posture.py --log data/<name>.csv --motor-muted
 
 Needs pyserial + PyQt6 in the venv (see requirements.txt).
 """
@@ -130,8 +136,9 @@ def fmt_ohms(r: float) -> str:
 class ChairReader(threading.Thread):
     """Background serial reader; reconnects if the board resets."""
 
-    def __init__(self, port: str, log: Path | None, trail_n: int):
+    def __init__(self, port: str, log: Path | None, trail_n: int, motor_muted: bool = False):
         super().__init__(daemon=True)
+        self.motor_muted = motor_muted
         self.port, self.ser = port, None
         self.log = open(log, "x") if log else None   # never append to an old run
         self.lock = threading.Lock()
@@ -182,6 +189,8 @@ class ChairReader(threading.Thread):
             try:
                 with self._open_port() as port:
                     self.ser = port
+                    if self.motor_muted:
+                        port.write(b"q")              # every connection: the chair unmutes on close
                     self.connected, self.body_up, self.raw = True, False, False
                     with self.lock:
                         self.rows.clear()             # a new connection: no old decisions to match
@@ -331,9 +340,11 @@ def body_lines(rows: list[dict]) -> list[str]:
     if "bctl" not in r:                               # v1: only the motor flag
         return ["corpo   (firmware antigo)", "        sem relatório",
                 f"motor   {'● ligado' if r.get('led') else '○ desligado'}"]
-    motor = "○ desligado"
+    muted = r.get("bmute", 0) == 1                    # v5: the body holds the chair's mute
+    motor = "○ mudo" if muted else "○ desligado"
     if r["bmotor"]:
-        motor = "● teste" if r["btest"] else "● alerta" if r["balert"] else "● ligado"
+        motor = ("● teste" if r["btest"] else "○ mudo (teria vibrado)" if muted
+                 else "● alerta" if r["balert"] else "● ligado")
     ctl = int(r["bctl"])
     age = int(r["bage"])
     age_txt = "?" if age < 0 else f"{age}+" if age >= AGE_MAX else f"{age}"
@@ -661,6 +672,8 @@ def main() -> int:
                     help="enable the FSR mapping wizard (m / click a spot); off: the map is fixed")
     ap.add_argument("--hold", type=float, default=HOLD_S,
                     help="posture tag countdown, s (upright `1` always counts HOLD_UPRIGHT_S = 10 s)")
+    ap.add_argument("--motor-muted", action="store_true",
+                    help="data capture: the body's motor doesn't buzz on alerts (sends 'q' to the chair)")
     ap.add_argument("--no-ref", action="store_true",
                     help="don't draw the recorded postures (data/*_run*.csv) on the IMU plot")
     args = ap.parse_args()
@@ -669,7 +682,8 @@ def main() -> int:
 
     tags = load_tags(args.tags)
     ref_runs = [] if args.no_ref else load_reference_runs(skip=args.log)   # before the log exists
-    reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)))
+    reader = ChairReader(args.port, args.log, trail_n=max(2, int(args.trail * 20)),
+                         motor_muted=args.motor_muted)
     reader.note("tag map " + " ".join(f"{k}={v.replace(' ', '_')}" for k, v in sorted(tags.items())))
     reader.start()
 
@@ -745,6 +759,8 @@ def main() -> int:
                             if rows else "conectado, aguardando o corpo …")
         elif not imu_valid(rows[-1]):
             banner.set_text(imu_text(rows[-1]) + "\namostra de postura indisponível")
+        elif args.motor_muted and rows[-1].get("mute") != 1:
+            banner.set_text("MOTOR NÃO ESTÁ MUDO\nfirmware antigo? grave as duas placas (protocolo v5)")
         elif not rows[-1]["cal"]:
             banner.set_text("NÃO CALIBRADO\nsente-se ereto e aperte o botão da cadeira "
                             "(ou 'c' aqui)")
