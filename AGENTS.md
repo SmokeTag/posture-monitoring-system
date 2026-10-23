@@ -70,6 +70,8 @@ no further prompting. Defaults:
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
   flyback diode (likely 1N4148 — marking unconfirmed) across the motor
   (cathode at 3V3) + 33 nF ceramic ("333"). PWM sets strength.
+  The buzz shakes the IMU (±10°), so while the PWM runs the body sends the
+  last reading taken with the motor off (≤ 1.5 s).
   **Motor mute for data captures:** `live_posture.py --motor-muted` sends
   `'q'` to the chair (`'v'` unmutes) → `CF_MUTE` in the ChairAck; the body
   doesn't buzz on alerts (motor test still does, fallback keeps it), the chair

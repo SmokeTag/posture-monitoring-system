@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
   // full outage: the chair times out (its ACK loses its basis); the first ACK
   // after it carries no basis -> body age unknown for that sample, then 1
   tilt(0);
-  runFor(500);
+  runFor(500 + bodyfw::PULSE_PERIOD_MS);       // read with the motor off: the alert clears
   bodyfw::radio.upOk = false;
   watchLeds(900, ledC, ledB);                  // silent, not yet timed out: a gap is no IMU fault
   CHECK_LEDS(ledC, "G");
