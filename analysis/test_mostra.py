@@ -147,7 +147,7 @@ class Visits(unittest.TestCase):
     def test_time_going_back_resets_the_timeline(self):
         sit(self.ex, 1000, 1010)
         sit(self.ex, 0, 10)                                         # chair rebooted
-        self.assertTrue(all(t < 10 for t, _ in self.ex.timeline))
+        self.assertTrue(all(t < 10 for t, _, _ in self.ex.timeline))
         self.assertLessEqual(len(self.ex.timeline), 200)
 
     def test_sparse_ble_rows(self):
@@ -166,6 +166,19 @@ class Visits(unittest.TestCase):
         self.ex.feed(row(2))
         self.assertAlmostEqual(self.ex.visit.seated_s, 0.25)
         self.assertEqual(self.ex.strip()[-3], X.NONE)
+
+    def test_mixed_transport_timing_preserves_visit_and_ble_history(self):
+        self.ex.feed(row(0, _max_dt=0.25))
+        visit = self.ex.visit
+        self.ex.feed(row(1, _max_dt=2.0))               # USB -> BLE
+        self.ex.feed(row(2, _max_dt=2.0))
+        self.ex.feed(row(3, _max_dt=0.25))              # BLE -> USB
+        self.ex.feed(row(4, _max_dt=0.25))              # USB clamp restored
+        self.assertIs(self.ex.visit, visit)
+        self.assertAlmostEqual(visit.seated_s, 3.25)
+        strip = self.ex.strip()
+        self.assertEqual(strip[-3], X.NONE)            # USB gap stays empty
+        self.assertEqual(strip[-7], X.GOOD)            # earlier BLE gap remains filled
 
     def test_timeline(self):
         sit(self.ex, 0, 10)

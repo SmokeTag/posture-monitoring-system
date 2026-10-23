@@ -16,6 +16,13 @@ python3 -m venv .venv
   use the chair button to calibrate. `mostra.py --ble` runs without USB;
   `--ble-address AA:BB:CC:DD:EE:FF` selects a chair. BLE timing tolerates gaps up to
   2 s; USB/replay keep the 0.25 s limit. Use USB for complete captures.
+- `auto_chair.py` — the exhibit's default reader: USB has priority; on disconnect
+  (or 1 s without valid USB data), use fresh BLE samples and return to USB when
+  valid serial data resumes. Both readers stay running. Only the selected feed
+  contributes samples, using a local monotonic display clock to keep the visit
+  and timeline continuous across the different USB/BLE clocks. Commands go only
+  through active USB; in BLE mode, use the chair button. `test_auto_chair.py`
+  covers failover, return, silence, duplicate samples and visitor continuity.
 
 - `live_posture.py` — live view of the chair unit (`firmware/chair`, the brain)
   over serial. Left: body IMU `(dpitch, droll)` + trail, alert circles,
@@ -32,8 +39,10 @@ python3 -m venv .venv
 - `mostra.py` — the science-fair version: fullscreen, for visitors (status
   band with the posture's name, deviation target, chair pressure, how it
   works, per-visitor and per-day numbers; a visit = a calibration until the
-  seat stays empty). `--replay <capture>` plays a recorded run instead of the
-  serial port. How-to (PT-BR): [`../docs/guia-mostra.md`](../docs/guia-mostra.md).
+  seat stays empty). Default: automatic USB/BLE selection; `--usb` / `--ble`
+  force one transport. `--ble-address` filters BLE in either automatic or BLE
+  mode. `--replay <capture>` plays a recorded run without either live reader.
+  How-to (PT-BR): [`../docs/guia-mostra.md`](../docs/guia-mostra.md).
 - `test_mostra.py` — `mostra.py`'s visitor logic (categories, visits, day numbers).
 - `tags.json` — posture tag names (`{"1": "...", ...}`), defined in capture
   run 1 ([`../docs/protocolo-captura.md`](../docs/protocolo-captura.md)).

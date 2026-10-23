@@ -19,12 +19,15 @@ in --stats-dir, so restarting the app keeps them.
 Keys:  c / space = calibrate   n = next visitor   r = clear calibration
        f = fullscreen   q = quit
 
-    .venv/bin/python analysis/mostra.py
+    .venv/bin/python analysis/mostra.py               # USB preferred, automatic BLE fallback
     .venv/bin/python analysis/mostra.py --window      # not fullscreen
     .venv/bin/python analysis/mostra.py --replay data/validation/<file>.csv   # no hardware
     .venv/bin/python analysis/mostra.py --ble         # wireless: the chair's BLE beacon
+    .venv/bin/python analysis/mostra.py --usb         # USB only, without BLE fallback
 
-With --ble (ble_chair.py) the laptop only listens: calibrate with the chair's
+By default USB has priority, with automatic BLE fallback and return to USB.
+The current connection is shown in the footer. With BLE the laptop only
+listens: calibrate with the chair's
 button; with no USB host the chair clears the calibration itself when the seat
 stays empty, as `n` would.
 
@@ -195,17 +198,21 @@ class Exhibit:
         self.visit: Visit | None = None
         self.last: Visit | None = None           # the previous visitor's, shown until the next one
         self.prev_t: float | None = None
+        self.prev_max_dt = max_dt
         self.ended_calid: int | None = None      # its calibration can't start a new visit
         self.empty_since: float | None = None
-        self.timeline: deque[tuple[float, int]] = deque()
+        self.timeline: deque[tuple[float, int, float]] = deque()
 
     def feed(self, row: dict, seated: bool | None = None):
         """One chair row (body up). seated: from the seat FSRs; None = unknown."""
         t = row["t_ms"] / 1000.0
         if self.prev_t is not None and t < self.prev_t:   # chair reset / replay loop
             self.timeline.clear()
-        dt = 0.0 if self.prev_t is None else min(max(t - self.prev_t, 0.0), self.max_dt)
+        max_dt = row.get("_max_dt", self.max_dt)
+        dt = (0.0 if self.prev_t is None else
+              min(max(t - self.prev_t, 0.0), max(max_dt, self.prev_max_dt)))
         self.prev_t = t
+        self.prev_max_dt = max_dt
         cat = category(row)
         if seated is False:
             cat = NONE
@@ -230,7 +237,7 @@ class Exhibit:
             if cat == ALERT and not v.in_alert:
                 v.alerts += 1
             v.in_alert = cat == ALERT
-        self.timeline.append((t, cat if v is not None else NONE))
+        self.timeline.append((t, cat if v is not None else NONE, max_dt))
         while self.timeline and self.timeline[0][0] < t - TIMELINE_S:
             self.timeline.popleft()
 
@@ -265,9 +272,9 @@ class Exhibit:
             return out
         end = self.timeline[-1][0] if now_t is None else now_t
         samples = list(self.timeline)
-        for j, (t, cat) in enumerate(samples):
+        for j, (t, cat, max_dt) in enumerate(samples):
             until = samples[j + 1][0] if j + 1 < len(samples) else t
-            if self.max_dt > TIMELINE_BIN_S and 0 <= until - t <= self.max_dt:
+            if max_dt > TIMELINE_BIN_S and 0 <= until - t <= max_dt:
                 for fill_t in np.arange(t, until, TIMELINE_BIN_S):
                     k = n - 1 - int((end - fill_t) / TIMELINE_BIN_S)
                     if 0 <= k < n:
@@ -397,9 +404,11 @@ def main() -> int:
     ap.add_argument("--replay", type=Path,
                     help="play a recorded capture instead of the serial port (day numbers in memory only)")
     ap.add_argument("--speed", type=float, default=1.0, help="replay speed")
-    ap.add_argument("--ble", action="store_true",
-                    help="read the chair's BLE beacon instead of the serial port (no USB)")
-    ap.add_argument("--ble-address", help="with --ble: only this chair's BLE address")
+    modes = ap.add_mutually_exclusive_group()
+    modes.add_argument("--ble", action="store_true",
+                       help="read the chair's BLE beacon instead of the serial port (no USB)")
+    modes.add_argument("--usb", action="store_true", help="USB only, without automatic BLE fallback")
+    ap.add_argument("--ble-address", help="only this chair's BLE address (automatic mode or --ble)")
     ap.add_argument("--screenshot", type=Path, help="save the screen here after --at s and quit")
     ap.add_argument("--at", type=float, default=5.0, help="seconds before --screenshot")
     args = ap.parse_args()
@@ -418,8 +427,11 @@ def main() -> int:
     elif args.ble:
         import ble_chair
         reader = ble_chair.BleChairReader(None, trail_n=200, address=args.ble_address)
-    else:
+    elif args.usb:
         reader = LP.ChairReader(args.port, None, trail_n=200)
+    else:
+        import auto_chair
+        reader = auto_chair.AutoChairReader(args.port, trail_n=200, address=args.ble_address)
     reader.start()
 
     for k in ("keymap.back", "keymap.home", "keymap.save", "keymap.pan", "keymap.zoom",
@@ -523,9 +535,7 @@ def main() -> int:
                  Tile(fig, (0.85, 0.115, 0.13, 0.14), "Média do dia")]
     record = fig.text(0.71, 0.075, "", fontsize=13, color=INK, va="center")
     footer = fig.text(0.985, 0.006, "", fontsize=9, color=MUTED, ha="right", va="bottom")
-    fig.text(0.015, 0.006, "sem fio: calibre pelo botão da cadeira · f tela cheia" if args.ble else
-             "c / espaço calibrar · n próximo visitante · f tela cheia",
-             fontsize=9, color=MUTED, va="bottom")
+    controls = fig.text(0.015, 0.006, "", fontsize=9, color=MUTED, va="bottom")
 
     last_t = [None]
     last_cal_event = [None]
@@ -559,7 +569,12 @@ def main() -> int:
         with reader.lock:
             raw, cal_event = dict(reader.raw_fsr), reader.cal_event
         now = time.monotonic()
-        live = bool(fsr) and now - fsr[-1][0] < max(1.0, exhibit.max_dt)
+        transport = ("replay" if args.replay else "BLE" if args.ble else "USB" if args.usb
+                     else reader.transport)
+        wireless = transport == "BLE"
+        controls.set_text("sem fio: calibre pelo botão da cadeira · f tela cheia" if wireless else
+                          "c / espaço calibrar · n próximo visitante · f tela cheia")
+        live = reader.connected and bool(fsr) and now - fsr[-1][0] < (2.0 if wireless else 1.0)
         seat = seat_raw(raw, fmap) if live and reader.raw else None
         seated = None if seat is None else seat >= EMPTY_RAW
 
@@ -578,7 +593,7 @@ def main() -> int:
             exhibit.day = DayStats(datetime.date.today().isoformat())
 
         chair.update(fsr[-1][1] if fsr else {}, live)
-        body_up = body_up and bool(rows)
+        body_up = body_up and bool(rows) and reader.connected
         r = rows[-1] if rows else None
         cat = category(r) if r is not None and body_up else NONE
         if seated is False:
@@ -589,7 +604,8 @@ def main() -> int:
         # status band
         if not reader.connected:
             header(IDLE, "Conectando à cadeira…", "a cadeira está ligada? (sem sinal BLE)" if args.ble
-                   else "verifique o cabo USB da cadeira")
+                   else "verifique o cabo USB da cadeira" if args.usb or args.replay else
+                   "verifique o cabo USB ou ligue a cadeira e o Bluetooth")
         elif cal_txt.startswith("calibrating") and cal_age < CALIBRATING_MAX_S:
             header(INFO_C, "Calibrando… fique parado", "sentado reto, olhando para a frente")
         elif cal_txt.startswith("calibrated upright") and cal_age < CALIBRATED_SHOW_S:
@@ -666,11 +682,15 @@ def main() -> int:
         if r is not None and body_up:
             bits.append(LP.battery_text(r).replace("bateria", "bateria do colar"))
         lost = next((w for w in link.split() if w.startswith("lost=")), "")
-        if args.ble:
+        if wireless:
             n = next((w[8:] for w in link.split() if w.startswith("beacons=")), "")
             bits.append(f"BLE {n}/s" if reader.connected and n else "BLE sem sinal")
-        elif lost:
-            bits.append("enlace " + ("ok" if lost == "lost=0" else lost.replace("lost=", "perdas ")))
+        elif transport == "USB":
+            bits.append("USB" if reader.connected else "USB sem sinal")
+            if reader.connected and lost:
+                bits.append("enlace " + ("ok" if lost == "lost=0" else lost.replace("lost=", "perdas ")))
+        elif not args.replay:
+            bits.append("USB / BLE sem sinal")
         footer.set_text("  ·  ".join(bits))
 
     _anim = FuncAnimation(fig, update, interval=50, cache_frame_data=False)  # noqa: F841
