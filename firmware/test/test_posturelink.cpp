@@ -143,6 +143,13 @@ static void testParseChairAck() {
   CHECK(!parseChairAck(&good, sizeof good - 1, out));         // short
   uint8_t big[32] = {};
   CHECK(!parseChairAck(big, sizeof big, out));                // long
+  ChairAck mute = mkAck(CF_CAL | CF_ALERT | CF_MUTE);         // v5: capture mute
+  CHECK(parseChairAck(&mute, sizeof mute, out));
+  CHECK_EQ(out.flags, CF_CAL | CF_ALERT | CF_MUTE);
+  ChairAck muteNoCal = mkAck(CF_MUTE);                        // mute needs no reference
+  CHECK(parseChairAck(&muteNoCal, sizeof muteNoCal, out));
+  ChairAck v4 = mkAck(CF_CAL); v4.ver = 4;                    // v4: same size, other version
+  CHECK_EQ(classifyChairAck(&v4, sizeof v4, out), PACKET_VERSION);
   ChairAck unk = mkAck(0x80);
   CHECK(!parseChairAck(&unk, sizeof unk, out));               // unknown flag bit
   ChairAck nanRef = mkAck(CF_CAL, 0, NAN, 0);
@@ -209,8 +216,17 @@ static void testParseBodyPacket() {
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.ctl = 3;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
-  p = good; p.flags = 0x20;
+  p = good; p.flags = 0x40;
   CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.flags |= BF_MUTE;                               // holds the chair's mute
+  CHECK(parseBodyPacket(&p, sizeof p, out));
+  p = stale; p.flags |= BF_MUTE;                              // still held in fallback
+  CHECK(parseBodyPacket(&p, sizeof p, out));
+  p = none; p.flags |= BF_MUTE;                               // no ChairAck: nothing to hold
+  CHECK(!parseBodyPacket(&p, sizeof p, out));
+  p = good; p.ver = 4;                                        // v4 body: same size
+  CHECK_EQ(classifyBodyPacket(&p, sizeof p, out), PACKET_VERSION);
+  out = {};
   p = good; p.flags = BF_ALERT;                               // alert with no reference
   CHECK(!parseBodyPacket(&p, sizeof p, out));
   p = good; p.calId = 0;                                      // chair/fallback hold an id

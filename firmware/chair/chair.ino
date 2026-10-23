@@ -38,6 +38,13 @@
  * one (previous state kept). 'r' clears both. No alerts until calibrated, and
  * none while the body is silent. 'm' asks the body for a motor test buzz.
  *
+ * Motor mute (data captures, so the buzz doesn't steer the sitter): 'q' mutes,
+ * 'v' unmutes. CF_MUTE rides in the ChairAck; the body keeps the PWM at 0 on
+ * alerts (a motor test still buzzes). The chair decides and logs as usual.
+ * Never saved, and cleared when the USB host closes the port (DTR falls), so
+ * a capture tool must send 'q' on every connection (live_posture.py
+ * --motor-muted does).
+ *
  * Alert: IMU + FSR fusion (PostureLink/Fusion.h; docs/decisao-fusao-imu-fsr.md):
  * IMU deviation, slid forward (seat rear unloaded), FSR-confirmed lean; a
  * backward tilt with the hips back (reclined) is accepted and an empty seat
@@ -52,7 +59,8 @@
  * Output (prose lines are '#'-prefixed; pandas read_csv(comment='#')), one row
  * per body sample (20 Hz); while the body is silent, one row per FSR scan:
  *   t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
- *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,...,c15,reason
+ *   bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8,...,c15,reason,
+ *   mute,bmute
  *   t_ms  = this board's millis() when the row was written (sample received);
  *           never compare it with the body's t_ms
  *   cal / calid / alert = the chair's decision after this sample: reference
@@ -66,8 +74,9 @@
  *     bctl   = 1 chair decides, 2 fallback (body decides alone), 0 none yet
  *     bcal / bcalid = reference held by the body and its id (0 = none)
  *     balert = alert in effect on the body (in bctl 2 it is its own decision)
- *     bmotor = motor output commanded on (not a measurement); btest = a
- *              motor-test buzz is running (motor on, but not a posture alert)
+ *     bmotor = motor output commanded on (not a measurement; muted: would
+ *              buzz); btest = a motor-test buzz is running (motor on, but
+ *              not a posture alert)
  *     bseq   = the seq of the chair row whose decision the body holds: join
  *              on seq == bseq (same boot); -1 = unknown (none held, or not
  *              made on a sample: chair boot, link timeout, calibration cleared)
@@ -81,6 +90,9 @@
  *           (backward tilt accepted), 5 empty seat, 6 invalid IMU; -1 no
  *           decision (not calibrated, capturing, body silent). Since
  *           2026-10-22; older logs end at c15.
+ *   mute  = motor muted ('q'): CF_MUTE in the ChairAck now preloaded
+ *   bmute = the body reports it holds the mute (BF_MUTE); -1 when body
+ *           silent. Both since protocol v5; older logs end at reason.
  *   imu = 0 valid, 1 init, 2 I2C/short read, 3 no new data, 4 invalid vector;
  *         -1 when body silent. Invalid/silent angles and deviations are nan.
  *   binh = body's previous applied state inhibited a chair alert (BF_INH).
@@ -89,7 +101,8 @@
  *          body powers off (PostureLink/Battery.h): the link then goes silent.
  * Events: "# alert ON/OFF", "# calibrat... calid=N" ("# calibrated upright:"
  * also gives fsr=<baseline c8..c15>), "# calibrate rejected: ...", "# body link up/lost",
- * "# body new session". The body's boot id (hex) is in "# body link up ...".
+ * "# body new session", "# motor muted/unmuted, from ...". The body's boot
+ * id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
  *   # rx pkts=N lost=L dup=D old=O rst=R bad=B ver=V sdrop=S edrop=E dt=T
@@ -171,6 +184,8 @@ uint32_t badPkts = 0;                          // rejected packets, since the la
 unsigned long lastReport = 0;
 ChairAck ack = {};                             // preloaded as the ESB ACK payload
 bool radioFailed = false;                      // reported in the header
+bool muted = false;                            // CF_MUTE: motor muted for a data capture
+bool hostWas = false;                          // USB host connected at the last loop()
 
 bool chairHeader(uint8_t i, Line &l);
 SerialOut<decltype(Serial)> out(Serial, chairHeader);
@@ -209,7 +224,7 @@ int readChannel(int ch) {
 bool chairHeader(uint8_t i, Line &l) {
   switch (i) {
     case 0: l.str("# chair unit (brain): FSRs C8..C15 + body IMU. 'c'/button = calibrate, "
-                  "'r' = clear, 'm' = motor test"); return true;
+                  "'r' = clear, 'm' = motor test, 'q'/'v' = motor mute/unmute"); return true;
     case 1: if (radioFailed) l.str("# radio init FAILED"); return true;
     case 2: l.str("# unit=raw"); return true;
     case 4: l.str("# proto=").u32(PROTO_VER); return true;
@@ -217,7 +232,7 @@ bool chairHeader(uint8_t i, Line &l) {
       l.str("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
             "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat");
       for (int c = 0; c < N_FSR; c++) l.str(",c").u32(FIRST_CH + c);
-      l.str(",reason");
+      l.str(",reason,mute,bmute");
       return true;
   }
   return false;
@@ -244,13 +259,25 @@ void writeAck() { radio.writeAckPayload(RF_PIPE, &ack, sizeof(ack)); }
 // (its basis); otherwise (boot, link timeout, calibration cleared) no basis.
 void updateAck(bool onSample) {
   ack.ver = PROTO_VER;
-  ack.flags = (calibrated ? CF_CAL : 0) | (gate.alert ? CF_ALERT : 0);
+  ack.flags = (calibrated ? CF_CAL : 0) | (gate.alert ? CF_ALERT : 0) | (muted ? CF_MUTE : 0);
   ack.calId = calId;
   ack.pitchRef = pitchRef;
   ack.rollRef = rollRef;
   ack.basisBoot = onSample ? body.boot : 0;
   ack.basisSeq = onSample ? body.seq : 0;
   writeAck();
+}
+
+// Same decision (and basis), mute bit changed. Re-sent ('q' on every
+// connection) it only logs again.
+void setMute(bool on, const char *src) {
+  muted = on;
+  ack.flags = (ack.flags & ~CF_MUTE) | (on ? CF_MUTE : 0);
+  writeAck();
+  Line l;
+  l.str(on ? "# motor muted (alerts still decided and logged), from " : "# motor unmuted, from ")
+   .str(src);
+  out.event(l);
 }
 
 void newCalId() { calId = calId == 255 ? 1 : calId + 1; }
@@ -312,12 +339,16 @@ void pollSerial() {
       ack.buzz++;                              // same decision (and basis), new request
       writeAck();
       event("# motor test requested");
+    } else if (c == 'q' || c == 'Q') {
+      setMute(true, "serial");
+    } else if (c == 'v' || c == 'V') {
+      setMute(false, "serial");
     }
   }
 }
 
 // t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,
-// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8..c15,reason
+// bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,c8..c15,reason,mute,bmute
 void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   Line l;
   l.u32(t).chr(',').u32(calibrated).chr(',').u32(calId).chr(',').fix(dev, 1).chr(',')
@@ -336,7 +367,8 @@ void printRow(unsigned long t, float dev, float dPitch, float dRoll) {
   l.chr(',').i32(bodyUp ? body.imu : -1).chr(',')
    .i32(bodyUp ? !!(body.flags & BF_INH) : -1).chr(',').i32(bodyUp ? body.vbat : -1);
   for (int i = 0; i < N_FSR; i++) l.chr(',').i32(fsr[i]);
-  l.chr(',').i32(reason);
+  l.chr(',').i32(reason).chr(',').u32(muted)
+   .chr(',').i32(bodyUp ? !!(body.flags & BF_MUTE) : -1);
   out.row(l);
 }
 
@@ -548,6 +580,9 @@ void loop() {
   keepCrystal();
   pollRadio();
   out.poll();
+  // The capture tool went away: back to the safe default (motor on).
+  if (hostWas && !out.connected() && muted) setMute(false, "host disconnected");
+  hostWas = out.connected();
   pollSerial();
   pollButton();
 

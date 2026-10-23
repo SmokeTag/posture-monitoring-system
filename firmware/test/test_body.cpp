@@ -101,7 +101,7 @@ static void dropsWithoutValidControl(void (*badAck)(), const char *what) {
 // must go out whole through the real 256-byte USB FIFO.
 static void testWidestRow() {
   ChairAck a = {};
-  a.ver = PROTO_VER; a.flags = CF_CAL; a.calId = 255; a.pitchRef = 90; a.rollRef = 180;
+  a.ver = PROTO_VER; a.flags = CF_CAL | CF_MUTE; a.calId = 255; a.pitchRef = 90; a.rollRef = 180;
   a.basisBoot = bootId; a.basisSeq = 65535 - 300;
   chairLink.ack = a;
   chairLink.haveAck = true;
@@ -125,7 +125,7 @@ static void testWidestRow() {
   printBodyRow(sim::now, -90, -180, 402.5, true);
   std::string row = lastRow();
   printf("  widest row (%zu bytes): %s\n", row.size(), row.c_str());
-  CHECK_STR(row, "4294967295,65535,2,1,255,402.5,1,1,1,65235,254,-90.0,-180.0,0,0,65535");
+  CHECK_STR(row, "4294967295,65535,2,1,255,402.5,1,1,1,65235,254,-90.0,-180.0,0,0,65535,1");
   CHECK(row.size() + 2 <= (size_t)Line::CAP + 2);
   CHECK_EQ(out.rowDrops(), 0u);
   // stats line with every counter at its maximum (+ 9 digits each of slack
@@ -370,6 +370,56 @@ static int testInitFailure() {
   return report("body.ino boot failure");
 }
 
+// Highest motor PWM duty seen while running ms more.
+static int peakPwm(uint32_t ms) {
+  int peak = 0;
+  for (uint32_t i = 0; i < ms; i++) { runFor(1); peak = std::max(peak, sim::pin[MOTOR_PIN]); }
+  return peak;
+}
+
+// Chair mute (CF_MUTE): alerts keep the PWM at 0 but are still followed and
+// reported (motor = would buzz); a motor test still buzzes; the mute is held
+// in fallback; unmuting brings the buzz back.
+static void testMotorMute() {
+  int on0 = count("# motor muted (chair)"), off0 = count("# motor unmuted (chair)");
+  tilt(0);
+  ackWith(CF_CAL | CF_ALERT | CF_MUTE);
+  CHECK_EQ(peakPwm(1100), 0);
+  CHECK_EQ(count("# motor muted (chair)"), on0 + 1);
+  CHECK_EQ(rowField(F_ALERT), 1);
+  CHECK_EQ(rowField(16), 1);                   // mute column
+  bool wouldBuzz = false;
+  for (size_t i = radio.sent.size() - 20; i < radio.sent.size(); i++) {
+    BodyPacket q;
+    memcpy(&q, radio.sent[i].data(), sizeof(q));
+    CHECK(q.flags & BF_MUTE);
+    wouldBuzz |= (q.flags & BF_MOTOR) != 0;
+  }
+  CHECK(wouldBuzz);                            // BF_MOTOR / motor column: when it would buzz
+  ackWith(CF_CAL | CF_MUTE);                   // no alert: a motor test still buzzes
+  runFor(200);
+  Serial.in = "m";
+  CHECK_EQ(peakPwm(100), MOTOR_DUTY);
+  CHECK_EQ(peakPwm(600), MOTOR_DUTY);          // until the test ends...
+  CHECK_EQ(peakPwm(100), 0);                   // ...then off again
+  // link lost: the fallback alerts with the reference held, still muted
+  txFail();
+  tilt(20);
+  CHECK_EQ(peakPwm(4500), 0);
+  CHECK_EQ(rowField(F_CTL), CTL_FALLBACK);
+  CHECK_EQ(rowField(F_ALERT), 1);
+  CHECK_EQ(rowField(16), 1);
+  // the chair unmutes: the alert buzzes again
+  tilt(0);
+  ackWith(CF_CAL | CF_ALERT);
+  CHECK_EQ(peakPwm(1100), MOTOR_DUTY);
+  CHECK_EQ(count("# motor unmuted (chair)"), off0 + 1);
+  CHECK_EQ(rowField(16), 0);
+  ackWith(CF_CAL);
+  runFor(200);
+  CHECK_EQ(sim::pin[MOTOR_PIN], 0);
+}
+
 int main(int argc, char **argv) {
   resetReasonSim() = 4;                       // soft reset (e.g. after an upload)
   if (argc > 1 && !strcmp(argv[1], "bootlow")) return testBootLow();
@@ -387,8 +437,8 @@ int main(int argc, char **argv) {
   auto v = outLines();
   CHECK(v.size() >= 2);
   CHECK(v[0].find("boot=5a") != std::string::npos);
-  CHECK_STR(v[1], "t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat");
-  CHECK_STR(v[2], "# proto=4");
+  CHECK_STR(v[1], "t_ms,seq,ctl,cal,calid,dev,alert,motor,test,aseq,age,pitch,roll,imu,inh,vbat,mute");
+  CHECK_STR(v[2], "# proto=5");
   CHECK_STR(v[3], "# resetreas=0x000004");
   CHECK_STR(v[4], "# vbat=3899 mV usb=0");
   // watchdog started once, 4 s, fed from setup on
@@ -488,7 +538,8 @@ int main(int argc, char **argv) {
   runFor(600);
   CHECK_EQ(rowField(F_MOTOR), 0);
   CHECK_EQ(rowField(F_TEST), 0);
-  // every packet sent in this run is a well-formed v3 packet
+  testMotorMute();
+  // every packet sent in this run is a well-formed packet
   int badSent = 0;
   for (auto &b : radio.sent) badSent += !parseBodyPacket(b.data(), (uint8_t)b.size(), chk);
   CHECK_EQ(badSent, 0);
