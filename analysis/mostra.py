@@ -210,9 +210,12 @@ class Exhibit:
         if seated is False:
             cat = NONE
         cal, calid = bool(row.get("cal")), int(row.get("calid", -1))
+        if not cal:
+            self.end()                             # chair cleared it: authoritative visit boundary
         if cal and calid != self.ended_calid:
             if self.visit is None:
                 self.visit = Visit(calid)
+                dt = 0.0                           # don't count time before this visitor calibrated
             self.visit.calid = calid                # recalibrating, same person
         v = self.visit
         if v is not None and cat != NONE:
@@ -525,6 +528,7 @@ def main() -> int:
              fontsize=9, color=MUTED, va="bottom")
 
     last_t = [None]
+    last_cal_event = [None]
 
     def calibrate():
         reader.send("c")
@@ -555,7 +559,7 @@ def main() -> int:
         with reader.lock:
             raw, cal_event = dict(reader.raw_fsr), reader.cal_event
         now = time.monotonic()
-        live = bool(fsr) and now - fsr[-1][0] < 1.0
+        live = bool(fsr) and now - fsr[-1][0] < max(1.0, exhibit.max_dt)
         seat = seat_raw(raw, fmap) if live and reader.raw else None
         seated = None if seat is None else seat >= EMPTY_RAW
 
@@ -564,6 +568,10 @@ def main() -> int:
                 exhibit.feed(r, seated)
         if rows:
             last_t[0] = rows[-1]["t_ms"]
+        if cal_event != last_cal_event[0]:
+            if cal_event and cal_event[0].startswith("calibration cleared"):
+                exhibit.end()                      # also arrives while the body is silent (no rows)
+            last_cal_event[0] = cal_event
         if exhibit.seat(seated, now) and not args.keep_cal:
             reader.send("r")
         if exhibit.day.date != datetime.date.today().isoformat():   # past midnight

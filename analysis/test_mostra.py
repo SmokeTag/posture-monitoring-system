@@ -8,7 +8,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import ble_chair as B
 import mostra as X
 
 
@@ -80,6 +82,21 @@ class Visits(unittest.TestCase):
         sit(self.ex, 0, 10)
         sit(self.ex, 10, 20, calid=6)
         self.assertAlmostEqual(self.ex.visit.seated_s, 20, delta=0.2)
+
+    def test_chair_clearing_calibration_ends_the_visit(self):
+        sit(self.ex, 0, 30)
+        first = self.ex.visit
+        self.ex.feed(row(40, cal=0, calid=6, reason=-1))   # empty interval missed by the laptop
+        self.assertIsNone(self.ex.visit)
+        self.assertIs(self.ex.last, first)
+        self.assertEqual(self.ex.day.visitors, 1)
+        self.assertEqual(self.saved, [self.ex.day])
+        self.ex.feed(row(42, cal=0, calid=6, reason=-1))
+        self.assertEqual(self.ex.day.visitors, 1)
+        self.ex.feed(row(44, calid=7))
+        self.assertIsNot(self.ex.visit, first)
+        self.assertEqual(self.ex.visit.calid, 7)
+        self.assertEqual(self.ex.visit.seated_s, 0)
 
     def test_leaving_ends_the_visit_into_the_day(self):
         sit(self.ex, 0, 30)
@@ -171,6 +188,76 @@ class Day(unittest.TestCase):
             self.assertAlmostEqual(e.mean_pct, 85)
             self.assertAlmostEqual(e.best_pct, 95)
             self.assertEqual(X.DayStats.load(Path(tmp), "2026-10-25").visitors, 0)
+
+
+class BleVisitorFlow(unittest.TestCase):
+    """Drive the real animation callback and beacon parser without hardware or a GUI loop."""
+
+    @classmethod
+    def setUpClass(cls):
+        X.plt.switch_backend("Agg")
+
+    def test_sparse_empty_beacons_end_visit_before_the_next_calibration(self):
+        self.run_flow(body_up=True)
+
+    def test_chair_clear_ends_visit_even_without_body_rows_or_fresh_fsr(self):
+        self.run_flow(body_up=False)
+
+    def run_flow(self, body_up):
+        reader = B.BleChairReader(None, trail_n=200)
+        clock = [100.0]
+        seq = [0]
+
+        def drive():
+            update = animation.call_args.args[1]
+
+            def frame(t, *, beacon=False, cal=True, calid=5, occupied=True, body=True):
+                clock[0] = 100.0 + t
+                if beacon:
+                    seq[0] += 1
+                    flags = (B.BK_CAL if cal else 0) | (B.BK_BODY if body else 0)
+                    reader._beacon(dict(seq=seq[0], t16=int(t * 1000), flags=flags,
+                                        bflags=0, calid=calid, reason=X.R_OK if occupied else X.R_EMPTY,
+                                        imu=0, dpitch=1.0, droll=1.0, vbat=3900,
+                                        fsr=[1000 if occupied else 0] * 8), -60, clock[0])
+                update(None)
+
+            for i in range(21):
+                frame(i * 1.5, beacon=True)
+            # Run every 50 ms: the 1.0 s staleness bug only appears between beacons.
+            for i in range(240):
+                if body_up:
+                    frame(31.5 + i * 0.05, beacon=i % 30 == 0, occupied=False)
+                else:
+                    # A single authoritative clear must work even if FSR freshness is unknown.
+                    frame(31.5 + i * 0.05, beacon=i == 0, occupied=False,
+                          cal=False, calid=6, body=False)
+
+            d = X.DayStats.load(folder, X.datetime.date.today().isoformat())
+            self.assertEqual(d.visitors, 1)
+            self.assertEqual(d.good_pcts, [100.0])
+            # Clear/recalibrate for the next person; the former visit must stay saved once.
+            frame(44, beacon=True, cal=False, calid=6, occupied=False)
+            for i in range(15):
+                frame(45 + i * 1.5, beacon=True, calid=7)
+            frame(67, beacon=True, cal=False, calid=8, occupied=False)
+            d = X.DayStats.load(folder, X.datetime.date.today().isoformat())
+            self.assertEqual(d.visitors, 2)
+            self.assertEqual(d.good_pcts, [100.0, 100.0])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            with (patch("sys.argv", ["mostra.py", "--ble", "--window", "--no-ref",
+                                     "--stats-dir", tmp]),
+                  patch.object(B, "BleChairReader", return_value=reader),
+                  patch.object(reader, "start"),
+                  patch.object(X.time, "monotonic", side_effect=lambda: clock[0]),
+                  patch.object(X, "FuncAnimation") as animation,
+                  patch.object(X.plt, "show", side_effect=drive)):
+                try:
+                    self.assertEqual(X.main(), 0)
+                finally:
+                    X.plt.close("all")
 
 
 class Seat(unittest.TestCase):
