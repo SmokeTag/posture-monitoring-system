@@ -62,7 +62,7 @@ no further prompting. Defaults:
 - Powered by a **single-cell (1S) 3.7 V LiPo** (JYH LIP103450, 1800 mAh, cell
   cutoff 2.75 V). Firmware cutoff: on battery, VBAT < 3.30 V (3 readings, motor
   off) → System OFF; boot needs ≥ 3.40 V; never on USB; wakes on reset or USB
-  plug-in. 4 s watchdog. VBAT goes to the chair CSV (`vbat`, ESB proto v4).
+  plug-in. 4 s watchdog. VBAT goes to the chair CSV (`vbat`, ESB proto v5).
   **Never drive P0.14 or P0.13 HIGH.** Details: `firmware/README.md`.
   Unit FINISHED (Oct 2026), battery connected and working.
 - Drives a **vibration motor** that activates when problematic posture is
@@ -70,6 +70,10 @@ no further prompting. Defaults:
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
   flyback diode (likely 1N4148 — marking unconfirmed) across the motor
   (cathode at 3V3) + 33 nF ceramic ("333"). PWM sets strength.
+  **Motor mute for data captures:** `live_posture.py --motor-muted` sends
+  `'q'` to the chair (`'v'` unmutes) → `CF_MUTE` in the ChairAck; the body
+  doesn't buzz on alerts (motor test still does, fallback keeps it), the chair
+  still decides/logs `alert`. Never saved: reboot or closing the USB port unmutes.
 - **Body↔chair link = Nordic ESB** (low latency, built-in auto-ack/retransmit);
   body = transmitter (pitch/roll, 20 Hz), chair = receiver; the decision rides
   back in the **ACK payload**. Protocol + alert rules are shared in

@@ -43,10 +43,11 @@ do log.
   deve subir o **C10**. O mapa (`analysis/chair_map.json`, gravado no log como
   `# fsr map`) tem que bater com o `FSR_SPOT_CH` do `firmware/chair/chair.ino`;
   remapear com `m` exige atualizar essa tabela também.
-- **Motor:** para coletar dados, grave o corpo com o motor mudo
-  (`-DMOTOR_MUTED=1`, `firmware/README.md`), porque a vibração mexe o IMU. A
-  coluna `bmotor` continua indicando quando ele teria vibrado. Para validar o
-  alerta, use o firmware normal. Anote qual foi usado.
+- **Motor:** para coletar dados, rode com `--motor-muted` (comando abaixo),
+  para a vibração não influenciar a postura (nem mexer o IMU). A cadeira
+  continua decidindo e gravando `alert`; `bmotor` indica quando o corpo
+  teria vibrado; as colunas `mute`/`bmute` = 1 confirmam o mute. O teste de
+  motor (`m`) continua vibrando. Para validar o alerta, rode sem a opção.
 - Corpo no colar/invólucro, na posição de uso. Anote: **data · sujeito ·
   versão do colar/invólucro · cadeira · motor mudo ou ativo** e qualquer
   mudança de montagem.
@@ -54,7 +55,7 @@ do log.
   `data/YYYY-MM-DD_<Nome>_run<N>.csv`, com `run2`, `run3`... para a mesma pessoa.
 
 ```bash
-.venv/bin/python analysis/live_posture.py --log data/<arquivo>.csv
+.venv/bin/python analysis/live_posture.py --log data/<arquivo>.csv --motor-muted
 ```
 
 Confira no painel: `IMU OK`, enlace sem perdas, os 8 FSRs respondendo e o

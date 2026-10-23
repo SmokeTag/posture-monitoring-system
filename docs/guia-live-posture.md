@@ -11,7 +11,17 @@ Da raiz do repositório, com a cadeira no USB (e o corpo ligado, se quiser o IMU
 .venv/bin/python analysis/live_posture.py
 .venv/bin/python analysis/live_posture.py --log data/<nome>.csv     # também grava o stream
 .venv/bin/python analysis/live_posture.py --port /dev/ttyACM0         # outra porta
+.venv/bin/python analysis/live_posture.py --log data/<nome>.csv --motor-muted   # coleta: motor mudo
 ```
+
+`--motor-muted` (coleta de dados): manda `q` para a cadeira a cada
+(re)conexão. O corpo não vibra nos alertas (o teste de motor `m` ainda vibra;
+sem enlace, o corpo continua mudo), e a cadeira continua decidindo e gravando
+`alert`. Nada fica salvo: fechar o app (ou reiniciar uma das placas) volta o
+motor ao normal. No CSV, `mute` (cadeira) e `bmute` (corpo) = 1; no log, o
+evento `# motor muted`. Na caixa de status, `motor ○ mudo` /
+`○ mudo (teria vibrado)`; o aviso "MOTOR NÃO ESTÁ MUDO" aparece se a cadeira
+não confirmar (firmware antigo).
 
 Setup do venv: `analysis/README.md`. Feche qualquer `arduino-cli monitor` antes
 (a porta serial é exclusiva).
@@ -70,7 +80,8 @@ O CSV da cadeira registra `c8..c15` sempre em ADC bruto de 12 bits (0–4095,
 FSR aberto ≈0), com `# unit=raw` no cabeçalho. O painel converte os valores
 para resistência/condutância no computador; também lê o formato antigo em
 ohms. O cabeçalho sai automaticamente na conexão/reconexão USB; o painel
-abre a porta com DTR baixo e o ativa após a abertura, sem enviar comandos.
+abre a porta com DTR baixo e o ativa após a abertura, sem enviar comandos
+(exceto o `q` do `--motor-muted`).
 
 | tecla | ação |
 |---|---|
@@ -110,7 +121,7 @@ cadeira real, commite o `chair_map.json`: ele registra a fiação.
 ## Bateria do corpo
 
 A linha `bateria` mostra a tensão da bateria do corpo (coluna `vbat`, protocolo
-v4), lida a cada 2 s; `BAIXA` abaixo de 3,4 V. Abaixo de 3,3 V o corpo desliga
+v4+), lida a cada 2 s; `BAIXA` abaixo de 3,4 V. Abaixo de 3,3 V o corpo desliga
 sozinho (System OFF) e só volta com reset ou ligando o USB. No USB, o valor é
 a saída do carregador.
 
@@ -124,6 +135,6 @@ a saída do carregador.
 | o mapeamento não reconhece o toque | aperte com mais força (precisa < ~20 kΩ); ou clique no gráfico do canal |
 | "CORPO EM SILÊNCIO" | unidade corporal desligada ou fora de alcance — os FSRs continuam |
 | "CORPO EM SILÊNCIO … desligou por bateria baixa?" | a última leitura da bateria do corpo era < 3,4 V: provavelmente desligou por bateria baixa (< 3,3 V); recarregue pelo USB |
-| "PROTOCOLO DO CORPO INCOMPATÍVEL (ver=N)" | versões de protocolo diferentes — grave as **duas** placas com a mesma versão (v4) |
+| "PROTOCOLO DO CORPO INCOMPATÍVEL (ver=N)" | versões de protocolo diferentes — grave as **duas** placas com a mesma versão (v5) |
 | "PACOTES DO CORPO REJEITADOS (bad=N)" | payloads malformados/incoerentes; não é o contador de falhas da IMU |
 | "IMU … / amostra de postura indisponível" | rádio pode estar ativo, mas não há amostra de orientação válida |
