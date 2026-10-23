@@ -133,6 +133,23 @@ class Visits(unittest.TestCase):
         self.assertTrue(all(t < 10 for t, _ in self.ex.timeline))
         self.assertLessEqual(len(self.ex.timeline), 200)
 
+    def test_sparse_ble_rows(self):
+        ex = X.Exhibit(X.DayStats("2026-10-24"), max_dt=2.0)
+        for t in (0, 0.5, 2, 4):
+            ex.feed(row(t))
+        self.assertAlmostEqual(ex.visit.seated_s, 4)
+        self.assertAlmostEqual(ex.visit.good_s, 4)
+        self.assertTrue(all(ex.strip()[-17:] == X.GOOD))
+        ex.feed(row(10))
+        self.assertAlmostEqual(ex.visit.seated_s, 6)
+        self.assertEqual(ex.strip()[-10], X.NONE)
+
+    def test_usb_sparse_rows_still_clamped(self):
+        self.ex.feed(row(0))
+        self.ex.feed(row(2))
+        self.assertAlmostEqual(self.ex.visit.seated_s, 0.25)
+        self.assertEqual(self.ex.strip()[-3], X.NONE)
+
     def test_timeline(self):
         sit(self.ex, 0, 10)
         sit(self.ex, 10, 12, reason=X.R_IMU_DEV, alert=1)
