@@ -11,6 +11,12 @@ python3 -m venv .venv
 
 ## Files
 
+- `ble_chair.py` — scans the chair BLE beacon with bleak and reconstructs CSV/events;
+  `test_ble_chair.py` tests decoding, clock wrap and transitions. One-way, best effort:
+  use the chair button to calibrate. `mostra.py --ble` runs without USB;
+  `--ble-address AA:BB:CC:DD:EE:FF` selects a chair. BLE timing tolerates gaps up to
+  2 s; USB/replay keep the 0.25 s limit. Use USB for complete captures.
+
 - `live_posture.py` — live view of the chair unit (`firmware/chair`, the brain)
   over serial. Left: body IMU `(dpitch, droll)` + trail, alert circles,
   the chair's decision and what the body reports it applied (chair/fallback,
