@@ -3,6 +3,7 @@
 #include "check.h"
 #include "stub/Arduino.h"
 #include "stub/nrf_to_nrf.h"
+#include "stub/BleAdv.h"
 
 const int SEATED = 2000;                       // every FSR: someone seated (an empty seat never alerts)
 
@@ -618,11 +619,103 @@ static void testFusion() {
   }
 }
 
+// The BLE beacon: rate, never with an ESB packet pending, contents (Beacon.h
+// layout), and the calibration cleared on an empty seat only without a host.
+static uint16_t le16(const std::vector<uint8_t> &p, int i) { return p[i] | p[i + 1] << 8; }
+static uint16_t fsrOf(const std::vector<uint8_t> &p, int ch) {   // ch 0..7 = c8..c15
+  const uint8_t *b = p.data() + 12 + 15 + 3 * (ch / 2);
+  uint32_t v = b[0] | b[1] << 8 | (uint32_t)b[2] << 16;
+  return (ch & 1 ? v >> 12 : v) & 0xFFF;
+}
+
+static void testBeacon() {
+  const uint8_t B = 0x66;
+  sim::adcFn() = muxAdc;
+  load(2000, 2000, 2000, 2000);
+  auto &sent = sim::bleSent();
+  // body silent: on the timer, ~20 Hz
+  runFor(1100);                                // link times out first
+  CHECK(!bodyUp);
+  size_t n0 = sent.size();
+  runFor(1000);
+  CHECK(sent.size() - n0 >= 19 && sent.size() - n0 <= 21);
+  CHECK(!(sent.back()[12 + 4] & BK_BODY));
+  CHECK_EQ(le16(sent.back(), 12 + 13), 0xFFFF);
+  CHECK_EQ((int8_t)sent.back()[12 + 8], -1);
+
+  // linked: right after every sample, ~20 Hz
+  load(2100, 2200, 2300, 2400, 1234);
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  Serial.in = "c";
+  for (int i = 0; i < CAL_SAMPLES + 2; i++) sample(B, s++, 0);
+  CHECK(calibrated);
+  n0 = sent.size();
+  for (int i = 0; i < 40; i++) {               // 2 s
+    BodyPacket p = {};
+    p.ver = PROTO_VER; p.age = AGE_NONE; p.seq = s++; p.boot = B; p.pitch = 4.25f; p.roll = -2.5f;
+    p.ctl = CTL_CHAIR; p.flags = BF_CAL | BF_MUTE; p.calId = calId; p.vbat = 3987;
+    pushPkt(p); runFor(50);
+  }
+  CHECK_EQ(sent.size() - n0, (size_t)40);
+  CHECK_EQ(sim::blePendingSends(), 0);
+  const std::vector<uint8_t> &p = sent.back();
+  CHECK_EQ(p.size(), (size_t)ADV_PDU_LEN);
+  CHECK_EQ(p[0], 0x42);
+  CHECK_EQ(p[1], 37);
+  CHECK_EQ(p[7], 0xC6);                        // AdvA (stub address), top bits = static random
+  CHECK_EQ(p[8], 30);
+  CHECK_EQ(p[9], 0xFF);
+  CHECK_EQ(le16(p, 10), BEACON_COMPANY);
+  CHECK_EQ(p[12], BEACON_VER);
+  CHECK_EQ((uint8_t)(p[13] - sent[sent.size() - 2][13]), 1);
+  CHECK_EQ(le16(p, 14), (uint16_t)lastBeacon);
+  CHECK_EQ(p[16], BK_CAL | BK_BODY | BK_USB);
+  CHECK_EQ(p[17], CTL_CHAIR | BB_CAL | BB_MUTE);
+  CHECK_EQ(p[18], calId);
+  CHECK_EQ((int8_t)p[19], R_OK);
+  CHECK_EQ((int8_t)p[20], IMU_OK);
+  CHECK_EQ((int16_t)le16(p, 21), 43);          // 4.25 deg -> 0.1 deg, rounded
+  CHECK_EQ((int16_t)le16(p, 23), -25);
+  CHECK_EQ(le16(p, 25), 3987);
+  const int want[8] = {2100, 2200, 2300, 2400, 1234, 1234, 1234, 1234};
+  for (int c = 0; c < 8; c++) CHECK_EQ(fsrOf(p, c), want[c]);
+
+  // empty seat with a host on USB: kept
+  load(0, 0, 0, 0, 0);
+  for (int i = 0; i < 240; i++) sample(B, s++, 0);   // 12 s
+  CHECK(calibrated);
+  // the host goes away: the seat has been empty long enough already
+  Serial.dtrOn = false;
+  sample(B, s++, 0);
+  CHECK(!calibrated);
+  for (int i = 0; i < 5; i++) sample(B, s++, 0);
+  CHECK(!(sent.back()[12 + 4] & (BK_CAL | BK_USB)));
+  // no host, seated and calibrated (button), then empty: cleared after SEAT_EMPTY_CLEAR_MS
+  load(2100, 2200, 2300, 2400);
+  for (int i = 0; i < 3; i++) sample(B, s++, 0);
+  startCalibration("button");
+  for (int i = 0; i < CAL_SAMPLES + 2; i++) sample(B, s++, 0);
+  CHECK(calibrated);
+  load(2100, 2200, 0, 0, 0);                   // seat sum 4300: still seated
+  for (int i = 0; i < 240; i++) sample(B, s++, 0);
+  CHECK(calibrated);
+  load(0, 0, 0, 0, 0);
+  for (int i = 0; i < 190; i++) sample(B, s++, 0);   // 9.5 s
+  CHECK(calibrated);
+  for (int i = 0; i < 20; i++) sample(B, s++, 0);
+  CHECK(!calibrated);
+  Serial.dtrOn = true;
+  runFor(100);
+  load(2000, 2000, 2000, 2000);
+  sim::adcFn() = nullptr;
+}
+
 //   ./test_chair [fusion.out]   (also dumps testFusion's chair output)
 int main(int argc, char **argv) {
   if (argc > 1) fusionDump = argv[1];
   for (int &p : sim::pin) p = HIGH;            // button released, LEDs off
   rng.VALUE = 200;
+  sim::bleRadio() = &radio;
   setup();
   CHECK_EQ(calId, 200);                        // random start (RNG)
   CHECK_EQ(sim::pin[VBAT_ENABLE], LOW);        // LiPo: VBAT sense safe, 100 mA charge
@@ -642,6 +735,7 @@ int main(int argc, char **argv) {
   testMotorMute();
   testWidestRow();
   testFusion();
+  testBeacon();
   CHECK_EQ(Serial.blocked, 0);
   return report("chair.ino");
 }
