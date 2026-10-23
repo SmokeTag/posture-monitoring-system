@@ -45,7 +45,8 @@ NAN16 = -32768
 BK_CAL, BK_ALERT, BK_BODY, BK_CAPTURE, BK_MUTE, BK_RADIO, BK_REJECT, BK_USB = (1 << i for i in range(8))
 # bflags: bits 0-1 bctl, then BB_*
 BB_ALERT, BB_MOTOR, BB_TEST, BB_INH, BB_MUTE, BB_CAL = (1 << i for i in range(2, 8))
-SILENT_S = 2.0                 # no beacon this long: chair "disconnected"
+SILENT_S = 2.0                 # beacon gap still counted as lost packets / continuous time
+DISCONNECT_S = 5.0             # no beacon this long: chair "disconnected"
 
 HEADER = ("t_ms,cal,calid,dev,alert,dpitch,droll,pitch,roll,boot,seq,"
           "bctl,bcal,bcalid,balert,bmotor,btest,bseq,bage,imu,binh,vbat,"
@@ -208,7 +209,7 @@ class BleChairReader(_chair_reader_base()):
     def _tick(self):
         while True:
             time.sleep(1.0)
-            if time.monotonic() - self.last_wall > SILENT_S:
+            if time.monotonic() - self.last_wall > DISCONNECT_S:
                 self.connected = False
             rssi = round(sum(self.rssi) / len(self.rssi)) if self.rssi else None
             self.rssi.clear()

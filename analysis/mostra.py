@@ -51,6 +51,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 
+import ble_chair as B
 import chair_map as M
 
 # Fusion.h reason codes and seat-empty threshold (keep in sync)
@@ -574,7 +575,7 @@ def main() -> int:
         wireless = transport == "BLE"
         controls.set_text("sem fio: calibre pelo botão da cadeira · f tela cheia" if wireless else
                           "c / espaço calibrar · n próximo visitante · f tela cheia")
-        live = reader.connected and bool(fsr) and now - fsr[-1][0] < (2.0 if wireless else 1.0)
+        live = reader.connected and bool(fsr) and now - fsr[-1][0] < (B.DISCONNECT_S if wireless else 1.0)
         seat = seat_raw(raw, fmap) if live and reader.raw else None
         seated = None if seat is None else seat >= EMPTY_RAW
 

@@ -89,7 +89,7 @@ class AutoChairReader(LP.ChairReader):
         with self.lock:
             self.connected = False
             for name, source, timeout in (("USB", self.usb, USB_SILENT_S),
-                                           ("BLE", self.ble, B.SILENT_S)):
+                                           ("BLE", self.ble, B.DISCONNECT_S)):
                 with source.lock:
                     if not source.connected or not source.samples or now - source.samples[-1].wall > timeout:
                         continue
