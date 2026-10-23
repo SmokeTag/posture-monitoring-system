@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor de Postura — apresentação</title>
+<!-- Abra no navegador: ← → / espaço navegam, F = tela cheia, clique avança.
+     Tudo offline (imagens nesta pasta). Paleta e estilo: README.md. -->
+<style>
+  :root {
+    --navy: #003482; --silhueta: #092f6f; --royal: #1440bb; --azul: #1e71e4;
+    --ciano: #32a8fb; --violeta: #9142d4; --lilas: #ba85ed; --magenta: #cd4fd3;
+    --rosa: #e962d0; --fundo: #f2f1f6;
+    --ruim: #f16ca2; --monit: #28b3f4; --boa: #4bc384;
+    --texto: #2b3a67;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1546; }
+  body { font-family: "Nunito", "Montserrat", "Open Sans", "Noto Sans", "Liberation Sans", sans-serif; }
+
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px;
+           transform-origin: 0 0; }
+  .slide { position: absolute; inset: 0; overflow: hidden; opacity: 0; pointer-events: none;
+           transition: opacity .45s ease;
+           background: radial-gradient(ellipse at 50% 30%, #ffffff 0%, var(--fundo) 55%, #e4e1f4 100%); }
+  .slide.on { opacity: 1; pointer-events: auto; }
+
+  /* decoração comum */
+  .wave { position: absolute; left: 0; bottom: 0; width: 100%; height: 300px; }
+  .circuit { position: absolute; left: 0; top: 0; width: 280px; height: 200px; opacity: .5; }
+  .content { position: absolute; inset: 0; padding: 150px 140px 0; }
+
+  h1, h2 { color: var(--navy); font-weight: 800; text-transform: uppercase; letter-spacing: .02em; line-height: 1.08; }
+  h1 { font-size: 112px; }
+  h2 { font-size: 72px; margin-bottom: 26px; }
+  .kicker { color: var(--ciano); font-weight: 800; font-size: 28px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 18px; }
+  p, li { color: var(--texto); font-size: 38px; line-height: 1.4; }
+  b, strong { color: var(--navy); }
+  .lead { font-size: 44px; max-width: 1300px; }
+  .muted { color: #6b7499; font-size: 26px; }
+  .grad-text { background: linear-gradient(90deg, var(--azul), var(--violeta), var(--magenta));
+               -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .card { background: rgba(255,255,255,.78); border-radius: 36px; padding: 44px 48px;
+          box-shadow: 0 18px 50px rgba(20,64,187,.10); }
+  .card h3 { color: var(--navy); font-size: 44px; font-weight: 800; margin-bottom: 14px; }
+  .card p { font-size: 32px; }
+  .row { display: flex; gap: 48px; }
+  .row > * { flex: 1; }
+
+  .num { font-size: 150px; font-weight: 800; line-height: 1; }
+  .step-n { font-size: 84px; font-weight: 800; color: var(--navy); line-height: 1; }
+
+  .pill { display: inline-flex; align-items: center; gap: 14px; padding: 14px 30px; border-radius: 999px;
+          font-size: 32px; font-weight: 800; color: #fff; }
+  .pill.boa { background: var(--boa); } .pill.ruim { background: #d94c86; } .pill.monit { background: var(--monit); }
+
+  ul.clean { list-style: none; }
+  ul.clean li { padding-left: 56px; position: relative; margin-bottom: 18px; }
+  ul.clean li::before { content: ""; position: absolute; left: 6px; top: 20px; width: 22px; height: 22px;
+                        border-radius: 50%; background: var(--c, var(--ciano));
+                        box-shadow: 0 0 16px var(--c, var(--ciano)); }
+
+  /* rodapé */
+  #hud { position: fixed; right: 24px; bottom: 16px; color: rgba(255,255,255,.75); font: 600 14px sans-serif;
+         z-index: 9; pointer-events: none; }
+  .dots { position: absolute; left: 140px; bottom: 44px; display: flex; gap: 12px; z-index: 3; }
+  .dots i { width: 14px; height: 14px; border-radius: 50%; background: rgba(0,52,130,.22); }
+  .dots i.on { background: var(--navy); }
+  .dots.dark i { background: rgba(255,255,255,.4); } .dots.dark i.on { background: #fff; box-shadow: 0 0 12px #fff; }
+  .slide[data-dark] .wave { display: none; }
+
+  img.shot { border-radius: 22px; box-shadow: 0 24px 60px rgba(9,47,111,.25); display: block; }
+  .glow-dot { filter: drop-shadow(0 0 10px currentColor); }
+  .arrow { font-size: 70px; font-weight: 800; align-self: center; flex: 0 0 auto;
+           background: linear-gradient(90deg, var(--ciano), var(--lilas)); -webkit-background-clip: text;
+           background-clip: text; color: transparent; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- shared SVG defs -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="gw" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#1e71e4"/><stop offset=".55" stop-color="#9142d4"/><stop offset="1" stop-color="#cd4fd3"/>
+    </linearGradient>
+    <linearGradient id="gw2" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#32a8fb"/><stop offset=".6" stop-color="#ba85ed"/><stop offset="1" stop-color="#e962d0"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="wave" viewBox="0 0 1920 300" preserveAspectRatio="none">
+      <path d="M0 150 C 380 40, 760 260, 1180 150 S 1720 60, 1920 120 L1920 300 L0 300Z" fill="url(#gw2)" opacity=".35"/>
+      <path d="M0 210 C 420 120, 820 300, 1260 200 S 1760 150, 1920 190 L1920 300 L0 300Z" fill="url(#gw)"/>
+    </symbol>
+    <symbol id="circuit" viewBox="0 0 420 300">
+      <g fill="none" stroke="#32a8fb" stroke-width="2.5" stroke-linecap="round">
+        <path d="M0 70 H150 L210 130 H300"/><path d="M0 110 H110 L170 170 V240"/><path d="M0 160 H70 L120 210 H200"/>
+        <path d="M40 0 V40 L90 90 H150"/>
+      </g>
+      <g fill="#32a8fb"><circle cx="300" cy="130" r="7"/><circle cx="170" cy="240" r="7"/><circle cx="200" cy="210" r="6"/><circle cx="150" cy="90" r="6"/></g>
+    </symbol>
+    <!-- coluna pontilhada (cor via currentColor) -->
+    <symbol id="spine" viewBox="0 0 120 420">
+      <g fill="currentColor" filter="url(#glow)">
+        <circle cx="60" cy="20" r="9"/><circle cx="54" cy="62" r="10"/><circle cx="48" cy="104" r="11"/>
+        <circle cx="45" cy="148" r="12"/><circle cx="46" cy="192" r="12"/><circle cx="50" cy="236" r="12"/>
+        <circle cx="56" cy="280" r="11"/><circle cx="60" cy="322" r="10"/><circle cx="62" cy="362" r="9"/><circle cx="60" cy="400" r="8"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- 1. capa -->
+<section class="slide on" data-dark>
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0b1a7a 0%,#1440bb 38%,#7a3fd0 72%,#cd4fd3 100%)"></div>
+  <svg class="circuit" style="opacity:.6"><use href="#circuit"/></svg>
+  <img src="painel-silhuetas.png" alt="" style="position:absolute;right:-40px;top:0;height:1080px;opacity:.95;
+       -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 30%);mask-image:linear-gradient(90deg,transparent 0%,#000 30%)">
+  <div class="content" style="padding-top:260px">
+    <div class="kicker" style="color:#9ed8ff">TCC · Mostra de ciência 2026</div>
+    <h1 style="color:#fff;font-size:120px">Monitor<br>de postura</h1>
+    <p style="color:#e6e9ff;font-size:44px;margin-top:34px;max-width:900px">
+      Um colar e uma cadeira com sensores que avisam, com uma vibração,
+      quando você sai da postura certa.</p>
+    <p style="color:#c9d0ff;font-size:32px;margin-top:60px">André Thomas Monteiro</p>
+  </div>
+</section>
+
+<!-- 2. problema -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <img src="painel-silhuetas.png" alt="" style="position:absolute;right:0;bottom:0;height:1000px;opacity:.9;
+       -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 25%);mask-image:linear-gradient(90deg,transparent 0%,#000 25%)">
+  <div class="content" style="max-width:1080px">
+    <div class="kicker">O problema</div>
+    <h2>Passamos horas<br>sentados</h2>
+    <p class="lead" style="max-width:900px">E a postura vai <b>escorregando sem a gente perceber</b>.
+      Só notamos quando já dói.</p>
+    <div class="card" style="margin-top:56px;max-width:860px;display:flex;gap:36px;align-items:center">
+      <div class="num grad-text" style="font-size:120px;white-space:nowrap;flex:0 0 auto">7 a 8</div>
+      <p style="font-size:32px">em cada <b>10 trabalhadores de escritório</b> têm dores
+        musculares ou na coluna ligadas ao trabalho.</p>
+    </div>
+    <p class="muted" style="margin-top:20px">72–81 % · Okezue et al., 2020; Mohammadian et al., 2025</p>
+  </div>
+</section>
+
+<!-- 3. a ideia -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <svg class="wave"><use href="#wave"/></svg>
+  <div class="content">
+    <div class="kicker">A ideia</div>
+    <h2>Olhar a postura de dois jeitos</h2>
+    <div class="row" style="margin-top:50px;align-items:stretch">
+      <div class="card" style="display:flex;gap:40px;align-items:center">
+        <svg viewBox="0 0 120 420" width="90" height="300" style="color:var(--monit);flex:0 0 auto"><use href="#spine"/></svg>
+        <div>
+          <h3>Colar</h3>
+          <p>Um sensor de movimento nas costas, logo abaixo do pescoço, mede
+            <b>quanto o tronco inclina</b>: para a frente, para trás e para os lados.</p>
+          <p style="margin-top:16px">E tem um <b>motorzinho que vibra</b>.</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex;gap:40px;align-items:center">
+        <svg viewBox="0 0 160 300" width="140" height="260" style="flex:0 0 auto">
+          <rect x="20" y="10" width="120" height="120" rx="22" fill="#e9ecfb" stroke="#c4cbee" stroke-width="3"/>
+          <rect x="20" y="160" width="120" height="120" rx="22" fill="#e9ecfb" stroke="#c4cbee" stroke-width="3"/>
+          <g fill="#28b3f4" filter="url(#glow)">
+            <circle cx="52" cy="42" r="16"/><circle cx="108" cy="42" r="16"/><circle cx="52" cy="98" r="16"/><circle cx="108" cy="98" r="16"/>
+            <circle cx="52" cy="192" r="16"/><circle cx="108" cy="192" r="16"/><circle cx="52" cy="248" r="16"/><circle cx="108" cy="248" r="16"/>
+          </g>
+        </svg>
+        <div>
+          <h3>Cadeira</h3>
+          <p><b>8 sensores de pressão</b>, 4 no assento e 4 no encosto, mostram
+            <b>como o seu peso se distribui</b>.</p>
+          <p style="margin-top:16px">É o “cérebro”: junta tudo e decide.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. como funciona (painel do stand) -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <div class="content" style="display:flex;gap:70px;align-items:center;padding-top:60px">
+    <img src="painel-como-funciona.png" alt="Reconhece, monitora, orienta" class="shot"
+         style="height:930px;object-fit:cover;object-position:50% 72%;width:840px">
+    <div style="flex:1">
+      <div class="kicker">Como funciona</div>
+      <div style="display:flex;gap:30px;margin-bottom:40px">
+        <div class="step-n">1</div>
+        <div><h3 style="color:var(--navy);font-size:46px;font-weight:800">Reconhece a postura</h3>
+          <p style="font-size:32px">Você senta reto e aperta o botão: o sistema aprende
+            <b>a sua</b> postura certa, não um padrão.</p></div>
+      </div>
+      <div style="display:flex;gap:30px;margin-bottom:40px">
+        <div class="step-n">2</div>
+        <div><h3 style="color:var(--navy);font-size:46px;font-weight:800">Monitora o usuário</h3>
+          <p style="font-size:32px">O colar manda a inclinação para a cadeira
+            <b>20 vezes por segundo</b>, sem fio.</p></div>
+      </div>
+      <div style="display:flex;gap:30px">
+        <div class="step-n">3</div>
+        <div><h3 style="color:var(--navy);font-size:46px;font-weight:800">Orienta o usuário</h3>
+          <p style="font-size:32px">Postura ruim por <b>3 segundos</b> → o colar vibra.
+            Corrigiu, para.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. por que dois sensores -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <svg class="wave"><use href="#wave"/></svg>
+  <div class="content">
+    <div class="kicker">Por que juntar os dois</div>
+    <h2>Um sensor sozinho se engana</h2>
+    <div class="row" style="margin-top:40px">
+      <div class="card">
+        <span class="pill ruim">▲ Escorregado</span>
+        <p style="margin-top:26px">As costas quase não inclinam, mas o <b>fundo do assento fica vazio</b>.
+          Só a cadeira percebe.</p>
+      </div>
+      <div class="card">
+        <span class="pill boa">✓ Reclinado</span>
+        <p style="margin-top:26px">As costas inclinam para trás, mas o <b>quadril está no fundo</b>
+          da cadeira. Descansar não é postura ruim.</p>
+      </div>
+      <div class="card">
+        <span class="pill monit">● Cadeira vazia</span>
+        <p style="margin-top:26px">Levantou com o colar? Ninguém no assento,
+          <b>nada de vibrar</b>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. resultados -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <svg class="wave"><use href="#wave"/></svg>
+  <div class="content">
+    <div class="kicker">Testamos</div>
+    <h2>8 pessoas, 9 posturas cada</h2>
+    <div class="row" style="margin-top:50px">
+      <div class="card" style="text-align:center">
+        <div class="num" style="color:var(--boa)">94 %</div>
+        <p style="margin-top:18px">das posturas ruins<br><b>geraram alerta</b></p>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="num"><span style="color:#b9b4d6;font-size:96px">29 %</span>
+          <span class="arrow" style="font-size:80px">→</span>
+          <span class="grad-text">3 %</span></div>
+        <p style="margin-top:18px">alertas falsos sentado bem,<br>só colar <b>→ colar + cadeira</b></p>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:34px">Cada pessoa foi testada com uma regra ajustada só com as outras 7
+      (ela nunca tinha sido “vista”).</p>
+  </div>
+</section>
+
+<!-- 7. dashboard -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <div class="content" style="display:flex;gap:64px;align-items:center;padding-top:40px">
+    <div style="flex:0 0 1100px;position:relative;height:720px">
+      <img src="dashboard-alerta.png" alt="" class="shot" style="position:absolute;left:150px;top:0;width:950px;opacity:.95">
+      <img src="dashboard-boa.png" alt="Tela ao vivo" class="shot" style="position:absolute;left:0;top:140px;width:950px">
+    </div>
+    <div style="flex:1">
+      <div class="kicker">Ao vivo, na tela</div>
+      <h2 style="font-size:60px">Você vê o que o sistema vê</h2>
+      <ul class="clean">
+        <li style="--c:var(--boa)"><b>Faixa no topo:</b> postura boa, atenção ou “corrija”.</li>
+        <li style="--c:var(--monit)"><b>Sua coluna</b> e <b>sua cadeira</b>, em tempo real.</li>
+        <li style="--c:var(--lilas)"><b>Seus números:</b> % de postura boa, vibrações, maior sequência.</li>
+        <li style="--c:var(--rosa)"><b>Hoje na mostra:</b> o recorde do dia.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 8. sua vez -->
+<section class="slide" data-dark>
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0b1a7a 0%,#1440bb 40%,#7a3fd0 75%,#cd4fd3 100%)"></div>
+  <svg class="circuit" style="opacity:.6"><use href="#circuit"/></svg>
+  <div class="content">
+    <div class="kicker" style="color:#9ed8ff">Agora é a sua vez</div>
+    <h2 style="color:#fff">Experimente!</h2>
+    <div class="row" style="margin-top:40px">
+      <div class="card" style="background:rgba(255,255,255,.12)">
+        <div class="step-n" style="color:#9ed8ff">1</div>
+        <p style="color:#fff;margin-top:12px">Coloque o <b style="color:#fff">colar</b> e sente
+          <b style="color:#fff">reto</b>, com as costas no encosto.</p>
+      </div>
+      <div class="card" style="background:rgba(255,255,255,.12)">
+        <div class="step-n" style="color:#c9b2ff">2</div>
+        <p style="color:#fff;margin-top:12px">Aperte o <b style="color:#fff">botão</b> e fique parado:
+          o sistema aprende a sua postura.</p>
+      </div>
+      <div class="card" style="background:rgba(255,255,255,.12)">
+        <div class="step-n" style="color:#f6a6e6">3</div>
+        <p style="color:#fff;margin-top:12px">Tente <b style="color:#fff">curvar, inclinar, escorregar</b>…
+          e sinta o colar vibrar.</p>
+      </div>
+    </div>
+    <p style="color:#e6e9ff;font-size:36px;margin-top:56px">Reclinar e cruzar as pernas? Pode: não vibra.
+      <span style="color:#fff;font-weight:800">Consegue bater o recorde do dia?</span></p>
+  </div>
+</section>
+
+<!-- 9. obrigado -->
+<section class="slide">
+  <svg class="circuit"><use href="#circuit"/></svg>
+  <svg class="wave" style="height:420px"><use href="#wave"/></svg>
+  <div class="content" style="text-align:center;padding-top:250px">
+    <div style="display:flex;justify-content:center;gap:70px;margin-bottom:40px">
+      <svg viewBox="0 0 120 420" width="60" height="210" style="color:var(--ruim)"><use href="#spine"/></svg>
+      <svg viewBox="0 0 120 420" width="60" height="210" style="color:var(--monit)"><use href="#spine"/></svg>
+      <svg viewBox="0 0 120 420" width="60" height="210" style="color:var(--boa)"><use href="#spine"/></svg>
+    </div>
+    <h1 style="font-size:104px">Obrigado!</h1>
+    <p class="lead" style="margin:24px auto 0">Perguntas? Pode sentar e testar.</p>
+  </div>
+</section>
+
+<div class="dots" id="dots"></div>
+</div>
+<div id="hud"></div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const stage = document.getElementById('stage');
+  const dots = document.getElementById('dots');
+  const hud = document.getElementById('hud');
+  slides.forEach(() => dots.appendChild(document.createElement('i')));
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));
+
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `scale(${s}) translate(-50%, -50%)`;
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle('on', k === i));
+    [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i));
+    dots.classList.toggle('dark', slides[i].hasAttribute('data-dark'));
+    hud.textContent = `${i + 1} / ${slides.length}`;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  addEventListener('keydown', e => {
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) show(i + 1);
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) show(i - 1);
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key.toLowerCase() === 'f') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+  });
+  addEventListener('click', e => show(e.clientX < innerWidth / 4 ? i - 1 : i + 1));
+  addEventListener('resize', fit);
+  fit(); show(i);
+</script>
+</body>
+</html>

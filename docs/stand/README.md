@@ -71,6 +71,10 @@ princípio do `docs/guia-mostra.md`).
 ## Peças e como aplicar
 
 - **Painéis impressos:** os dois acima (prontos).
+- **Apresentação** (`apresentacao.html`, abre offline no navegador; ← →
+  navegam, `F` = tela cheia): introdução de ~3 min antes da demonstração.
+  Os prints `dashboard-*.png` saem de
+  `mostra.py --replay data/validation/2026-10-22_Andre-Monteiro_run1.csv --screenshot ...`.
 - **Tela do `mostra.py`:** hoje usa as cores do `live_posture` (fundo
   `#fcfcfb`, verde `#0ca30c`, âmbar `#fab219`, vermelho `#d03b3b`, azul
   `#2a78d6`). Proposta para alinhar com o stand (não aplicada):
