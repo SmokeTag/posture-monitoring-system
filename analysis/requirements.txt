@@ -6,3 +6,5 @@ matplotlib>=3.8
 # live_posture.py (live view of the chair unit: body IMU + chair FSRs)
 pyserial>=3.5
 PyQt6>=6.6
+# ble_chair.py / mostra.py --ble (the chair's BLE beacon)
+bleak>=1.0

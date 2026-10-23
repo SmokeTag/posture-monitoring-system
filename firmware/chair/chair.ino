@@ -107,7 +107,7 @@
  * id (hex) is in "# body link up ...".
  * Stats, normally once per second (counts since the previous stats line; dt =
  * its span in ms, > 1000 only if the USB host stalled):
- *   # rx pkts=N lost=L dup=D old=O rst=R bad=B ver=V sdrop=S edrop=E dt=T
+ *   # rx pkts=N lost=L dup=D old=O rst=R bad=B ver=V sdrop=S edrop=E ble=N dt=T
  *   pkts  = body samples accepted (dup/old excluded)
  *   lost  = seq numbers skipped between packets < LINK_TIMEOUT_MS apart, same
  *           body session. Not the body's noack: a packet can arrive and only
@@ -120,6 +120,14 @@
  *   sdrop / edrop = CSV rows / '#' events dropped because the USB host was not
  *           reading (firmware/libraries/PostureLink/SerialOut.h); the header is
  *           re-sent whenever a host opens the port.
+ *   ble   = BLE beacons sent (below)
+ *
+ * Wireless monitor (PostureLink/Beacon.h + BleAdv.h): ~20 times a second,
+ * right after a body sample, the RADIO briefly switches to BLE and sends the
+ * chair's state as a non-connectable advertisement (~1.3 ms), then goes back
+ * to ESB; analysis/ble_chair.py reads it (mostra.py --ble). One-way: with no
+ * USB host the chair clears the calibration itself when the seat stays empty
+ * SEAT_EMPTY_CLEAR_MS (the end of a visit), since no host can send 'r'.
  *
  * Build / upload / monitor (arduino-cli, run from the repo root):
  *   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense --libraries firmware/libraries firmware/chair
@@ -135,6 +143,8 @@
 #include <SerialOut.h>
 #include <RandomId.h>
 #include <StatusLed.h>
+#include <Beacon.h>
+#include <BleAdv.h>
 
 using namespace posture;
 
@@ -167,6 +177,8 @@ const int   DEBOUNCE_MS = 25;                  // input must be stable this long
 const unsigned long PULSE_PERIOD_MS = 1000, PULSE_ON_MS = 700;   // alert LED, as the body's motor
 const unsigned long IMU_FAULT_MS = 250;        // body IMU invalid over this span of samples = fault
 const unsigned long REJECT_LED_MS = 2000;      // rejected capture: red fast this long
+const unsigned long SEAT_EMPTY_CLEAR_MS = 10000;  // no USB host: seat empty this long clears
+                                               // the calibration (end of an exhibit visit)
 
 nrf_to_nrf radio;
 StatusLed led(LED_RED, LED_GREEN, LED_BLUE, 255);   // USB powered: full brightness
@@ -188,6 +200,15 @@ ChairAck ack = {};                             // preloaded as the ESB ACK paylo
 bool radioFailed = false;                      // reported in the header
 bool muted = false;                            // CF_MUTE: motor muted for a data capture
 bool hostWas = false;                          // USB host connected at the last loop()
+
+// BLE beacon (Beacon.h, BleAdv.h): the live state for the wireless monitor
+uint8_t bleAddr[6];
+uint8_t beaconSeq = 0;
+unsigned long lastBeacon = 0;
+uint32_t beacons = 0;                          // sent, since the last stats line
+bool beaconFailNoted = false;
+unsigned long seatEmptySince = 0;
+bool seatEmpty = false;
 
 bool chairHeader(uint8_t i, Line &l);
 SerialOut<decltype(Serial)> out(Serial, chairHeader);
@@ -463,8 +484,9 @@ void checkBodyLink(unsigned long t) {
   event("# body link lost");
 }
 
-void pollRadio() {
-  if (!radio.available()) return;              // also sends the ACK (+ payload)
+// True when a new body sample was handled (its ACK has gone out).
+bool pollRadio() {
+  if (!radio.available()) return false;        // also sends the ACK (+ payload)
   uint8_t buf[32];                             // = the DPL max payload
   uint8_t len = radio.getDynamicPayloadSize();
   if (len > sizeof(buf)) len = sizeof(buf);
@@ -478,9 +500,9 @@ void pollRadio() {
       Line e; e.str("# body protocol v").u32(payloadVersion(buf, len))
                .str(" != v").u32(PROTO_VER).str(": flash both boards"); out.event(e);
     }
-    return;
+    return false;
   }
-  if (status != PACKET_OK) { badPkts++; return; }   // not a sample at all
+  if (status != PACKET_OK) { badPkts++; return false; }   // not a sample at all
 
   unsigned long t = millis();
   checkBodyLink(t);                            // a timed-out link is declared lost (alert
@@ -488,7 +510,7 @@ void pollRadio() {
   SeqKind k = seqs.onPacket(pkt.boot, pkt.seq, t);
   // Not a new sample: it doesn't keep the link up either, or a stream of them
   // would hold bodyUp (and a stale alert in the ACK) without fresh decisions.
-  if (k == SEQ_DUP || k == SEQ_OLD) return;
+  if (k == SEQ_DUP || k == SEQ_OLD) return false;
   lastBodyAt = t;
   body = pkt;
 
@@ -501,6 +523,56 @@ void pollRadio() {
     bodyUp = true;
   }
   onBodySample(t);
+  return true;
+}
+
+// The chair's state as one BLE advertisement (Beacon.h). Sent right after a
+// body sample (the next one is ~50 ms away), or on the timer while the body
+// is silent; never with an ESB packet pending.
+void sendBeacon(unsigned long t) {
+  BeaconState b;
+  b.seq = beaconSeq++;
+  b.t = t;
+  b.flags = (calibrated ? BK_CAL : 0) | (gate.alert ? BK_ALERT : 0) | (bodyUp ? BK_BODY : 0) |
+            (calLeft > 0 ? BK_CAPTURE : 0) | (muted ? BK_MUTE : 0) | (radioFailed ? BK_RADIO : 0) |
+            (rejectShown ? BK_REJECT : 0) | (out.connected() ? BK_USB : 0);
+  b.calId = calId;
+  b.reason = (int8_t)reason;
+  for (int i = 0; i < N_FSR; i++) b.fsr[i] = (uint16_t)fsr[i];
+  if (bodyUp) {
+    b.bflags = (body.ctl & 3) | (body.flags & BF_ALERT ? BB_ALERT : 0) |
+               (body.flags & BF_MOTOR ? BB_MOTOR : 0) | (body.flags & BF_TEST ? BB_TEST : 0) |
+               (body.flags & BF_INH ? BB_INH : 0) | (body.flags & BF_MUTE ? BB_MUTE : 0) |
+               (body.flags & BF_CAL ? BB_CAL : 0);
+    b.imu = (int8_t)body.imu;
+    b.vbat = body.vbat;
+    if (body.imu == IMU_OK) {
+      b.dPitch = body.pitch - pitchRef;
+      b.dRoll = body.roll - rollRef;
+    }
+  }
+  uint8_t pdu[ADV_PDU_LEN];
+  advPdu(bleAddr, b, pdu);
+  bool ok = bleAdvertise(pdu);
+  radio.startListening();                      // back to ESB RX
+  lastBeacon = t;
+  if (ok) beacons++;
+  else if (!beaconFailNoted) { beaconFailNoted = true; event("# ble beacon: RADIO timeout"); }
+}
+
+// No USB host (the exhibit runs on the beacon): when the seat stays empty
+// SEAT_EMPTY_CLEAR_MS the visitor has left, so the next one isn't buzzed
+// with their reference. With a host (captures, live_posture.py) nothing
+// changes: the host clears ('r') when it wants to.
+void autoClear(unsigned long t) {
+  float seat = 0;
+  for (int s = SEAT_FRONT_LEFT; s <= SEAT_REAR_RIGHT; s++) seat += fsr[FSR_SPOT_CH[s] - FIRST_CH];
+  bool empty = seat < EMPTY_RAW;
+  if (empty && !seatEmpty) seatEmptySince = t;
+  seatEmpty = empty;
+  if (!empty || !calibrated || out.connected() || t - seatEmptySince < SEAT_EMPTY_CLEAR_MS) return;
+  event("# seat empty, no USB host: clearing the calibration");
+  clearCalibration();
 }
 
 // A full scan takes ~2 ms, longer than the body waits for an ACK (~0.8 ms);
@@ -558,6 +630,7 @@ void setup() {
   radio.enableAckPayload();
   radio.openReadingPipe(RF_PIPE, RF_ADDR);
   calId = randomId();                          // a chair reboot shouldn't reuse old ids
+  bleAddress(bleAddr);
   updateAck(false);                            // preload before the first packet
   radio.startListening();                      // RX role
 
@@ -570,17 +643,17 @@ void report(unsigned long t) {
    .str(" dup=").u32(seqs.dup).str(" old=").u32(seqs.old).str(" rst=").u32(seqs.rst)
    .str(" bad=").u32(badPkts).str(" ver=").u32(versionPkts)
    .str(" sdrop=").u32(out.rowDrops()).str(" edrop=").u32(out.eventDrops())
-   .str(" dt=").u32(t - lastReport);
+   .str(" ble=").u32(beacons).str(" dt=").u32(t - lastReport);
   if (!out.stats(l)) return;                   // host not reading: keep counting
   lastReport = t;
   seqs.clearCounts();
-  badPkts = versionPkts = 0;
+  badPkts = versionPkts = beacons = 0;
   out.clearDrops();
 }
 
 void loop() {
   keepCrystal();
-  pollRadio();
+  bool sampled = pollRadio();
   out.poll();
   // The capture tool went away: back to the safe default (motor on).
   if (hostWas && !out.connected() && muted) setMute(false, "host disconnected");
@@ -594,8 +667,12 @@ void loop() {
   if (t - lastScan >= SCAN_MS) {
     lastScan = t;
     scanFsrs();
+    autoClear(t);
     if (!bodyUp) { reason = -1; printRow(t, NAN, NAN, NAN); }
   }
+  if ((sampled || t - lastBeacon >= 2 * BEACON_MS ||
+       (!bodyUp && t - lastBeacon >= BEACON_MS)) && !radio.available())
+    sendBeacon(t);
 
   if (t - lastReport >= 1000) report(t);
 }

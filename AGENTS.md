@@ -79,7 +79,9 @@ no further prompting. Defaults:
 - **Body↔chair link = Nordic ESB** (low latency, built-in auto-ack/retransmit);
   body = transmitter (pitch/roll, 20 Hz), chair = receiver; the decision rides
   back in the **ACK payload**. Protocol + alert rules are shared in
-  `firmware/libraries/PostureLink`. BLE only if a phone joins later.
+  `firmware/libraries/PostureLink`.
+  The chair also broadcasts a one-way BLE state beacon (~20 Hz); `mostra.py --ble` reads it.
+  Without a USB host, an empty seat for 10 s clears calibration.
   Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
   It is polled — the receiver's ACK is sent inside `radio.available()`, so the
   chair `loop()` must never block (the TX waits only ~0.8 ms for an ACK

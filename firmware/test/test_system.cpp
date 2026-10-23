@@ -18,6 +18,8 @@ FakeWire Wire1;
 #include <RandomId.h>
 #include <SerialOut.h>
 #include <StatusLed.h>
+#include <Beacon.h>
+#include <BleAdv.h>
 
 using namespace posture;
 

@@ -11,6 +11,21 @@
 `archive/` holds bench sketches that are superseded but kept because they
 generated the data in `data/` (reproducibility).
 
+## BLE beacon (wireless monitor)
+
+The chair sends a non-connectable BLE advertisement after each body sample
+(~20 Hz), briefly borrowing/restoring the ESB RADIO; never with a packet pending.
+Layout: `libraries/PostureLink/Beacon.h` (27 bytes, company 0xFFFF, v1);
+reader: `analysis/ble_chair.py`. No pairing or commands: calibrate by button.
+Without an open USB host, an empty seat for 10 s clears calibration.
+
+Bench (60 s, both boards on USB, MediaTek laptop): 1200 beacons sent,
+225 received (3.75/s, 18.75%, RSSI about −73 dBm); gaps median 175.5 ms,
+p90 500 ms, max 1.9 s. All 225 payload rows matched USB (clock offset 0–1 ms).
+ESB: 20 samples/s, zero lost/duplicate/bad, body retx/noack zero; no fallback.
+Reception remains best effort; use USB for complete captures. Chair battery
+operation with this feature has not been bench-tested.
+
 ## Toolchain
 
 - Core **Seeeduino:nrf52** (Boards Manager: "Seeed nRF52 Boards", 1.1.13);

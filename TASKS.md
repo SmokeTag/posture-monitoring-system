@@ -99,19 +99,7 @@ aciona o motor de vibração, sem nenhuma interface externa.
 - [ ] Impacto em escopo/prazo do TCC, consumo de bateria e firmware.
 - [ ] Registrar a decisão no `CLAUDE.md`.
 
-#### [ ] Considerar: monitor sem fio do estado via beacon BLE da cadeira
+#### [ ] Melhorar a recepção do beacon BLE
 
-**Contexto:** ler o estado ao vivo sem o notebook no USB da cadeira e sem
-comprar um 3º nRF. A `nrf_to_nrf` não tem BLE, mas o cérebro pode, a cada
-~100–200 ms, pôr o RADIO em BLE 1 Mbit, enviar um `ADV_NONCONN_IND` nos canais
-37/38/39 (~1–2 ms) e restaurar o ESB; o retransmit do corpo (~20 ms) cobre a
-janela. Payload ~22 B: flags (cal/alert/led/link) 1 + dev 1 + pitch/roll int16
-4 + 8 FSRs uint16 16. Leitura: script Python com `bleak` (só scan, sem
-pareamento) imprimindo o mesmo CSV, ou o app nRF Connect no celular.
-**Cuidados:** restaurar a config ESB por inteiro; nunca trocar no meio do
-`radio.available()`; ~5–10 Hz efetivos com perdas (bom para monitorar/demo,
-não substitui o USB nas capturas); medir o impacto nas retx/s. Alternativas
-descartadas: BLE completo (SoftDevice conflita com a `nrf_to_nrf`); log na
-flash QSPI (não é ao vivo, mas pode complementar).
-**Pronto quando:** estado legível no notebook/celular com a cadeira fora do USB
-e o enlace corpo↔cadeira sem perdas.
+No notebook MediaTek, testar scan passivo (`or_patterns`) com BlueZ experimental;
+a recepção atual é best effort. Beacon e painel sem fio já implementados.
