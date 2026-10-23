@@ -40,7 +40,7 @@ import live_posture as LP  # noqa: I001  (sets the Qt backend first)
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 
 import chair_map as M
@@ -60,12 +60,23 @@ STATS_DIR = Path.home() / ".local" / "state" / "tcc-mostra"
 # sample categories (timeline + tiles)
 NONE, GOOD, WARN, ALERT = 0, 1, 2, 3
 
-# status palette (dataviz reference: good / warning / critical) + neutrals
-GOOD_C, WARN_C, ALERT_C = "#0ca30c", "#fab219", "#d03b3b"
-INFO_C, IDLE_C = "#2a78d6", "#52514e"
-INK, INK2, MUTED = "#0b0b0b", "#52514e", "#898781"
-SURFACE, PLATE, PLATE_EC, EMPTY_FC = "#fcfcfb", "#f4f3f0", "#c3c2b7", "#e8e7e2"
+# stand identity (docs/stand/README.md). Status colours are the stand's green /
+# pink stepped down for white text (bold, large: >= 3:1 — 3.4 and 4.9); the
+# amber "attention" isn't on the panels but is a distinct third state (navy
+# text, 6.3:1). Neutral states use the stand's gradient (white text >= 3.7:1).
+GOOD_C, WARN_C, ALERT_C = "#2e9e64", "#fab219", "#c2416f"
+INFO_C = "#1e71e4"                            # 4.1:1 on SURFACE (the cyan is only 2.3)
+IDLE = None                                   # header: the stand gradient
+STAND_GRADIENT = ["#1e71e4", "#9142d4", "#cd4fd3"]
+INK, INK2, MUTED = "#003482", "#41557f", "#5b6890"   # navy; 6.6 and 4.9:1 on SURFACE
+SURFACE, PLATE, PLATE_EC, EMPTY_FC = "#f2f1f6", "#ffffff", "#cccef0", "#e4e3ec"
+REF_C = "#b9bcd6"                             # recorded postures, behind the live dot
 CAT_CMAP = ListedColormap([EMPTY_FC, GOOD_C, WARN_C, ALERT_C])
+LOAD_CMAP = LinearSegmentedColormap.from_list("load", ["#cfeafe", "#32a8fb", "#6a73e6", "#9142d4"])
+REF_LABELS = {                                # (offset pt, ha): keep nearby postures apart
+    "escorregado": ((-12, 8), "right"), "reclinado": ((12, -4), "left"),
+    "cabeca": ((-8, -12), "right"),
+}
 
 
 # --- pure logic ---------------------------------------------------------------
@@ -282,7 +293,7 @@ class ReplayReader(LP.ChairReader):
 
 # --- drawing ------------------------------------------------------------------
 def panel_title(fig, x, y, text, sub=""):
-    fig.text(x, y, text, fontsize=20, weight="bold", color=INK, va="bottom")
+    fig.text(x, y, text.upper(), fontsize=20, weight="bold", color=INK, va="bottom")
     if sub:
         fig.text(x, y - 0.005, sub, fontsize=11, color=MUTED, va="top")
 
@@ -333,13 +344,13 @@ class ChairPanel:
         for slot, (plate, _, sx, sy) in M.SLOTS.items():
             x0, y0 = self.PLATES[plate]
             self.spots[slot] = ax.add_patch(Circle((x0 + 2.5 + 5 * sx, y0 + 2.5 + 5 * sy),
-                                                   self.SPOT_R, zorder=2, lw=2, ec=SURFACE))
+                                                   self.SPOT_R, zorder=2, lw=2, ec=PLATE))
         self.balance = ax.text(5, -2.2, "", ha="center", va="top", fontsize=13, color=INK)
 
     def update(self, g: dict[int, float], live: bool):
         for slot, spot in self.spots.items():
             us = g.get(self.fmap.get(slot, -1), 0.0) if live else 0.0
-            spot.set_facecolor(LP.LOAD_CMAP(float(LP.LOAD_NORM(us))) if us > 0 else EMPTY_FC)
+            spot.set_facecolor(LOAD_CMAP(float(LP.LOAD_NORM(us))) if us > 0 else EMPTY_FC)
         for plate, (x0, y0) in self.PLATES.items():
             bal = M.plate_balance(self.fmap, g if live else {}, plate)
             self.cop[plate].set_data(*(([x0 + 2.5 + 5 * bal[0]], [y0 + 2.5 + 5 * bal[1]])
@@ -389,6 +400,7 @@ def main() -> int:
     for k in ("keymap.back", "keymap.home", "keymap.save", "keymap.pan", "keymap.zoom",
               "keymap.grid", "keymap.yscale", "keymap.xscale"):
         plt.rcParams[k] = []
+    plt.rcParams["font.family"] = ["Noto Sans", "DejaVu Sans"]   # closer to the panels; DejaVu for ✓ ▲ ■ ←
     fig = plt.figure(figsize=(16, 10), facecolor=SURFACE)
     fig.canvas.manager.set_window_title("Monitor de postura — mostra")
     try:
@@ -401,7 +413,9 @@ def main() -> int:
     head.set_xlim(0, 1)
     head.set_ylim(0, 1)
     head.axis("off")
-    band = head.add_patch(Rectangle((0, 0), 1, 1, fc=IDLE_C, lw=0))
+    head.imshow(LinearSegmentedColormap.from_list("stand", STAND_GRADIENT)(np.linspace(0, 1, 512))[None],
+                aspect="auto", extent=(0, 1, 0, 1), zorder=0)
+    band = head.add_patch(Rectangle((0, 0), 1, 1, lw=0, zorder=1))
     status = head.text(0.03, 0.60, "", fontsize=32, weight="bold", color="white", va="center")
     status_sub = head.text(0.03, 0.20, "", fontsize=18, color="white", va="center")
     _ = [head.text(0.97, 0.62, "Monitor de postura", fontsize=15, weight="bold",
@@ -436,8 +450,8 @@ def main() -> int:
             label = LP.REF_POSTURES[key][1]
             if np.hypot(mx, my) < LP.ALERT_DEG:          # crossed legs: inside the good zone
                 continue
-            ax.scatter([mx], [my], s=90, color="#c3c2b7", edgecolor="white", lw=1.5, zorder=2)
-            off, ha = LP.REF_POSTURES[key][2:]
+            ax.scatter([mx], [my], s=70, color=REF_C, edgecolor="white", lw=1.5, zorder=2)
+            off, ha = REF_LABELS.get(key, LP.REF_POSTURES[key][2:])
             ax.annotate(label, (mx, my), xytext=off, textcoords="offset points", ha=ha,
                         va="center", fontsize=10, color=MUTED, zorder=2)
     trail, = ax.plot([], [], color=INK, lw=2.5, alpha=0.35, zorder=4, solid_capstyle="round")
@@ -456,7 +470,7 @@ def main() -> int:
         y = 0.735 - i * 0.112
         fig.text(0.715, y, num, fontsize=22, weight="bold", color=INFO_C, va="top", ha="center")
         fig.text(0.735, y, title, fontsize=14, weight="bold", color=INK, va="top")
-        fig.text(0.735, y - 0.03, body, fontsize=11, color=INK2, va="top", linespacing=1.35)
+        fig.text(0.735, y - 0.03, body, fontsize=11, color=INK2, va="top", linespacing=1.15)
 
     # você (current / last visitor) + timeline
     who = fig.text(0.03, 0.262, "", fontsize=16, weight="bold", color=INK, va="bottom")
@@ -479,9 +493,9 @@ def main() -> int:
         fig.text(x + 0.011, 0.097, label, color=INK2, fontsize=10, va="bottom")
 
     # hoje
-    fig.text(0.71, 0.262, "Hoje na mostra", fontsize=16, weight="bold", color=INK, va="bottom")
+    fig.text(0.71, 0.262, "HOJE NA MOSTRA", fontsize=16, weight="bold", color=INK, va="bottom")
     day_tiles = [Tile(fig, (0.71, 0.115, 0.13, 0.14), "Pessoas"),
-                 Tile(fig, (0.85, 0.115, 0.13, 0.14), "Média de postura boa")]
+                 Tile(fig, (0.85, 0.115, 0.13, 0.14), "Média do dia")]
     record = fig.text(0.71, 0.075, "", fontsize=13, color=INK, va="center")
     footer = fig.text(0.985, 0.006, "", fontsize=9, color=MUTED, ha="right", va="bottom")
     fig.text(0.015, 0.006, "c / espaço calibrar · n próximo visitante · f tela cheia",
@@ -507,7 +521,9 @@ def main() -> int:
     fig.canvas.mpl_connect("key_press_event", on_key)
 
     def header(colour, title, sub="", ink="white"):
-        band.set_facecolor(colour)
+        band.set_visible(colour is not None)          # None: the stand gradient shows
+        if colour is not None:
+            band.set_facecolor(colour)
         status.set(text=title, color=ink)
         status_sub.set(text=sub, color=ink)
 
@@ -541,7 +557,7 @@ def main() -> int:
 
         # status band
         if not reader.connected:
-            header(IDLE_C, "Conectando à cadeira…", "verifique o cabo USB da cadeira")
+            header(IDLE, "Conectando à cadeira…", "verifique o cabo USB da cadeira")
         elif cal_txt.startswith("calibrating") and cal_age < CALIBRATING_MAX_S:
             header(INFO_C, "Calibrando… fique parado", "sentado reto, olhando para a frente")
         elif cal_txt.startswith("calibrated upright") and cal_age < CALIBRATED_SHOW_S:
@@ -551,13 +567,13 @@ def main() -> int:
             header(WARN_C, "Calibração não deu certo", "sente-se reto, fique parado e "
                    "aperte o botão de novo", ink=INK)
         elif not body_up:
-            header(IDLE_C, "Ligue o colar", "o colar está sem sinal")
+            header(IDLE, "Ligue o colar", "o colar está sem sinal")
         elif not LP.imu_valid(r):
-            header(IDLE_C, "Ajuste o colar", "o sensor do colar está sem leitura")
+            header(IDLE, "Ajuste o colar", "o sensor do colar está sem leitura")
         elif seated is False:
-            header(IDLE_C, "Sente-se para começar", "a cadeira está vazia")
+            header(IDLE, "Sente-se para começar", "a cadeira está vazia")
         elif not r["cal"] or exhibit.visit is None:
-            header(IDLE_C, "Sente-se reto e aperte o botão da cadeira",
+            header(IDLE, "Sente-se reto e aperte o botão da cadeira",
                    "assim o sistema aprende a SUA postura")
         elif cat == ALERT:
             header(ALERT_C, "▲  Corrija a postura",
@@ -577,7 +593,7 @@ def main() -> int:
                             and LP.imu_valid(x)])
             trail.set_data(pts[:, 0], pts[:, 1])
             dot.set_offsets([np.clip(pts[-1], [-39, -49], [39, 29])])
-            dot.set_color({GOOD: GOOD_C, WARN: WARN_C, ALERT: ALERT_C}.get(cat, IDLE_C))
+            dot.set_color({GOOD: GOOD_C, WARN: WARN_C, ALERT: ALERT_C}.get(cat, MUTED))
             dot.set_edgecolor("white")
         trail.set_visible(bool(show))
         dot.set_visible(bool(show))
@@ -590,8 +606,8 @@ def main() -> int:
 
         # você
         v = exhibit.visit or exhibit.last
-        who.set_text("Você agora" if exhibit.visit else
-                     "Última pessoa" if exhibit.last else "Você")
+        who.set_text("VOCÊ AGORA" if exhibit.visit else
+                     "ÚLTIMA PESSOA" if exhibit.last else "VOCÊ")
         if v is None:
             for t in tiles:
                 t.set("—")
@@ -609,7 +625,7 @@ def main() -> int:
         # hoje
         d = exhibit.day
         day_tiles[0].set(str(d.visitors), f"{d.alerts} vibrações no total")
-        day_tiles[1].set("—" if d.mean_pct is None else f"{d.mean_pct:.0f} %")
+        day_tiles[1].set("—" if d.mean_pct is None else f"{d.mean_pct:.0f} %", "de postura boa")
         record.set_text("" if d.best_pct is None else
                         f"Recorde do dia:  {d.best_pct:.0f} % de postura boa")
 

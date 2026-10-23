@@ -20,7 +20,11 @@ dia de um replay ficam só na memória (não contam no dia real).
 - **Faixa de status** (topo), sempre com ícone e texto, não só cor:
   - verde `✓ Postura boa`;
   - âmbar `● Atenção` (postura ruim, ainda sem vibrar);
-  - vermelho `▲ Corrija a postura` (o colar está vibrando).
+  - rosa `▲ Corrija a postura` (o colar está vibrando).
+
+  Cores e fonte seguem a identidade do stand ([`stand/README.md`](stand/README.md)).
+  Os estados neutros (ligar o colar, sentar, calibrar) usam o gradiente azul →
+  violeta → magenta dos painéis.
 
   A faixa diz o nome da postura (curvado para a frente, inclinado para a
   esquerda/direita, escorregado no assento; reclinado é ok). Em cinza, o que

@@ -75,16 +75,20 @@ princípio do `docs/guia-mostra.md`).
   navegam, `F` = tela cheia): introdução de ~3 min antes da demonstração.
   Os prints `dashboard-*.png` saem de
   `mostra.py --replay data/validation/2026-10-22_Andre-Monteiro_run1.csv --screenshot ...`.
-- **Tela do `mostra.py`:** hoje usa as cores do `live_posture` (fundo
-  `#fcfcfb`, verde `#0ca30c`, âmbar `#fab219`, vermelho `#d03b3b`, azul
-  `#2a78d6`). Proposta para alinhar com o stand (não aplicada):
-  - texto/títulos em `navy`;
-  - números dos passos em `ciano`;
-  - faixa de topo com o gradiente da base;
-  - verde → `#4bc384`; vermelho → `#f16ca2` ou um tom mais escuro para
-    contraste com texto branco.
-  - **Âmbar ("Atenção") não existe nos painéis**; manter âmbar ou usar
-    `lilás`? Fica a decidir.
+- **Tela do `mostra.py`:** alinhada com o stand.
+  - Texto e títulos em `navy`; títulos de seção em caixa-alta; fonte Noto Sans.
+  - Números dos passos em `azul-vivo` (`#1e71e4`, 4,1:1 sobre o `fundo`; o
+    `ciano` daria só 2,3:1).
+  - Fundo `fundo`, cards brancos; pressão dos FSRs de `ciano` a `violeta`.
+  - Faixa de status, sempre com ícone + texto:
+    - boa: `#2e9e64`;
+    - alerta: `#c2416f`;
+    - atenção: âmbar `#fab219`, com texto `navy`;
+    - estados neutros (sem colar, sem calibração, assento vazio): o gradiente
+      da base.
+
+    Verde e rosa são as cores do painel escurecidas para dar contraste com
+    texto branco (3,4:1 e 4,9:1; `#4bc384` e `#f16ca2` dariam 2,2:1 e 2,8:1).
 - **Etiquetas na cadeira/colar, folheto, crachá:** fundo `fundo`, título em
   `navy`, faixa fina com o gradiente na base, um ícone de coluna na cor do
   estado.
