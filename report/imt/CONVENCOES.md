@@ -15,9 +15,10 @@ reescreve do zero. Todo número tem que existir na versão longa ou no repo.
 | 4 Testes e Resultados (protocolos + resultados + discussão) | `capitulos/4resultados.tex` | 4 |
 | 5 Conclusões e Trabalhos Futuros | `capitulos/5conclusao.tex` | 1 |
 
-Medir: `python3 /tmp/claude-1000/-home-andre--t3-worktrees-TCC-t3-a65c6022/3ba25c98-0130-494f-a34c-0442cafaa615/scratchpad/paginas.py <outdir-próprio>`
-(compila com Tectonic e mostra páginas por capítulo; capítulos não quebram
-página, então a contagem por capítulo é aproximada — vale o total).
+Medir: `python3 report/imt/paginas.py [outdir]` (compila com Tectonic —
+`tectonic` no PATH ou variável `TECTONIC` — e mostra a página de início de
+cada capítulo; capítulos não quebram página, então a contagem por capítulo é
+aproximada — vale o total).
 
 ## Escrita
 - PT-BR acadêmico, impessoal, 3ª pessoa. Frases curtas; números no lugar de
