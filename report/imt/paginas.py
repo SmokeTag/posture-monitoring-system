@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Compila main.tex e mostra em que página começa cada capítulo (limite: 15
-páginas de texto, Introdução → antes das Referências).
+páginas no total, da capa ao fim das Referências).
 
 Uso: python3 report/imt/paginas.py [outdir]   (padrão: um diretório temporário)
 Compilador: Tectonic (variável TECTONIC ou `tectonic` no PATH); precisa de
@@ -39,4 +39,5 @@ for a, b in zip(ks, ks[1:] + [None]):
     end = start[b] if b else n + 1
     print(f'  {a:25s} p.{start[a]:>3}  (~{end - start[a]} pág.)')
 if '1 Introdução' in start and 'Referências' in start:
-    print(f'TEXTO: ~{start["Referências"] - start["1 Introdução"]} páginas (limite 15)')
+    print(f'TEXTO: ~{start["Referências"] - start["1 Introdução"]} páginas')
+print(f'TOTAL: {n} páginas (limite 15)')

@@ -1,48 +1,39 @@
 \chapter{Introdução}\label{cap:introducao}
 
-O trabalho em escritório cresceu com a digitalização das atividades e, após a
-pandemia de COVID-19, consolidou-se também em regime remoto, frequentemente em
-ambientes domésticos que não foram projetados para longas jornadas sentadas.
-Nesse contexto, os distúrbios osteomusculares relacionados ao trabalho (DORT)
-destacam-se entre os principais problemas de saúde ocupacional: estudos
-recentes apontam prevalência entre 71,9\,\% e 80,81\,\% em trabalhadores de
-escritório, afetando sobretudo pescoço, ombros e coluna lombar
-\cite{okezue2020,mohammadian2025}. Esses distúrbios estão associados a
-posturas inadequadas, permanência prolongada em posições estáticas, mobiliário
-inadequado e ausência de pausas, e geram custos por absenteísmo e perda de
-produtividade.
-
-A adoção de boas práticas ergonômicas depende, em grande parte, da atenção
-contínua do próprio trabalhador, que tende a abandonar a postura correta quando
-se concentra na tarefa. Sistemas que monitoram a postura de forma contínua e
-avisam o usuário no momento em que ela se degrada podem transformar a
-recomendação ergonômica em um hábito, sem depender de supervisão.
+O trabalho em escritório, presencial ou remoto, impõe longas jornadas
+sentadas, e os distúrbios osteomusculares relacionados ao trabalho (DORT)
+atingem entre 71,9\,\% e 80,81\,\% dos trabalhadores de escritório,
+sobretudo no pescoço, nos ombros e na coluna lombar
+\cite{okezue2020,mohammadian2025}. Como manter a postura correta depende da
+atenção contínua do trabalhador, um aviso no momento em que ela se degrada
+pode torná-la hábito sem supervisão.
 
 Define-se, assim, o problema de pesquisa: \emph{como um sistema embarcado de
 baixo custo pode detectar, em tempo real, posturas sentadas prejudiciais e
-avisar o usuário para que ele se corrija?} A detecção é dificultada por dois
-fatores: o que é ``postura correta'' varia de pessoa para pessoa, e um único
-tipo de sensor não distingue situações semelhantes --- por exemplo, reclinar no
-encosto (postura aceitável) e escorregar o quadril para a frente (postura
-prejudicial) inclinam o tronco no mesmo sentido.
+avisar o usuário para que ele se corrija?} Dois fatores dificultam a
+detecção: a ``postura correta'' varia de pessoa para pessoa, e um único tipo
+de sensor não distingue situações semelhantes --- reclinar no encosto
+(aceitável) e escorregar o quadril para a frente (prejudicial) inclinam o
+tronco no mesmo sentido.
 
-A proposta deste trabalho combina duas fontes de informação: a distribuição do
-peso do usuário sobre a cadeira, medida por sensores de força resistivos no
-assento e no encosto, e a orientação da parte superior das costas, medida por
-uma unidade de medição inercial (IMU) em um colar. A cadeira funde as duas
-informações e, quando a postura é prejudicial por tempo suficiente, o colar
-vibra. Justifica-se o trabalho pela possibilidade de oferecer monitoramento
-individualizado e contínuo com componentes acessíveis, sem câmeras, aplicativo
-de celular ou serviço em nuvem.
+A proposta combina a distribuição do peso sobre a cadeira, medida por
+sensores de força no assento e no encosto, com a orientação da parte superior
+das costas, medida por uma unidade de medição inercial (IMU) em um colar; a
+cadeira funde as duas informações e, se a postura for prejudicial por tempo
+suficiente, o colar vibra. Justifica-se o trabalho pelo monitoramento
+individual e contínuo com componentes acessíveis, sem câmeras, aplicativo ou
+nuvem.
 
 \section{Objetivos}
 
 O objetivo geral é \textbf{desenvolver um sistema embarcado, composto por uma
 cadeira de escritório instrumentada e um colar com sensor inercial, capaz de
 detectar posturas sentadas prejudiciais e alertar o usuário em tempo real por
-vibração}. Para alcançá-lo, definem-se os objetivos específicos:
+vibração}. Os objetivos específicos são:
 
 \begin{itemize}
+  \setlength{\itemsep}{0pt}
+  \setlength{\parsep}{0pt}
   \item \textbf{(OE1)} caracterizar a variação da postura de referência entre
         usuários e entre colocações do sensor, e propor uma calibração
         individual que a compense;
@@ -53,8 +44,3 @@ vibração}. Para alcançá-lo, definem-se os objetivos específicos:
   \item \textbf{(OE4)} avaliar a capacidade de detecção do sistema com
         múltiplos participantes.
 \end{itemize}
-
-O Capítulo~\ref{cap:fund_teorica} revisa a literatura;
-o Capítulo~\ref{cap:metodologia} descreve o colar, a cadeira e sua integração;
-o Capítulo~\ref{cap:resultados} apresenta os testes, os resultados e sua
-discussão; e o Capítulo~\ref{cap:conclusao} conclui o trabalho.

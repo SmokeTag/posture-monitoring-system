@@ -1,41 +1,36 @@
 \chapter{Metodologia}\label{cap:metodologia}
 
-O sistema reúne um colar que mede a orientação da região superior das
-costas e uma cadeira que monitora a distribuição de contato. A cadeira
-combina as medidas e devolve ao colar a decisão de alerta por vibração.
-O processamento é autônomo; o computador permite acompanhar o estado.
+O sistema combina a orientação do alto das costas, medida pelo colar,
+com o contato na cadeira. Esta decide o alerta e o devolve ao colar,
+que vibra. O processamento independe do computador.
 
 \section{Colar}
 \label{sec:met-colar}
 
-Utilizou-se uma placa Seeed Studio XIAO nRF52840 Sense, baseada no
-microcontrolador nRF52840 e equipada com a IMU LSM6DS3TR-C
-\cite{seeed_xiao,nordic_nrf52840,st_lsm6ds3trc}. O conjunto fica nas costas,
-logo abaixo do pescoço, acondicionado no colar. Mede-se a orientação local,
-não a curvatura de toda a coluna. Apenas o acelerômetro é utilizado, com o
-giroscópio desligado. A partir das componentes $a_x$, $a_y$ e $a_z$ nos
-eixos da placa, calculam-se \textit{pitch} ($p$) e \textit{roll} ($r$), em graus:
+O colar contém uma placa XIAO nRF52840 Sense com IMU LSM6DS3TR-C
+\cite{seeed_xiao,nordic_nrf52840,st_lsm6ds3trc}, posicionada nas costas,
+abaixo do pescoço. Mede-se a orientação local, não a curvatura de toda a
+coluna. Utiliza-se apenas o acelerômetro, com giroscópio desligado.
+Das componentes $a_x$, $a_y$ e $a_z$, calculam-se \textit{pitch} ($p$)
+e \textit{roll} ($r$), em graus:
 \begin{equation}
  p=\frac{180}{\pi}\operatorname{atan2}\!\left(-a_x,\sqrt{a_y^2+a_z^2}\right),
  \qquad r=\frac{180}{\pi}\operatorname{atan2}(a_y,a_z).
  \label{eq:met-angulos}
 \end{equation}
-A estimativa usa a direção da gravidade em condição aproximadamente
-estática \cite{pedley2013}. Na montagem, a variação de $r$ é sagital
-(negativa para a frente); a de $p$ é lateral (positiva para a direita do
-usuário). Movimento, deslocamento do colar e vibração podem alterar a
-medida. A aplicação adquire e transmite a orientação a 20\,Hz; leituras
-inerciais inválidas inibem o alerta postural.
+A estimativa usa a gravidade em condição aproximadamente estática
+\cite{pedley2013}. Na montagem, $p$ é lateral (positivo à direita) e $r$,
+sagital (negativo para a frente). Adquire-se e transmite-se a 20\,Hz;
+movimento, deslocamento do colar e vibração podem alterar a medida.
+Leituras inválidas inibem o alerta.
 
-A Figura~\ref{fig:met-esquema-colar} apresenta o circuito do colar. O motor
-de vibração tipo moeda (2{,}5--4\,V, até 90\,mA) exige mais corrente do que
-um pino lógico fornece; por isso, o pino D10 comanda por PWM, através de
-1\,k\ohm, um transistor BC337 que chaveia o terminal negativo do motor. O
-diodo 1N4148 conduz a corrente indutiva no desligamento e o capacitor de 33\,nF
-atenua o ruído do motor. O alerta produz pulsos de 700\,ms ligados e
-300\,ms desligados. Durante a atuação, transmite-se
-a última orientação válida obtida sem vibração, por até 1{,}5\,s, mantendo
-a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
+No circuito da Figura~\ref{fig:met-esquema-colar}, o transistor BC337
+aciona o motor por modulação por largura de pulso (PWM), pois sua corrente
+excede a de um pino lógico.
+O diodo protege o chaveamento e o capacitor atenua o ruído. Durante os
+pulsos de 700\,ms, separados por 300\,ms, transmite-se a última orientação
+sem vibração, por até 1{,}5\,s. A Figura~\ref{fig:met-fluxo-colar}
+sintetiza a aquisição e o controle.
 
 \begin{figure}[H]
  \centering
@@ -113,76 +108,34 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
  \label{fig:met-fluxo-colar}
 \end{figure}
 
-A alimentação usa uma LiPo de uma célula (3{,}7\,V), ligada aos terminais
-de bateria do XIAO por uma chave liga/desliga (S1), cujo carregador integrado permite a recarga por USB-C; o
-invólucro comporta uma célula de 1800\,mAh. Sem USB, três leituras
-abaixo de 3{,}30\,V levam a \textit{System OFF}; a partida exige pelo menos
-3{,}40\,V. A bateria é medida a cada 2\,s, após 200\,ms sem motor, evitando
-quedas transitórias. Um watchdog de 4\,s reinicia o programa se houver
-bloqueio. O LED indica ausência de enlace (laranja), enlace sem calibração
-(azul), referência válida (verde), alerta (vermelho lento) e falha
-(vermelho rápido); três piscadas magenta precedem o corte de bateria.
+A alimentação usa LiPo 1S de 3{,}7\,V, chave S1 e recarga pelo USB-C
+do XIAO; o invólucro comporta 1800\,mAh. Sem USB, três leituras abaixo de
+3{,}30\,V desligam o colar; a partida exige 3{,}40\,V. O LED sinaliza
+enlace, calibração, alerta e falha.
 
 \section{Cadeira}
 \label{sec:met-cadeira}
 
-A segunda placa XIAO lê oito FSR402, quatro no assento e quatro no encosto,
-cuja resistência diminui com a força aplicada \cite{interlink_datasheet}.
-A Figura~\ref{fig:met-layout} apresenta o mapa físico pela perspectiva de
-quem senta. As leituras indicam contato e distribuição relativa, sem
-conversão em força absoluta calibrada na espuma.
+A segunda placa XIAO lê oito FSR402: quatro no assento (frente/trás,
+esquerda/direita) e quatro no encosto (superior/inferior, esquerda/direita).
+Sua resistência diminui com a força \cite{interlink_datasheet}; usam-se
+as leituras como contato e distribuição relativa, sem conversão em força
+absoluta na espuma.
 
-\begin{figure}[H]
- \centering
- \caption{Posições dos oito FSR402 e respectivos canais do multiplexador.}
- \begin{SingleSpace}
- \begin{tikzpicture}[font=\footnotesize,
-  s/.style={draw,circle,minimum size=.62cm,inner sep=0pt},
-  t/.style={align=center}]
-  \draw[rounded corners] (0,0) rectangle (5.3,2.65);
-  \node at (2.65,2.95) {Assento: vista superior};
-  \node[s] at (1.35,.65) {C8}; \node[s] at (3.95,.65) {C9};
-  \node[s] at (1.35,2) {C10}; \node[s] at (3.95,2) {C11};
-  \node[t] at (2.65,.65) {frente}; \node[t] at (2.65,2) {trás};
-  \node at (1.35,-.35) {esquerda}; \node at (3.95,-.35) {direita};
-  \begin{scope}[xshift=7cm]
-   \draw[rounded corners] (0,0) rectangle (5.3,2.65);
-   \node at (2.65,2.95) {Encosto: posições de contato};
-   \node[s] at (1.35,.65) {C14}; \node[s] at (3.95,.65) {C12};
-   \node[s] at (1.35,2) {C15}; \node[s] at (3.95,2) {C13};
-   \node[t] at (2.65,.65) {inferior}; \node[t] at (2.65,2) {superior};
-   \node at (1.35,-.35) {esquerda}; \node at (3.95,-.35) {direita};
-  \end{scope}
- \end{tikzpicture}
- \end{SingleSpace}
- \fonte{Elaborado pelos autores (2026)}
- \label{fig:met-layout}
-\end{figure}
-
-A Figura~\ref{fig:met-esquema-cadeira} apresenta o circuito da cadeira. O
-multiplexador CD74HC4067 \cite{ti_cd74hc4067}, endereçado pelos pinos D10,
-D3, D2 e D1, liga um FSR por vez ao pino SIG, onde um único resistor de
-3{,}3\,k\ohm{} para o GND, compartilhado pelos oito canais, forma o divisor
-lido em A0. Incluindo a resistência de condução $R_{\mathrm{on}}$ do
-multiplexador,
+O circuito da Figura~\ref{fig:met-esquema-cadeira} usa o multiplexador
+CD74HC4067 \cite{ti_cd74hc4067} para ligar cada FSR ao resistor
+compartilhado de 3{,}3\,k\ohm{} em SIG. Incluindo a resistência de
+condução $R_{\mathrm{on}}$, a tensão lida em A0 é
 \begin{equation}
  V_{\mathrm{SIG}}=V_{\mathrm{DD}}
  \frac{R_{\mathrm{fixo}}}{R_{\mathrm{fixo}}+R_{\mathrm{FSR}}+R_{\mathrm{on}}}.
  \label{eq:met-divisor}
 \end{equation}
-A tensão aumenta com a carga. Escolheu-se
-$R_{\mathrm{fixo}}\approx\sqrt{R_{\min}R_{\max}}$ na faixa de contato de
-interesse, como compromisso de resolução. O valor de 3{,}3\,k\ohm{} também
-limita a corrente no sensor. O efeito fixo de $R_{\mathrm{on}}$ por canal
-é incorporado à calibração individual.
-
-O ADC tem resolução de 12 bits. A cada 50\,ms varrem-se os oito canais:
-após cada seleção, aguardam-se 50\,$\mu$s, descarta-se a primeira conversão
-e conserva-se a seguinte. O rádio é atendido entre canais para não atrasar
-o ACK; a Figura~\ref{fig:met-fluxo-cadeira} representa esse escalonamento.
-O botão de calibração (D9) usa pull-up interno e debounce de 25\,ms. A
-alimentação repete a do colar, mas o programa da cadeira não implementa o
-monitor de corte nem o watchdog do vestível.
+A tensão aumenta com a carga. O resistor aproxima
+$\sqrt{R_{\min}R_{\max}}$ na faixa de contato, como compromisso entre
+resolução e corrente; o efeito fixo de $R_{\mathrm{on}}$ é incorporado à
+calibração. Os oito canais são lidos a 20\,Hz, com ADC de 12 bits.
+O botão D9 solicita a calibração. A alimentação repete o circuito do colar.
 
 \begin{figure}[H]
  \centering
@@ -242,40 +195,15 @@ monitor de corte nem o watchdog do vestível.
  \label{fig:met-esquema-cadeira}
 \end{figure}
 
-\begin{figure}[H]
- \centering
- \caption{Ciclo da cadeira, com atendimento frequente do rádio.}
- \begin{SingleSpace}
- \begin{tikzpicture}[
-  b/.style={draw,rounded corners,font=\footnotesize,align=center,
-   text width=3.55cm,minimum height=.8cm,inner sep=3pt},
-  a/.style={-{Latex[length=1.7mm]},thick}]
-  \node[b] (scan) at (0,0) {Varrer FSRs a 20\,Hz;\\atender rádio entre canais};
-  \node[b] (cal) at (4.65,0) {Receber IMU; ler botão;\\calibrar quando solicitado};
-  \node[b] (dec) at (9.3,0) {Se calibrado: aplicar fusão\\e portão temporal};
-  \node[b] (ack) at (9.3,-1.8) {Preparar alerta e referência\\para o próximo ACK};
-  \node[b] (out) at (4.65,-1.8) {Registrar CSV por USB;\\enviar beacon BLE};
-  \node[b] (loop) at (0,-1.8) {Atualizar LED e enlace;\\repetir sem bloquear};
-  \draw[a] (scan) -- (cal); \draw[a] (cal) -- (dec);
-  \draw[a] (dec) -- (ack); \draw[a] (ack) -- (out);
-  \draw[a] (out) -- (loop); \draw[a] (loop) -- (scan);
- \end{tikzpicture}
- \end{SingleSpace}
- \fonte{Elaborado pelos autores (2026)}
- \label{fig:met-fluxo-cadeira}
-\end{figure}
-
 \section{Integração}
 \label{sec:met-integracao}
 
-A Figura~\ref{fig:met-arquitetura} reúne sensoriamento, decisão e atuação.
-O enlace utiliza Nordic Enhanced ShockBurst (ESB), pela biblioteca
-\texttt{nrf\_to\_nrf}, com confirmação e retransmissão
-\cite{nordic_esb,tmrh20_nrftonrf}. O colar transmite a orientação; a cadeira
-prepara a decisão após a amostra $N$ e a devolve no payload do ACK de
-$N+1$, em operação regular. Após 1\,s sem ACK de controle válido, o colar
-usa a última referência recebida e aplica somente a regra inercial
-(10\degree{}/3\,s, liberação abaixo de 7\degree{}). Sem referência, não alerta.
+A Figura~\ref{fig:met-arquitetura} reúne os blocos. O enlace Nordic
+Enhanced ShockBurst (ESB), pela biblioteca \texttt{nrf\_to\_nrf}, usa
+confirmação (ACK) e retransmissão
+\cite{nordic_esb,tmrh20_nrftonrf}. A decisão da amostra $N$ retorna no ACK
+de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra inercial
+à última referência recebida; sem referência, não alerta.
 
 \begin{figure}[H]
  \centering
@@ -304,19 +232,15 @@ usa a última referência recebida e aplica somente a regra inercial
  \label{fig:met-arquitetura}
 \end{figure}
 
-A calibração é individual, acionada pelo botão com o usuário ereto e
-sentado até o fundo. Em 20 amostras válidas (cerca de 1\,s), calculam-se as
-médias $p_0$, $r_0$ e $b_i$, referência angular e linha de base de cada FSR.
-Falha inercial ou perda de enlace aborta a captura. Recusa-se a referência
-se a soma traseira $B_T=b_{TE}+b_{TD}$ for inferior a 1000 contagens,
-preservando a anterior. A referência fica em memória volátil e deve ser
-refeita após reinício ou recolocação do colar. Durante a captura, as
-decisões ficam suspensas e o LED verde pisca.
+A calibração individual é acionada com o usuário ereto, sentado ao fundo.
+Em 20 amostras válidas (cerca de 1\,s), capturam-se as médias angulares
+$p_0$, $r_0$ e a linha de base $b_i$ de cada FSR. Recusa-se a captura com
+falha de IMU/enlace ou base traseira $B_T=b_{TE}+b_{TD}<1000$ contagens.
+A referência é volátil e deve ser refeita após reinício ou recolocação.
 
-Na fusão, $FE$, $FD$, $TE$ e $TD$ indicam frente/trás e esquerda/direita
-do assento. Os canais do encosto são registrados e exibidos, mas não
-participam diretamente da decisão final, pois podem permanecer sem carga
-mesmo na referência. Com leituras atuais $f_i$, definem-se
+Na fusão, $FE$, $FD$, $TE$ e $TD$ indicam frente/trás e esquerda/direita do
+assento. O encosto é registrado e exibido, mas não decide o alerta, pois
+pode ficar sem carga mesmo no ereto. Para leituras $f_i$, definem-se
 \begin{equation}
  \begin{gathered}
  \Delta p=p-p_0,\quad \Delta r=r-r_0,\quad
@@ -328,25 +252,28 @@ mesmo na referência. Com leituras atuais $f_i$, definem-se
  \end{gathered}
  \label{eq:met-indicadores}
 \end{equation}
-A razão $\rho$ expressa o apoio traseiro relativo à referência; $\ell$
-mede seu deslocamento lateral, positivo à esquerda. Define-se $h=\ell$
-para $\Delta p<0$ e $h=-\ell$ nos demais casos, exigindo concordância com
-a IMU. O termo lateral só é habilitado com base total do assento de pelo
-menos 2000 contagens. O teste de vazio precede as divisões por $S$.
+A razão $\rho$ mede o apoio traseiro relativo à referência; $\ell$, a
+redistribuição lateral, positiva à esquerda. Para confirmar inclinação,
+$h=\ell$ se $\Delta p<0$, ou $h=-\ell$ caso contrário; exige-se base
+total do assento $\geq2000$ contagens. O teste de vazio precede as divisões.
+Com $\Delta r>0$ e $\rho\geq0{,}7$, há reclinação apoiada: adota-se
+$d_{\mathrm{ef}}=|\Delta p|$; nos demais casos, $d_{\mathrm{ef}}=d$.
+Preserva-se assim a avaliação lateral sem alertar apenas por reclinar.
+A Figura~\ref{fig:met-fusao} apresenta os testes e a persistência temporal;
+são constantes de engenharia, não limites clínicos. Pernas cruzadas não
+têm alerta específico; avaliam-se os desvios do tronco e o escorregamento.
 
-Com $\Delta r>0$ e $\rho\geq0{,}7$, considera-se reclinação apoiada:
-usa-se $d_{\mathrm{ef}}=|\Delta p|$; nos demais casos,
-$d_{\mathrm{ef}}=d$. Assim, preserva-se a avaliação lateral sem alertar
-apenas pela inclinação para trás com apoio. A
-Figura~\ref{fig:met-fusao} apresenta a ordem dos testes. Não há alerta
-específico por pernas cruzadas; desvios do tronco ou escorregamento
-continuam sendo avaliados.
+Sem condição ruim, reinicia-se a contagem; na faixa de 7--10\degree{},
+conserva-se o estado anterior. IMU inválida, assento vazio, perda de enlace
+na cadeira e calibração aceita zeram o portão temporal. Sem USB, 10\,s de
+assento vazio apagam a referência. O painel recebe o estado por USB ou
+beacon BLE e exibe desvio, contato e alerta, sem participar da decisão.
 
 \begin{figure}[H]
  \centering
  \caption{Prioridade da regra de fusão e encaminhamento ao portão temporal.}
  \begin{SingleSpace}
- \begin{tikzpicture}[y=1.4cm,
+ \begin{tikzpicture}[y=1.12cm,
   q/.style={draw,align=center,font=\footnotesize,text width=5.3cm,
     minimum height=.65cm,inner sep=3pt},
   r/.style={draw,rounded corners,align=center,font=\footnotesize,
@@ -377,37 +304,3 @@ continuam sendo avaliados.
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-fusao}
 \end{figure}
-
-A condição ruim deve persistir por 3\,s, mesmo que mude de motivo.
-Sem condição ruim, a contagem reinicia; um alerta ativo só é liberado
-quando também $d_{\mathrm{ef}}<7\degree{}$. Na faixa intermediária,
-conserva-se o estado anterior. IMU inválida, assento vazio, perda de enlace
-na cadeira e calibração aceita zeram o portão. Sem host USB, 10\,s de
-assento vazio também apagam a referência. A Tabela~\ref{tab:met-constantes}
-resume as constantes de engenharia do protótipo, não limites clínicos.
-
-\begin{table}[H]
- \centering
- \begin{SingleSpace}
- \caption{Constantes da aquisição, calibração e detecção.}
- \footnotesize
- \begin{tabularx}{\linewidth}{@{}X l X l@{}}
-  \toprule
-  Parâmetro & Valor & Parâmetro & Valor \\
-  \midrule
-  Aquisição / calibração & 20\,Hz / 20 amostras & Perda de enlace & 1\,s \\
-  Disparo / liberação & 10\degree{} / 7\degree{} & Permanência & 3\,s \\
-  Escorregamento ($\rho$) & $<0{,}3$ & Reclinação ($\rho$) & $\geq0{,}7$ \\
-  Inclinação lateral & $\geq5\degree{}$ & Confirmação lateral ($h$) & $\geq0{,}08$ \\
-  Assento vazio ($S$) & $<2000$ cont. & Base traseira mínima & 1000 cont. \\
-  \bottomrule
- \end{tabularx}
- \fonte{Elaborado pelos autores (2026)}
- \label{tab:met-constantes}
- \end{SingleSpace}
-\end{table}
-
-O painel \texttt{mostra.py} recebe o estado por USB ou beacon BLE
-unidirecional e apresenta desvio, mapa dos oito sensores, tempo sentado
-e alerta. O painel permite acompanhar a operação, enquanto a decisão e
-a vibração independem do computador.

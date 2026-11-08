@@ -1,154 +1,77 @@
 \chapter{Revisão Bibliográfica}\label{cap:fund_teorica}
 
-\section{Ergonomia e distúrbios osteomusculares}
+\section{Postura sentada e avaliação postural}
 \label{sec:rev-ergonomia}
 
-A ergonomia busca adaptar o trabalho às características do ser humano, reduzindo
-riscos à saúde e aumentando a eficiência \cite{iida2016}. No escritório, em que a
-maior parte das tarefas é feita sentado diante do computador, a postura adotada
-influencia diretamente o desempenho e o bem-estar \cite{dul2012}, e mantê-la
-inadequada por longos períodos sobrecarrega o sistema musculoesquelético
-\cite{grandjean1998}.
-
-Os distúrbios osteomusculares relacionados ao trabalho (DORT) afetam músculos,
-tendões, articulações e nervos e são frequentes nessa população:
-\citeonline{okezue2020} encontraram prevalência de 71{,}9\,\% entre trabalhadores
-de escritório, com predomínio na região lombar, nos ombros e nos membros superiores,
-e \citeonline{mohammadian2025}, de 80{,}81\,\%, com maior incidência no pescoço, na
-coluna lombar e nos ombros. Os fatores de risco incluem posturas inadequadas,
-permanência prolongada em posição estática, mobiliário inadequado e ausência de
-pausas, agravados por fatores psicossociais \cite{mohammadian2025}. Intervenções
-ergonômicas apoiadas em tecnologia podem reduzir esses sintomas
-\cite{robertson2013}.
-
-\section{Métodos de avaliação postural}
-\label{sec:rev-metodos}
-
-Os sintomas costumam ser levantados pelo questionário nórdico
-\cite{kuorinka1987}, e o risco postural, por métodos observacionais. O RULA
-\cite{mcatamney1993} e o ROSA, voltado a estações de escritório
-\cite{sonne2012}, pontuam o risco por faixas de \textbf{ângulo de inclinação do
-tronco e do pescoço} --- no RULA, por exemplo, o pescoço é penalizado em faixas de
-10\degree{} de flexão. A norma ISO 11226 \cite{iso11226} combina o ângulo com o
-\textbf{tempo} de manutenção da postura. Esses dois elementos, ângulo do tronco e
-persistência no tempo, fundamentam o uso da inclinação medida por IMU e da espera
-antes do alerta neste trabalho, mas os limiares do sistema são desvios em relação à
+Os DORT afetam músculos, tendões, articulações e nervos. Entre seus fatores de
+risco estão a postura inadequada, a permanência prolongada em posição estática
+e a ausência de pausas, agravados por fatores psicossociais
+\cite{mohammadian2025}. O risco postural costuma ser avaliado por métodos
+observacionais: o RULA \cite{mcatamney1993} pontua faixas de \textbf{ângulo de
+inclinação do tronco e do pescoço} --- o pescoço é penalizado em faixas de
+10\degree{} de flexão ---, e a norma ISO 11226 \cite{iso11226} combina o ângulo
+com o \textbf{tempo} de manutenção da postura. Ângulo do tronco e persistência
+no tempo fundamentam, neste trabalho, a inclinação medida por IMU e a espera
+antes do alerta; os limiares do sistema, porém, são desvios em relação à
 postura de referência de cada usuário, e não ângulos absolutos de norma.
 
 \section{Sensores para monitoramento postural}
 \label{sec:rev-sensores}
 
 \textbf{Resistores sensíveis à força (FSR).} O FSR é um filme polimérico cuja
-resistência cai à medida que a força aplicada aumenta \cite{interlink_datasheet}.
-O modelo FSR402, da série FSR 400, tem área ativa de 12{,}7\,mm de diâmetro e faixa
-de sensibilidade de cerca de 0{,}2 a 20\,N, com curva força--resistência fortemente
-não linear, repetibilidade de $\pm$6\,\% entre peças, histerese média de +10\,\% e
-deriva sob carga constante (\emph{creep}) inferior a 5\,\% por década de tempo
-\cite{interlink_datasheet,interlink_guia}. O comportamento viscoelástico do polímero
-torna o \emph{creep} a limitação mais relevante para quem permanece sentado por
-longos períodos \cite{paredesmadrid2017}. O próprio fabricante afirma que o FSR não
-é uma célula de carga e que a exatidão em força varia de $\pm$6\,\% a $\pm$50\,\%
-conforme a montagem \cite{interlink_guia}. Por isso, o FSR deve ser usado como medida
-\textbf{relativa} de distribuição de carga --- comparando sensores entre si ou com
-uma linha de base própria ---, como faz este trabalho.
+resistência cai à medida que a força aplicada aumenta. O FSR402 tem área ativa
+de 12{,}7\,mm de diâmetro, faixa de cerca de 0{,}2 a 20\,N, curva
+força--resistência fortemente não linear, repetibilidade de $\pm$6\,\% entre
+peças e deriva sob carga constante (\emph{creep}) inferior a 5\,\% por década
+de tempo \cite{interlink_datasheet}. O \emph{creep}, de origem viscoelástica, é
+a limitação mais relevante para quem permanece sentado por longos períodos
+\cite{paredesmadrid2017}, e o fabricante adverte que o FSR não é uma célula de
+carga: a exatidão em força varia de $\pm$6\,\% a $\pm$50\,\% conforme a
+montagem \cite{interlink_guia}. O FSR serve, portanto, como medida
+\textbf{relativa} de distribuição de carga, comparando sensores entre si ou com
+uma linha de base própria.
 
-\textbf{Acelerômetros e IMUs.} Em repouso, o acelerômetro mede o vetor gravidade no
-referencial do sensor, do qual se obtêm os ângulos de arfagem (\emph{pitch}) e
-rolagem (\emph{roll}) \cite{pedley2013}. Essa estimativa estática supõe aceleração
-linear desprezível --- movimento e vibração contaminam o ângulo ---, não observa a
-guinada (\emph{yaw}) e é instável perto de $\pm$90\degree{} de arfagem
-\cite{pedley2013}. Para movimentos dinâmicos, combina-se o acelerômetro ao
-giroscópio, por exemplo com filtro de Kalman \cite{luinge2005};
-\citeonline{wong2008} validaram módulos com acelerômetro e giroscópio no tronco e
-na pelve contra captura óptica de movimento, com nove sujeitos. Como a postura
-sentada é quase estática, este trabalho usa apenas o acelerômetro. Duas limitações
-aparecem no sistema: a vibração do próprio motor de alerta contamina a leitura, e o
-ângulo absoluto depende de como o sensor assenta nas costas a cada uso, o que
-motiva a calibração por usuário em vez de um limiar absoluto.
+\textbf{Acelerômetros e IMUs.} Em repouso, o acelerômetro mede o vetor
+gravidade no referencial do sensor, do qual se obtêm os ângulos de arfagem
+(\emph{pitch}) e rolagem (\emph{roll}). A estimativa supõe aceleração linear
+desprezível, não observa a guinada (\emph{yaw}) e é instável perto de
+$\pm$90\degree{} de arfagem \cite{pedley2013}; movimentos dinâmicos exigem
+combiná-lo ao giroscópio. Como a postura sentada é quase estática, este
+trabalho usa apenas o acelerômetro. O ângulo absoluto, porém, depende de como
+o sensor assenta nas costas a cada uso, o que motiva a calibração por usuário.
 
 \section{Trabalhos relacionados}
 \label{sec:rev-relacionados}
 
-As primeiras cadeiras instrumentadas usavam mapas de pressão de alta resolução
-\cite{tan2001}; depois, evoluíram para poucos sensores discretos \cite{mutlu2007},
-sensores têxteis \cite{meyer2010,xu2013}, células de carga \cite{roh2018} e FSRs
-com um módulo inercial no encosto, que mede a inclinação da cadeira e não a do
-usuário \cite{zemp2016}. Nesses trabalhos a saída é a classificação da postura,
-sem retorno ao usuário. Outros acrescentam feedback na cadeira
-\cite{haller2011,zheng2013}; o LifeChair, almofada com sensores de pressão,
-vibração e aplicativo, observa que o índice de massa corporal altera o padrão de
-pressão \cite{bourahmoune2019}. Do lado vestível, um
-acelerômetro na cabeça ou no tronco alimenta biofeedback visual \cite{breen2009} ou
-vibratório \cite{kuo2021}. O BackWatch \cite{ferreira2025}, pôster da FEBRACE 2025,
-mede com dois sensores ultrassônicos no encosto o afastamento do usuário e alerta
-por display LCD acima de um limiar fixo; é montado na cadeira, e não vestível. Em
-revisão sistemática, \citeonline{kappattanavar2021} verificaram que 13 dos 14
-estudos usavam sensores de pressão, nenhum combinado a um IMU no corpo, e
-recomendaram incorporar IMUs para capturar o movimento da coluna. A
-Tabela~\ref{tab:rev-comparativo} resume os trabalhos mais próximos.
+As primeiras cadeiras instrumentadas usavam mapas de pressão de alta
+resolução \cite{tan2001}; as seguintes passaram a poucos sensores discretos.
+\citeonline{zemp2016} combinaram 16 FSRs a um módulo inercial no encosto, que
+mede a inclinação da cadeira, e não a do usuário, e classificaram sete
+posições. Nesses trabalhos a saída é a classificação da postura, sem retorno ao
+usuário. O LifeChair, almofada com sensores de pressão, vibração e aplicativo,
+acrescenta o retorno e observa que o índice de massa corporal altera o padrão
+de pressão \cite{bourahmoune2019}. Do lado vestível, um sensor no tronco que
+vibra quando este se curva reduziu a flexão do pescoço e a cifose torácica de
+21 adultos durante uma hora de digitação \cite{kuo2021}. A vibração não ocupa
+a visão, já dedicada à tela, mas é percebida como o retorno mais intrusivo
+\cite{haller2011}, e a evidência de efeito sustentado é fraca: em ensaio com
+trabalhadores, o retorno sobre a postura lombar não diferiu do grupo controle
+\cite{ribeiro2014}. O alerta deve, assim, disparar só depois que o desvio
+persiste, e o efeito em longo prazo não pode ser presumido a partir de testes
+curtos.
 
-\begin{table}[htbp]
-\centering
-\caption{Comparação entre trabalhos relacionados e o sistema proposto}
-\begin{SingleSpace}
-\footnotesize
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.0cm}
-                             >{\raggedright\arraybackslash}X
-                             >{\raggedright\arraybackslash}X
-                             >{\raggedright\arraybackslash}p{2.4cm}}
-\toprule
-\textbf{Trabalho} & \textbf{Sensores (local)} & \textbf{Saída / feedback} &
-\textbf{Calibração por usuário} \\
-\midrule
-\citeonline{tan2001} & Mapas de pressão (assento e encosto) &
-  Classificação (96\,\% / 79\,\%); sem feedback & Não descrita \\
-\citeonline{zemp2016} & 16 FSRs + IMU no encosto (cadeira) &
-  Classificação de 7 posições (90{,}9\,\%); sem feedback & Não (modelo geral) \\
-\citeonline{roh2018} & 4 células de carga (sob o assento) &
-  Classificação de 6 posturas (97{,}2\,\%); sem feedback & Não descrita \\
-\citeonline{zheng2013} & Sensores na cadeira & Vibrotátil ou visual &
-  Postura de referência \\
-\citeonline{bourahmoune2019} & Pressão (almofada) &
-  Classificação ($>$13 posturas) + vibração + aplicativo & Não descrita \\
-\citeonline{kuo2021} & Sensor vestível (tronco) & Vibração ao curvar o tronco &
-  Não descrita \\
-\citeonline{ferreira2025} & 2 ultrassônicos (encosto) &
-  Alerta visual (LCD), limiar fixo & Não \\
-\midrule
-\textbf{Este trabalho} & 8 FSR402 (assento e encosto) + IMU (alto das costas) &
-  Alerta decidido na cadeira; vibração no vestível & Sim (botão) \\
-\bottomrule
-\end{tabularx}
-\end{SingleSpace}
-\fonte{Elaborado pelos autores (2026), com base nas fontes citadas. Percentuais:
-acerto de classificação relatado pelos autores, com protocolos diferentes e,
-portanto, não comparáveis entre si}
-\label{tab:rev-comparativo}
-\end{table}
+O BackWatch \cite{ferreira2025}, pôster da FEBRACE 2025, mede com dois
+sensores ultrassônicos no encosto o afastamento do usuário e alerta por display
+LCD acima de um limiar fixo; é montado na cadeira, e não vestível. Na revisão
+sistemática de \citeonline{kappattanavar2021}, 13 dos 14 estudos usavam
+sensores de pressão e nenhum os combinava a um IMU no corpo; os autores
+recomendaram incorporar IMUs para capturar o movimento da coluna.
 
-Diante desse panorama, o sistema proposto ocupa uma lacuna em quatro aspectos:
-\textbf{funde} a distribuição de peso na cadeira com a orientação do tronco
-superior, que não toca a cadeira, de modo que cada canal cobre casos que o outro
-confunde (reclinar no encosto inclina o tronco sem ser prejudicial; escorregar no
-assento descarrega o apoio traseiro com pouca inclinação); fornece \textbf{feedback
-háptico} em tempo real no corpo; usa \textbf{calibração por usuário}, em vez de
-limiares absolutos ou modelos treinados em outras pessoas; e faz todo o
-\textbf{processamento embarcado}, sem aplicativo nem nuvem. O objetivo é
-\emph{detectar} postura prejudicial, e não maximizar o acerto de classificação.
-
-\section{Feedback háptico}
-\label{sec:rev-feedback}
-
-O biofeedback devolve ao usuário, em tempo real, uma informação sobre a própria
-postura para que ele se corrija. Com biofeedback visual, seis sujeitos monitorados
-por cinco horas reduziram a fração de tempo em postura inadequada
-\cite{breen2009}; com um vestível que vibra ao curvar o tronco, 21 adultos
-reduziram a flexão do pescoço e a cifose torácica durante uma hora de digitação
-\cite{kuo2021}. A vibração não diferiu significativamente do feedback visual
-\cite{zheng2013} e não ocupa a visão, já dedicada à tela, mas é percebida como
-a mais intrusiva \cite{haller2011}. A evidência de efeito sustentado é fraca: em
-ensaios com trabalhadores, o feedback de postura lombar não diferiu
-significativamente do grupo controle \cite{ribeiro2014} nem de um dispositivo
-simulado \cite{ribeiro2020}, o que indica que o alerta deve ser pouco intrusivo
---- só após o desvio persistir --- e que o efeito em longo prazo não pode ser
-presumido a partir de testes curtos.
+O sistema proposto ocupa essa lacuna em quatro aspectos: \textbf{funde} a
+distribuição de peso na cadeira com a orientação do tronco superior, que não
+toca a cadeira, de modo que cada canal cobre casos que o outro confunde
+(reclinar inclina o tronco sem ser prejudicial; escorregar descarrega o apoio
+traseiro do assento com pouca inclinação); fornece \textbf{retorno háptico} em
+tempo real no corpo; usa \textbf{calibração por usuário}, em vez de limiares
+absolutos ou modelos treinados em outras pessoas; e faz todo o
+\textbf{processamento embarcado}, sem aplicativo nem nuvem.

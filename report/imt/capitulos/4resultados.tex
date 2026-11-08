@@ -3,81 +3,62 @@
 \section{Protocolos de teste}
 \label{sec:res-protocolos}
 
-Em junho de 2026, caracterizaram-se separadamente o IMU, com um participante
-e sem o colar final, e três FSR402, com cargas aplicadas sobre uma balança.
-Avaliaram-se posturas mantidas, retiradas e recolocações do IMU, curvas de
-carga e descarga e acomodação dos FSRs sob carga constante.
+Em junho de 2026, caracterizaram-se o IMU, com um participante e sem o
+colar final, e três FSR402, com cargas sobre balança. Avaliaram-se posturas,
+recolocações do IMU, carga/descarga e acomodação dos FSRs.
 
-Em 21/10/2026, o sistema completo foi registrado em nove sessões de oito
-participantes, com motor mudo para evitar autocorreção e interferência na
-aquisição. A Tabela~\ref{tab:res-posturas} apresenta as posturas instruídas,
-mantidas por cerca de 15\,s; transições não foram pontuadas. Aproveitaram-se
-123 segmentos e 50{,}74\,min, sob calibração válida e excluídos os primeiros
-2\,s de cada segmento. Os rótulos representam a instrução do operador,
-sem medida anatômica independente.
+Em 21/10/2026, nove sessões com oito participantes registraram o sistema
+com motor mudo. As posturas instruídas foram: (1) ereto, (2) curvado à
+frente, (3) cabeça à frente com tronco apoiado, (4) escorregado,
+(5--6) inclinado à esquerda/direita, (7) reclinado e (8--9) perna
+esquerda sobre direita/direita sobre esquerda. Espera-se alerta em 2--6.
+Mantiveram-se as posturas por cerca de 15\,s; aproveitaram-se 123 segmentos
+e 50{,}74\,min com calibração válida, sem transições e os 2\,s iniciais.
+Os rótulos são instruções do operador, sem medida anatômica independente.
 
-\begin{table}[H]
-  \centering
-  \caption{Posturas do protocolo integrado e resposta esperada.}
-  \begingroup\SingleSpacing
-  \small
-  \begin{tabularx}{\linewidth}{@{}cXc@{}}
-    \toprule
-    Código & Postura & Alerta esperado \\
-    \midrule
-    1 & Ereto & Não \\
-    2 & Curvado à frente & Sim \\
-    3 & Cabeça à frente, com tronco apoiado & Sim \\
-    4 & Escorregado, com quadril à frente & Sim \\
-    5 e 6 & Inclinado à esquerda e à direita & Sim \\
-    7 & Reclinado, com quadril ao fundo & Não \\
-    8 e 9 & Perna esquerda sobre direita e direita sobre esquerda & Não \\
-    \bottomrule
-  \end{tabularx}
-  \fonte[Fonte]{Elaborado pelos autores (2026)}
-  \label{tab:res-posturas}
-  \endgroup
-\end{table}
-
-A decisão foi reproduzida em ordem temporal (\textit{replay}), comparando
-só-IMU e fusão; no LOSO (\textit{leave-one-subject-out}), ajustaram-se os
-parâmetros com sete sujeitos e avaliou-se o omitido, mantendo juntas as duas
-sessões de André. A pontuação é a média entre a fração temporal de alerta
-nos segmentos prejudiciais e a de ausência de alerta nos aceitáveis,
-incluindo pernas cruzadas, com igual peso por segmento dentro de cada grupo.
-Em 22/10, realizaram-se duas sessões em hardware com motor ativo, uma com
-participante conhecido e outra com sujeito novo; a mostra Eureka, em
-novembro, constituiu avaliação qualitativa.
+Compararam-se as regras por reprodução temporal (\textit{replay}). No LOSO
+(\textit{leave-one-subject-out}), ajustam-se os parâmetros com sete sujeitos
+e avalia-se o omitido; as sessões de André ficam juntas. A pontuação
+balanceada é a média entre tempo alertado nos segmentos prejudiciais e
+não alertado nos aceitáveis, incluindo pernas cruzadas, com igual peso por
+segmento em cada grupo. Em 22/10, duas sessões em hardware usaram motor
+ativo, com participante conhecido e sujeito novo.
 
 \section{Caracterização em bancada}
 \label{sec:res-bancada}
 
-Nas quatro remontagens do IMU, a referência ereta variou aproximadamente
-8\degree{} em \textit{pitch} e 21{,}6\degree{} em \textit{roll}, valores
-comparáveis ao desvio a detectar. Essa mudança de montagem, e não deriva
-por integração do giroscópio, sustenta a calibração individual após colocar
-o colar. O limiar inicial de 10\degree{} separou ereto e posturas
-inadequadas nessa bancada, restrita a um participante e movimentos
-pronunciados; isso não assegurou a mesma separação nas capturas integradas.
-
-Nos FSR402, a resistência decresceu de forma não linear com a carga.
-A histerese média absoluta foi próxima de 52\,\% até 400\,g e de 6\,\%
-a partir de 1\,kg. Sob 1\,kg constante, a resistência caiu 7{,}4\,\%
-e 11{,}5\,\% em dois sensores, em cerca de 11 e 12 minutos,
-respectivamente. Histerese, \textit{creep} e dispersão entre peças
-justificam usar os FSRs como indicadores de contato e pressão relativa:
-comparam-se grupos do assento à linha de base individual, sem converter
-leituras em força absoluta.
+Nas quatro remontagens de bancada, a referência ereta variou cerca de
+8\degree{} em \textit{pitch} e 21{,}6\degree{} em \textit{roll},
+sustentando a calibração após vestir o colar. Nos FSRs, a histerese média
+absoluta foi próxima de 52\,\% até 400\,g e 6\,\% a partir de 1\,kg.
+Sob 1\,kg constante, a resistência caiu 7{,}4\,\% e 11{,}5\,\% em dois
+sensores, em cerca de 11 e 12 minutos. A não linearidade, a histerese e o
+\textit{creep} justificam medidas relativas à linha de base individual.
 
 \section{Detecção nas capturas integradas}
 \label{sec:res-deteccao}
 
-A Tabela~\ref{tab:res-comparacao} compara as regras no mesmo recorte.
-A fusão final foi ajustada com o conjunto completo; o LOSO avalia a
-transferência dos parâmetros ao sujeito omitido. A referência só-IMU
-não foi ajustada a essas capturas. Um segmento detectado contém ao menos
-um alerta, inclusive iniciado antes do rótulo; esse indicador não implica
-aviso sustentado, razão pela qual também se informa o tempo alertado.
+A Figura~\ref{fig:res-dispersao} mostra a dispersão entre pessoas e
+colocações no espaço absoluto, reduzida no ereto pela calibração.
+Ainda assim, escorregado e reclinado se sobrepõem: suas médias
+$(\Delta p,\Delta r)$ são $(-1{,}1;10{,}7)\degree{}$ e
+$(-1{,}0;13{,}5)\degree{}$. A orientação isolada não informa o apoio do
+quadril, o que motiva os FSRs.
+
+\begin{figure}[H]
+  \centering
+  \caption{Dispersão angular nas capturas integradas: amostras estáveis
+  e média $\pm1\sigma$ por postura, reunindo os oito participantes.}
+  \includegraphics[width=\linewidth]{res_dispersao_posturas.png}
+  \fonte[Fonte]{Elaborado pelos autores (2026)}
+  \label{fig:res-dispersao}
+\end{figure}
+
+A Tabela~\ref{tab:res-comparacao} compara o mesmo recorte. A fusão final
+foi ajustada com todos os dados; o LOSO avalia a transferência ao sujeito
+omitido. A regra só-IMU não foi ajustada a essas capturas. Considera-se
+detectado o segmento com ao menos um alerta, mesmo iniciado antes do
+rótulo; por isso, informa-se também o tempo alertado.
 
 \begin{table}[H]
   \centering
@@ -100,19 +81,17 @@ aviso sustentado, razão pela qual também se informa o tempo alertado.
   \endgroup
 \end{table}
 
-A Figura~\ref{fig:res-alerta-sujeitos} evidencia diferenças entre
-participantes. Curvar à frente, escorregar e inclinar à esquerda foram
-alertados durante todo o tempo avaliado com a fusão final. Cabeça à frente
-não foi detectada em três dos sete participantes que a realizaram:
-o movimento localizado do pescoço pouco alterou o IMU no alto das costas
-e preservou o contato com a cadeira. Na inclinação à direita de Vinicius,
-o desvio próximo ao limiar e a redistribuição de carga oposta à esperada
-limitaram o alerta a 38\,\% do tempo.
+Na Figura~\ref{fig:res-alerta-sujeitos}, curvar à frente, escorregar e
+inclinar à esquerda alertaram durante todo o recorte com a fusão final.
+Cabeça à frente falhou em três de sete participantes: o movimento
+localizado pouco alterou o IMU e preservou o contato. À direita de
+Vinicius, desvio próximo ao limiar e carga oposta à esperada limitaram
+o alerta a 38\,\% do tempo.
 
 \begin{figure}[H]
   \centering
   \caption{Tempo com alerta por participante e postura: fusão final.}
-  \includegraphics[width=0.96\linewidth]{res_alerta_sujeitos.png}
+  \includegraphics[width=\linewidth]{res_alerta_sujeitos.png}
   \fonte[Fonte]{Elaborado pelos autores (2026)}
   \label{fig:res-alerta-sujeitos}
   \begingroup\SingleSpacing
@@ -123,37 +102,28 @@ limitaram o alerta a 38\,\% do tempo.
   \endgroup
 \end{figure}
 
-Em Felipe, o desvio lateral permaneceu próximo de 10\degree{} após uma
-inclinação, sem mudança correspondente no assento, compatível com
-deslocamento mecânico do colar. Isso gerou falsos alarmes no reclinado e
-com pernas cruzadas. Posturas mistas também limitaram a interpretação:
-Vinicius escorregou ao cruzar as pernas, produzindo alerta fisicamente
-justificável, mas contado como falso alarme pelo rótulo.
-
-Na ablação cumulativa, o maior incremento de pontuação veio do tratamento
-da reclinação apoiada; a confirmação lateral acrescentou ganho menor e
-também falsos alarmes com pernas cruzadas. Os incrementos dependem da ordem
-de inclusão das regras. A supressão por presença não alterou os segmentos
-sentados, mas eliminou alertas nos intervalos de cadeira vazia.
+Em Felipe, desvio lateral próximo de 10\degree{} sem alteração no
+assento foi compatível com deslocamento do colar e gerou falsos alarmes.
+Vinicius escorregou ao cruzar as pernas: um alerta justificável foi contado
+como falso pelo rótulo. Na ablação cumulativa, o maior ganho veio do
+tratamento da reclinação apoiada; a confirmação lateral também acrescentou
+falsos alarmes com pernas cruzadas.
 
 \section{Validação em hardware e mostra}
 \label{sec:res-hardware}
 
-Na rodada guiada de André, já presente no desenvolvimento, o alerta
-registrado nas placas esteve ativo em 100\,\% do tempo estabilizado das
-posturas 2--6 e em 0\,\% das demais. O participante percebeu a vibração
-e sua interrupção ao retornar ao ereto, verificando o percurso entre
-sensores, decisão na cadeira e atuação no colar.
+Na rodada guiada de André, participante do desenvolvimento, o alerta
+nas placas ocupou 100\,\% do tempo estabilizado de 2--6 e 0\,\% das
+demais posturas. Perceberam-se a vibração e sua interrupção ao retornar ao
+ereto, verificando sensores, decisão e atuação.
 
 Lucas, sujeito novo, realizou roteiro parcial: curvar à frente e escorregar
-alertaram em 100\,\% do tempo estabilizado, mas a inclinação à direita
-não foi detectada. Na inclinação à esquerda, o alerta ocupou apenas
-9{,}2\,\% desse tempo: a vibração perturbou o IMU em cerca de
-$\pm10\degree{}$, desligando o alerta e reiniciando a espera de 3\,s.
-A correção posterior passou a transmitir a última orientação obtida com
-motor desligado durante a vibração. O replay com retenção elevou o alerta
-nessa inclinação para 100\,\%, mas não houve nova sessão controlada em
-hardware que confirmasse a correção.
+alertaram em 100\,\% do tempo estabilizado; inclinar à direita não
+alertou. À esquerda, o alerta ocupou 9{,}2\,\%: a vibração perturbou o
+IMU em cerca de $\pm10\degree{}$, interrompendo o alerta e reiniciando
+os 3\,s. A correção reteve a última orientação sem motor durante a
+vibração e elevou o alerta a 100\,\% no replay, sem nova sessão controlada
+em hardware para confirmá-la.
 
 Na mostra Eureka, em novembro, mais de 150 visitantes de biotipos
 variados usaram o sistema com calibração individual e retorno vibratório;
@@ -168,36 +138,16 @@ nominal, a célula de 1800\,mAh daria da ordem de 60\,h, valor não medido.
 \section{Discussão}
 \label{sec:res-discussao}
 
-O IMU informa orientação do tronco; a cadeira acrescenta presença e apoio
-do quadril. Com a fusão final, o falso alarme no reclinado caiu de 78\,\%
-para 5\,\% do tempo, enquanto o escorregado passou de 72\,\% para
-100\,\% de tempo alertado. Em cerca de 176\,s de cadeira vazia, o alerta
-caiu de 71\,s para zero. Embora oito FSRs sejam registrados, os índices
-decisivos vêm do assento; não se demonstrou contribuição equivalente dos
-oito pontos. Detectar o desvio prejudicial é o objetivo principal;
-atribuir uma classe única a posturas mistas é informação complementar.
+Com a fusão final, o alerta no reclinado caiu de 78\,\% para 5\,\%
+do tempo; no escorregado, subiu de 72\,\% para 100\,\%. Em cerca de
+176\,s de cadeira vazia, caiu de 71\,s para zero. O ganho decorre do
+apoio e da presença medidos no assento; não se demonstrou contribuição
+equivalente dos oito FSRs. Detectar o desvio é o objetivo; nomear posturas
+mistas é complementar.
 
-\citeonline{tan2001} relataram queda de classificação de 96\,\% para
-79\,\% em usuários novos. Aqui, a calibração individual e o LOSO tratam
-a transferência entre pessoas, mas métricas, posturas e amostras distintas
-impedem comparação direta de desempenho. Nenhum estudo da revisão de
-\citeonline{kappattanavar2021} combina pressão na cadeira com IMU
-vestível, combinação que permitiu distinguir reclinação apoiada de
-escorregamento neste conjunto.
-
-Os resultados indicam viabilidade técnica do detector, sob as seguintes
-limitações:
-\begin{itemize}
-  \setlength{\itemsep}{0pt}
-  \setlength{\parsep}{0pt}
-  \item Oito participantes nas capturas, de biotipos variados, e um novo
-  na validação: suficientes para demonstrar viabilidade, não para
-  estatística inferencial; posturas instruídas, sem ensaio prolongado.
-  \item Falhas com cabeça à frente e deslocamento do colar; a correção
-  da interferência do motor permanece sem revalidação controlada em hardware.
-  \item Pernas cruzadas sem padrão comum entre sujeitos; não alertar por
-  essa postura é uma opção de escopo, sem conclusão clínica sobre ela.
-  \item Corrente e latência entre início físico da postura e vibração não
-  medidas em bancada; não se avaliou mudança duradoura de hábitos ou
-  prevenção de distúrbios musculoesqueléticos.
-\end{itemize}
+As capturas instruídas com oito participantes e um novo na validação
+demonstram viabilidade, sem ensaio prolongado ou inferência populacional.
+Persistem falhas com cabeça à frente, deslocamento do colar e posturas
+mistas. Não alertar por pernas cruzadas é opção de escopo, sem conclusão
+clínica. Não se mediram corrente e latência em bancada nem efeitos
+duradouros sobre hábitos ou distúrbios musculoesqueléticos.
