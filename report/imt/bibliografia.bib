@@ -1,0 +1,479 @@
+% Referências (ABNT via abntex2cite, estilo abntex2-alf). Chaves: sobrenomeANO, ex.: okezue2020.
+% Fonte: report/final/referencias.tex (já conferida).
+% Notas de formatação (abntex2-alf.bst):
+%  - o .bst não tem campo `doi`: o DOI sai pelo campo `note` ("DOI: \abntdoi{...}");
+%    \abntdoi (definido no @preamble abaixo) = \url sem os < > que o
+%    abntex2cite põe em toda URL; quebra a linha sem inserir hífen.
+%    O campo `doi` fica só como metadado (ignorado pelo estilo).
+%  - número de artigo eletrônico (e21105, 5430...) vai junto do `number`
+%    (ou do `volume`, quando não há número) para sair "n. 1, e21105" sem "p.".
+%  - acentos em nomes/eventos como {\'O}, {\~a}, {\^e}: o BibTeX só converte
+%    para maiúsculas os acentos escritos assim.
+%  - sem data: year = {{[2012?a]}} (data provável, NBR 6023); as chaves extras
+%    protegem os colchetes dentro do \bibitem[...] gerado.
+%  - autor-entidade em CAIXA ALTA entre chaves duplas, para a citação sair
+%    (INTERLINK ELECTRONICS, [2012?a]).
+
+@preamble{ "\providecommand{\abntdoi}{}\DeclareUrlCommand\abntdoi{\def\UrlLeft{}\def\UrlRight{}}" }
+
+% ---------------------------------------------------------------------------
+% Literatura
+% ---------------------------------------------------------------------------
+
+@inproceedings{bourahmoune2019,
+  author             = {Bourahmoune, K. and Amagasa, T.},
+  title              = {{AI}-powered posture training},
+  subtitle           = {application of machine learning in sitting posture recognition using the {LifeChair} smart cushion},
+  organization       = {International Joint Conference on Artificial Intelligence},
+  conference-number  = {28},
+  conference-year    = {2019},
+  conference-location = {Macau},
+  booktitle          = {Proceedings [\ldots]},
+  address            = {[S.l.]},
+  publisher          = {IJCAI},
+  year               = {2019},
+  pages              = {5808--5814},
+  doi                = {10.24963/ijcai.2019/805},
+  note               = {DOI: \abntdoi{10.24963/ijcai.2019/805}},
+}
+
+@inproceedings{breen2009,
+  author             = {Breen, P. P. and Nisar, A. and {\'O}Laighin, G.},
+  title              = {Evaluation of a single accelerometer based biofeedback system for real-time correction of neck posture in computer users},
+  organization       = {Annual International Conference of the {IEEE} Engineering in Medicine and Biology Society},
+  conference-number  = {31},
+  conference-year    = {2009},
+  conference-location = {Minneapolis},
+  booktitle          = {Proceedings [\ldots]},
+  address            = {Piscataway},
+  publisher          = {IEEE},
+  year               = {2009},
+  pages              = {7269--7272},
+  doi                = {10.1109/IEMBS.2009.5334726},
+  note               = {DOI: \abntdoi{10.1109/IEMBS.2009.5334726}},
+}
+
+@book{dul2012,
+  author    = {Dul, J. and Weerdmeester, B.},
+  title     = {Ergonomia prática},
+  edition   = {3},
+  address   = {São Paulo},
+  publisher = {Edgard Blücher},
+  year      = {2012},
+}
+
+@inproceedings{ferreira2025,
+  author             = {Ferreira, J. A. and de Souza, R. A. and Cubas, J. J. M.},
+  title              = {Desenvolvimento de um sistema de monitoramento e alerta de postura utilizando sensores integrados em cadeira},
+  subtitle           = {aplicação do {BackWatch} para melhoria da ergonomia},
+  organization       = {Feira Brasileira de Ci{\^e}ncias e Engenharia ({FEBRACE})},
+  conference-year    = {2025},
+  conference-location = {São Paulo},
+  booktitle          = {Mostra virtual},
+  booksubtitle       = {projeto {SAU-8347}},
+  address            = {São Paulo},
+  publisher          = {FEBRACE},
+  year               = {2025},
+  note               = {Pôster},
+  url                = {https://virtual.febrace.org.br/2025/SAU/8347},
+  urlaccessdate      = {8 nov. 2026},
+}
+
+@book{grandjean1998,
+  author    = {Grandjean, E.},
+  title     = {Manual de ergonomia},
+  subtitle  = {adaptando o trabalho ao homem},
+  edition   = {4},
+  address   = {Porto Alegre},
+  publisher = {Bookman},
+  year      = {1998},
+}
+
+@inproceedings{haller2011,
+  author             = {Haller, M. and others},
+  title              = {Finding the right way for interrupting people improving their sitting posture},
+  organization       = {{IFIP} {TC} 13 International Conference on Human-Computer Interaction ({INTERACT})},
+  conference-number  = {13},
+  conference-year    = {2011},
+  conference-location = {Lisboa},
+  booktitle          = {Human-Computer Interaction --- {INTERACT} 2011},
+  booksubtitle       = {part {II}},
+  address            = {Berlin},
+  publisher          = {Springer},
+  year               = {2011},
+  pages              = {1--17},
+  doi                = {10.1007/978-3-642-23771-3_1},
+  note               = {(Lecture Notes in Computer Science, v. 6947). DOI: \abntdoi{10.1007/978-3-642-23771-3_1}},
+}
+
+@book{iida2016,
+  author    = {Iida, I. and Guimar{\~a}es, L. B. M.},
+  title     = {Ergonomia},
+  subtitle  = {projeto e produção},
+  edition   = {3},
+  address   = {São Paulo},
+  publisher = {Edgard Blücher},
+  year      = {2016},
+}
+
+@manual{interlink_datasheet,
+  author        = {{INTERLINK ELECTRONICS}},
+  title         = {{FSR}\textsuperscript{\textregistered} 400 Series data sheet},
+  address       = {[S.l.]},
+  organization  = {Interlink Electronics},
+  year          = {{[2012?a]}},
+  note          = {P/N PDS-10004-C},
+  url           = {https://www.teachengineering.org/content/uconn_/activities/uconn-2662-contractions-calculations-force-resistance-activity/uconn-2662-contractions-calculations-FSR400series-datasheet.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+@manual{interlink_guia,
+  author        = {{INTERLINK ELECTRONICS}},
+  title         = {{FSR}\textsuperscript{\textregistered} integration guide},
+  address       = {[S.l.]},
+  organization  = {Interlink Electronics},
+  year          = {{[2012?b]}},
+  note          = {Doc. 94-00004 Rev. C},
+  url           = {https://www.pololu.com/file/0J749/FSR400-Series-Integration-Guide-13.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+@book{iso11226,
+  author    = {{INTERNATIONAL ORGANIZATION FOR STANDARDIZATION}},
+  title     = {{ISO} 11226},
+  subtitle  = {ergonomics --- evaluation of static working postures},
+  address   = {Geneva},
+  publisher = {ISO},
+  year      = {2000},
+}
+
+@article{kappattanavar2021,
+  author  = {Kappattanavar, A. M. and others},
+  title   = {Monitoring of sitting postures with sensor networks in controlled and free-living environments},
+  subtitle = {systematic review},
+  journal = {JMIR Biomedical Engineering},
+  volume  = {6},
+  number  = {1, e21105},
+  year    = {2021},
+  doi     = {10.2196/21105},
+  note    = {DOI: \abntdoi{10.2196/21105}},
+}
+
+@article{kuo2021,
+  author  = {Kuo, Y.-L. and others},
+  title   = {Sitting posture during prolonged computer typing with and without a wearable biofeedback sensor},
+  journal = {International Journal of Environmental Research and Public Health},
+  volume  = {18},
+  number  = {10, 5430},
+  year    = {2021},
+  doi     = {10.3390/ijerph18105430},
+  note    = {DOI: \abntdoi{10.3390/ijerph18105430}},
+}
+
+@article{kuorinka1987,
+  author  = {Kuorinka, I. and others},
+  title   = {Standardised {Nordic} questionnaires for the analysis of musculoskeletal symptoms},
+  journal = {Applied Ergonomics},
+  volume  = {18},
+  number  = {3},
+  pages   = {233--237},
+  year    = {1987},
+}
+
+@article{luinge2005,
+  author  = {Luinge, H. J. and Veltink, P. H.},
+  title   = {Measuring orientation of human body segments using miniature gyroscopes and accelerometers},
+  journal = {Medical and Biological Engineering and Computing},
+  volume  = {43},
+  pages   = {273--282},
+  year    = {2005},
+  doi     = {10.1007/BF02345966},
+  note    = {DOI: \abntdoi{10.1007/BF02345966}},
+}
+
+@article{mcatamney1993,
+  author  = {McAtamney, L. and Corlett, E. N.},
+  title   = {{RULA}},
+  subtitle = {a survey method for the investigation of work-related upper limb disorders},
+  journal = {Applied Ergonomics},
+  volume  = {24},
+  number  = {2},
+  pages   = {91--99},
+  year    = {1993},
+}
+
+@article{meyer2010,
+  author  = {Meyer, J. and others},
+  title   = {Design and modeling of a textile pressure sensor for sitting posture classification},
+  journal = {IEEE Sensors Journal},
+  volume  = {10},
+  number  = {8},
+  pages   = {1391--1398},
+  year    = {2010},
+  doi     = {10.1109/JSEN.2009.2037330},
+  note    = {DOI: \abntdoi{10.1109/JSEN.2009.2037330}},
+}
+
+% Autores conferidos na web (PMC12749865) em 8 nov. 2026; a fonte só dava o sobrenome.
+@article{mohammadian2025,
+  author  = {Mohammadian, M. and Mollahoseini, S. and Naghibzadeh-Tahami, A.},
+  title   = {Musculoskeletal disorders among office workers},
+  subtitle = {prevalence, ergonomic risk factors, and their interrelationships},
+  journal = {Scientific Reports},
+  volume  = {15},
+  number  = {45425},
+  year    = {2025},
+  doi     = {10.1038/s41598-025-30155-6},
+  note    = {DOI: \abntdoi{10.1038/s41598-025-30155-6}},
+}
+
+@inproceedings{mutlu2007,
+  author             = {Mutlu, B. and others},
+  title              = {Robust, low-cost, non-intrusive sensing and recognition of seated postures},
+  organization       = {Annual {ACM} Symposium on User Interface Software and Technology},
+  conference-number  = {20},
+  conference-year    = {2007},
+  conference-location = {Newport},
+  booktitle          = {Proceedings [\ldots]},
+  address            = {New York},
+  publisher          = {ACM},
+  year               = {2007},
+  pages              = {149--158},
+  doi                = {10.1145/1294211.1294237},
+  note               = {DOI: \abntdoi{10.1145/1294211.1294237}},
+}
+
+@article{okezue2020,
+  author  = {Okezue, O. C. and others},
+  title   = {Work-related musculoskeletal disorders among office workers in higher education institutions},
+  subtitle = {a cross-sectional study},
+  journal = {Ethiopian Journal of Health Sciences},
+  volume  = {30},
+  number  = {5},
+  pages   = {715--724},
+  year    = {2020},
+}
+
+@article{paredesmadrid2017,
+  author  = {Paredes-Madrid, L. and others},
+  title   = {Underlying physics of conductive polymer composites and force sensing resistors ({FSRs})},
+  subtitle = {a study on creep response and dynamic loading},
+  journal = {Materials},
+  volume  = {10},
+  number  = {11, 1334},
+  year    = {2017},
+  doi     = {10.3390/ma10111334},
+  note    = {DOI: \abntdoi{10.3390/ma10111334}},
+}
+
+@techreport{pedley2013,
+  author        = {Pedley, M.},
+  title         = {Tilt sensing using a three-axis accelerometer},
+  address       = {[S.l.]},
+  institution   = {Freescale Semiconductor},
+  organization  = {Freescale Semiconductor},
+  year          = {2013},
+  note          = {Application Note AN3461, Rev. 6},
+  url           = {https://www.nxp.jp/docs/en/application-note/AN3461.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+@article{ribeiro2014,
+  author  = {Ribeiro, D. C. and Sole, G. and Abbott, J. H. and Milosavljevic, S.},
+  title   = {The effectiveness of a lumbopelvic monitor and feedback device to change postural behavior},
+  subtitle = {a feasibility randomized controlled trial},
+  journal = {Journal of Orthopaedic \& Sports Physical Therapy},
+  volume  = {44},
+  number  = {9},
+  pages   = {702--711},
+  year    = {2014},
+  doi     = {10.2519/jospt.2014.5009},
+  note    = {DOI: \abntdoi{10.2519/jospt.2014.5009}},
+}
+
+@article{ribeiro2020,
+  author  = {Ribeiro, D. C. and others},
+  title   = {Effectiveness of a lumbopelvic monitor and feedback device to change postural behaviour},
+  subtitle = {the {ELF} cluster randomised controlled trial},
+  journal = {Occupational and Environmental Medicine},
+  volume  = {77},
+  number  = {7},
+  pages   = {462--469},
+  year    = {2020},
+  doi     = {10.1136/oemed-2019-106293},
+  note    = {DOI: \abntdoi{10.1136/oemed-2019-106293}},
+}
+
+@article{robertson2013,
+  author  = {Robertson, M. and Ciriello, V. and Garabet, A.},
+  title   = {Office ergonomics training and a sit-stand workstation},
+  subtitle = {effects on musculoskeletal and visual symptoms and performance of office workers},
+  journal = {Applied Ergonomics},
+  volume  = {44},
+  number  = {1},
+  pages   = {73--85},
+  year    = {2013},
+}
+
+@article{roh2018,
+  author  = {Roh, J. and others},
+  title   = {Sitting posture monitoring system based on a low-cost load cell using machine learning},
+  journal = {Sensors},
+  volume  = {18},
+  number  = {1, 208},
+  year    = {2018},
+  doi     = {10.3390/s18010208},
+  note    = {DOI: \abntdoi{10.3390/s18010208}},
+}
+
+@article{sonne2012,
+  author  = {Sonne, M. and Villalta, D. L. and Andrews, D. M.},
+  title   = {Development and evaluation of an office ergonomic risk checklist},
+  subtitle = {{ROSA} --- Rapid Office Strain Assessment},
+  journal = {Applied Ergonomics},
+  volume  = {43},
+  number  = {1},
+  pages   = {98--108},
+  year    = {2012},
+}
+
+@article{tan2001,
+  author  = {Tan, H. Z. and Slivovsky, L. A. and Pentland, A.},
+  title   = {A sensing chair using pressure distribution sensors},
+  journal = {IEEE/ASME Transactions on Mechatronics},
+  volume  = {6},
+  number  = {3},
+  pages   = {261--268},
+  year    = {2001},
+  doi     = {10.1109/3516.951364},
+  note    = {DOI: \abntdoi{10.1109/3516.951364}},
+}
+
+@article{wong2008,
+  author  = {Wong, W. Y. and Wong, M. S.},
+  title   = {Trunk posture monitoring with inertial sensors},
+  journal = {European Spine Journal},
+  volume  = {17},
+  number  = {5},
+  pages   = {743--753},
+  year    = {2008},
+  doi     = {10.1007/s00586-008-0586-0},
+  note    = {DOI: \abntdoi{10.1007/s00586-008-0586-0}},
+}
+
+@article{xu2013,
+  author  = {Xu, W. and others},
+  title   = {{eCushion}},
+  subtitle = {a textile pressure sensor array design and calibration for sitting posture analysis},
+  journal = {IEEE Sensors Journal},
+  volume  = {13},
+  number  = {10},
+  pages   = {3926--3934},
+  year    = {2013},
+  doi     = {10.1109/JSEN.2013.2259589},
+  note    = {DOI: \abntdoi{10.1109/JSEN.2013.2259589}},
+}
+
+@article{zemp2016,
+  author  = {Zemp, R. and others},
+  title   = {Application of machine learning approaches for classifying sitting posture based on force and acceleration sensors},
+  journal = {BioMed Research International},
+  volume  = {2016, 5978489},
+  year    = {2016},
+  doi     = {10.1155/2016/5978489},
+  note    = {DOI: \abntdoi{10.1155/2016/5978489}},
+}
+
+@article{zheng2013,
+  author  = {Zheng, Y. and Morrell, J. B.},
+  title   = {Comparison of visual and vibrotactile feedback methods for seated posture guidance},
+  journal = {IEEE Transactions on Haptics},
+  volume  = {6},
+  number  = {1},
+  pages   = {13--23},
+  year    = {2013},
+  doi     = {10.1109/TOH.2012.3},
+  note    = {DOI: \abntdoi{10.1109/TOH.2012.3}},
+}
+
+% ---------------------------------------------------------------------------
+% Componentes (documentos conferidos na web em 8 nov. 2026)
+% ---------------------------------------------------------------------------
+
+% Cópia do PDF da ST hospedada pela Seeed (st.com bloqueia download automático):
+% capa "DocID030071 Rev 3", histórico de revisões 03-May-2017.
+@manual{st_lsm6ds3trc,
+  author        = {{STMICROELECTRONICS}},
+  title         = {{LSM6DS3TR-C}},
+  subtitle      = {{iNEMO} inertial module: always-on {3D} accelerometer and {3D} gyroscope},
+  address       = {[S.l.]},
+  organization  = {STMicroelectronics},
+  year          = {2017},
+  note          = {Datasheet DocID030071 Rev. 3},
+  url           = {https://files.seeedstudio.com/wiki/XIAO-BLE/ST_LSM6DS3TR_Datasheet.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+% Capa: "nRF52840 Product Specification v1.5", 4413_417 v1.5 / 2021-09-06.
+@manual{nordic_nrf52840,
+  author        = {{NORDIC SEMICONDUCTOR}},
+  title         = {{nRF52840} product specification},
+  address       = {[S.l.]},
+  organization  = {Nordic Semiconductor},
+  year          = {2021},
+  note          = {Doc. 4413\_417 v1.5},
+  url           = {https://files.seeedstudio.com/wiki/XIAO-BLE/nRF52840_PS_v1.5.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+% Capa: "SCHS209D – NOVEMBER 1998 – REVISED DECEMBER 2024".
+@manual{ti_cd74hc4067,
+  author        = {{TEXAS INSTRUMENTS}},
+  title         = {{CD74HCx4067} high-speed {CMOS} logic 16-channel analog multiplexer and demultiplexer},
+  address       = {[S.l.]},
+  organization  = {Texas Instruments},
+  year          = {2024},
+  note          = {Datasheet SCHS209D},
+  url           = {https://www.ti.com/lit/ds/symlink/cd74hc4067.pdf},
+  urlaccessdate = {8 nov. 2026},
+}
+
+% Página da wiki (última atualização exibida: 16 set. 2026).
+@misc{seeed_xiao,
+  author        = {{SEEED STUDIO}},
+  title         = {Getting started with {Seeed Studio XIAO nRF52840} series},
+  howpublished  = {Seeed Studio Wiki},
+  publisher     = {Seeed Studio},
+  address       = {[S.l.]},
+  year          = {2026},
+  url           = {https://wiki.seeedstudio.com/XIAO_BLE/},
+  urlaccessdate = {8 nov. 2026},
+}
+
+% Guia do usuário na documentação do nRF Connect SDK (docs.nordicsemi.com
+% responde 403 a clientes automáticos; conteúdo conferido no fonte
+% nrfconnect/sdk-nrf: doc/nrf/protocols/esb/index.rst).
+@misc{nordic_esb,
+  author        = {{NORDIC SEMICONDUCTOR}},
+  title         = {Enhanced {ShockBurst} ({ESB})},
+  subtitle      = {user guide},
+  howpublished  = {{nRF Connect SDK} documentation},
+  publisher     = {Nordic Semiconductor},
+  address       = {[S.l.]},
+  year          = {2026},
+  url           = {https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/protocols/esb/index.html},
+  urlaccessdate = {8 nov. 2026},
+}
+
+% Versão usada no firmware: 1.5.0 (tag v1.5.0 no GitHub, 21 ago. 2026); licença GPL-3.0.
+@misc{tmrh20_nrftonrf,
+  author        = {{TMRH20}},
+  title         = {nrf\_to\_nrf},
+  subtitle      = {{OSI} layer 2 ({ESB}) radio driver for {NRF52x} \& {NRF54x}},
+  howpublished  = {Biblioteca Arduino, versão 1.5.0},
+  publisher     = {GitHub},
+  address       = {[S.l.]},
+  year          = {2026},
+  url           = {https://github.com/TMRh20/nrf_to_nrf},
+  urlaccessdate = {8 nov. 2026},
+}
