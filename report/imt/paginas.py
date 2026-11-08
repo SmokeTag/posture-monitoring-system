@@ -12,7 +12,7 @@ SRC = os.path.dirname(os.path.abspath(__file__))
 tec = os.environ.get('TECTONIC') or shutil.which('tectonic')
 if not tec:
     sys.exit('Tectonic não encontrado: instale ou defina TECTONIC=/caminho/tectonic')
-out = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix='tcc-imt-')
+out = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix='tcc-imt-'))
 os.makedirs(out, exist_ok=True)
 r = subprocess.run([tec, '-X', 'compile', '--outdir', out, 'main.tex'], cwd=SRC,
                    capture_output=True, text=True)
