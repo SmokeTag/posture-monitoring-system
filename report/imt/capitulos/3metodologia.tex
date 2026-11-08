@@ -31,7 +31,7 @@ A Figura~\ref{fig:met-esquema-colar} apresenta o circuito do colar. O motor
 de vibração tipo moeda (2{,}5--4\,V, até 90\,mA) exige mais corrente do que
 um pino lógico fornece; por isso, o pino D10 comanda por PWM, através de
 1\,k\ohm, um transistor BC337 que chaveia o terminal negativo do motor. O
-diodo D1 conduz a corrente indutiva no desligamento e o capacitor de 33\,nF
+diodo 1N4148 conduz a corrente indutiva no desligamento e o capacitor de 33\,nF
 atenua o ruído do motor. O alerta produz pulsos de 700\,ms ligados e
 300\,ms desligados. Durante a atuação, transmite-se
 a última orientação válida obtida sem vibração, por até 1{,}5\,s, mantendo
@@ -55,8 +55,8 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
   \node[pin,anchor=east] at (3.8,1.1) {D10};
   \node[pin,anchor=east] at (3.8,.4) {GND};
   % bateria
-  \draw (0,2.7) -- (-.9,2.7) to[battery1] (-.9,1.0) -- (0,1.0);
-  \node[align=right,anchor=east,font=\scriptsize] at (-1.3,1.85) {LiPo 1S\\3{,}7\,V};
+  \draw (0,2.7) to[spst,l_=S1] (-1.5,2.7) -- (-2.1,2.7) to[battery1] (-2.1,1.0) -- (0,1.0);
+  \node[align=right,anchor=east,font=\scriptsize] at (-2.5,1.85) {LiPo 1S\\3{,}7\,V};
   % driver
   \node[npn,anchor=B] (Q) at (6.6,1.1) {};
   \node[font=\scriptsize,anchor=west] at (Q.text) {BC337};
@@ -66,10 +66,10 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
   \coordinate (mb) at (Q.C |- 0,2.6);
   \coordinate (mt) at (Q.C |- 0,4.2);
   \draw (Q.C) -- (mb) to[Telmech=M] (mt);
-  \draw ($(mb)+(1.2,0)$) to[D*,l_=D1] ($(mt)+(1.2,0)$); % cátodo no 3V3
-  \draw ($(mt)+(2.5,0)$) to[C,l=33\,nF] ($(mb)+(2.5,0)$);
-  \draw (mb) -- ++(2.5,0);
-  \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(2.5,0);
+  \draw ($(mb)+(1.2,0)$) to[D*,l_=1N4148] ($(mt)+(1.2,0)$); % cátodo no 3V3
+  \draw ($(mt)+(3.1,0)$) to[C,l=33\,nF] ($(mb)+(3.1,0)$);
+  \draw (mb) -- ++(3.1,0);
+  \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(3.1,0);
   \fill (mt) circle (1.4pt) ($(mt)+(1.2,0)$) circle (1.4pt)
         (mb) circle (1.4pt) ($(mb)+(1.2,0)$) circle (1.4pt);
   \node[font=\scriptsize,anchor=south] at (5.6,4.2) {3{,}3\,V};
@@ -113,8 +113,8 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
  \label{fig:met-fluxo-colar}
 \end{figure}
 
-A alimentação usa uma LiPo de uma célula (3{,}7\,V) nos terminais de
-bateria do XIAO, cujo carregador integrado permite a recarga por USB-C; o
+A alimentação usa uma LiPo de uma célula (3{,}7\,V), ligada aos terminais
+de bateria do XIAO por uma chave liga/desliga (S1), cujo carregador integrado permite a recarga por USB-C; o
 invólucro comporta uma célula de 1800\,mAh. Sem USB, três leituras
 abaixo de 3{,}30\,V levam a \textit{System OFF}; a partida exige pelo menos
 3{,}40\,V. A bateria é medida a cada 2\,s, após 200\,ms sem motor, evitando
@@ -234,8 +234,8 @@ monitor de corte nem o watchdog do vestível.
   \draw (9.6,-.8) -- (9.6,-1.2) node[ground]{};
   \node[pin,anchor=south] at (10.6,-.8) {BAT+};
   \node[pin,anchor=south] at (11.8,-.8) {BAT$-$};
-  \draw (10.6,-.8) -- (10.6,-1.4) to[battery1] (11.8,-1.4) -- (11.8,-.8);
-  \node[font=\scriptsize,anchor=north] at (11.2,-1.75) {LiPo 1S, 3{,}7\,V};
+  \draw (10.6,-.8) to[spst,l_=S1] (10.6,-2.2) to[battery1] (11.8,-2.2) -- (11.8,-.8);
+  \node[font=\scriptsize,anchor=north] at (11.2,-2.55) {LiPo 1S, 3{,}7\,V};
  \end{circuitikz}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
