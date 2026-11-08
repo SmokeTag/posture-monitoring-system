@@ -24,7 +24,8 @@ aproximada — vale o total).
 - PT-BR acadêmico, impessoal, 3ª pessoa. Frases curtas; números no lugar de
   adjetivos. Cortar repetição entre capítulos (cada fato num lugar só).
 - Objetivo do sistema = **detectar** postura prejudicial (alerta sim/não);
-  classificar é bônus. Feira (nov/2026) = qualitativa, sem números.
+  classificar é bônus. Mostra Eureka (nov/2026) = qualitativa: só >150
+  visitantes e a autonomia observada (600 mAh, ~20 h), sem percentuais.
 - Diagramas de blocos e fluxogramas (TikZ) são preferidos para explicar
   funcionamento e lógica de programa (pedido da orientadora).
 - Nada de detalhes de implementação que não ajudem o leitor (nomes de
@@ -42,7 +43,7 @@ aproximada — vale o total).
 - Tabelas com `booktabs`; `\small`/`\footnotesize` se precisar.
 - Pacotes disponíveis: amsmath, gensymb, tabularx, multirow, booktabs,
   xcolor, tikz (arrows.meta, positioning, fit, shapes.geometric, calc,
-  backgrounds), float, subfig, graphicx. Não adicione pacotes.
+  backgrounds), circuitikz (esquemas), float, subfig, graphicx. Não adicione pacotes.
 - Unidades em texto, fora de `$...$`: `20\,Hz`, `3{,}3\,k\ohm`, `10\degree{}`,
   `5\,\%`. Vírgula decimal `{,}` em math.
 - Figuras PNG: só o nome do arquivo (`res_alerta_sujeitos.png`); o
