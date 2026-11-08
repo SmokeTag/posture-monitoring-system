@@ -60,7 +60,8 @@ no further prompting. Defaults:
 - Uses the onboard **6-axis IMU (LSM6DS3TR-C)** to detect spine curvature /
   slouching of the upper body (the part not in contact with the chair).
 - Powered by a **single-cell (1S) 3.7 V LiPo** (JYH LIP103450, 1800 mAh, cell
-  cutoff 2.75 V). Firmware cutoff: on battery, VBAT < 3.30 V (3 readings, motor
+  cutoff 2.75 V) via an **on/off lever switch** on the LiPo + lead before BAT+
+  (the chair has the same switch). Firmware cutoff: on battery, VBAT < 3.30 V (3 readings, motor
   off) → System OFF; boot needs ≥ 3.40 V; never on USB; wakes on reset or USB
   plug-in. 4 s watchdog. VBAT goes to the chair CSV (`vbat`, ESB proto v5).
   **Never drive P0.14 or P0.13 HIGH.** Details: `firmware/README.md`.
@@ -68,8 +69,8 @@ no further prompting. Defaults:
 - Drives a **vibration motor** that activates when problematic posture is
   detected. Coin motor 2.5–4 V / ≤90 mA (too much for a GPIO): **D10 → 1 kΩ →
   NPN (BC337) base**, emitter → GND, collector → motor − ; motor + → **3V3**;
-  flyback diode (likely 1N4148 — marking unconfirmed) across the motor
-  (cathode at 3V3) + 33 nF ceramic ("333"). PWM sets strength.
+  flyback diode **1N4148** across the motor (cathode at 3V3) + 33 nF ceramic
+  ("333") also across the motor. PWM sets strength.
   The buzz shakes the IMU (±10°), so while the PWM runs the body sends the
   last reading taken with the motor off (≤ 1.5 s).
   **Motor mute for data captures:** `live_posture.py --motor-muted` sends
