@@ -66,7 +66,7 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
   \coordinate (mb) at (Q.C |- 0,2.6);
   \coordinate (mt) at (Q.C |- 0,4.2);
   \draw (Q.C) -- (mb) to[Telmech=M] (mt);
-  \draw ($(mt)+(1.2,0)$) to[D*,l=D1] ($(mb)+(1.2,0)$);
+  \draw ($(mb)+(1.2,0)$) to[D*,l_=D1] ($(mt)+(1.2,0)$); % cátodo no 3V3
   \draw ($(mt)+(2.5,0)$) to[C,l=33\,nF] ($(mb)+(2.5,0)$);
   \draw (mb) -- ++(2.5,0);
   \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(2.5,0);
