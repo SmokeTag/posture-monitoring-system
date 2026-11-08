@@ -37,7 +37,7 @@ no further prompting. Defaults:
 - **Chair electronics FINISHED (Oct 2026):** XIAO + CD74HC4067 + a single
   3.3 kΩ pull-down on SIG + FSR connectors on mux channels **C8–C15 (8 FSRs)**;
   FSRs placed in the chair (Oct 2026). 4 spare FSR402s on hand. Powered by a 1S LiPo with the **same circuit as the body
-  unit** — battery not yet tested on the chair.
+  unit** — battery tested and working (Nov 2026).
   - **Pin map (mux → XIAO):** SIG → **D0 (A0)** · S0 → **D10** · S1 → **D3** ·
     S2 → **D2** · S3 → **D1** · EN → GND · VCC → 3V3 out · GND → GND.
     Calibrate button **D9 → GND** (`INPUT_PULLUP`, software debounce).
@@ -81,6 +81,8 @@ no further prompting. Defaults:
   back in the **ACK payload**. Protocol + alert rules are shared in
   `firmware/libraries/PostureLink`.
   The chair also broadcasts a one-way BLE state beacon (~20 Hz); `mostra.py --ble` reads it.
+  **Decision:** the system stays autonomous; the only external interface is the
+  `mostra.py` dashboard (USB or BLE beacon) — no phone app.
   Without a USB host, an empty seat for 10 s clears calibration.
   Library **nrf_to_nrf** (TMRh20; drives the RADIO directly, no SoftDevice).
   It is polled — the receiver's ACK is sent inside `radio.available()`, so the
@@ -101,6 +103,9 @@ no further prompting. Defaults:
   green = calibrated, red slow = alert, red fast = fault
   (`PostureLink/StatusLed.h`; dimmed on the body for the LiPo); body only:
   3 magenta blinks = battery low, powering off.
+
+**Status (Nov 2026):** complete system validated at the science fair with dozens
+of people (high accuracy, informal; not recorded as data captures).
 
 ## Data Flow
 ```

@@ -4,37 +4,6 @@ Roteiro de desenvolvimento em andamento + backlog. Cada item tem contexto
 suficiente para ser retomado a frio. Ao concluir, **remova o item**; decisões
 que surgirem vão para o `CLAUDE.md`.
 
-## Roteiro do firmware
-
-Etapas em ordem; cada uma é testável isoladamente antes da seguinte.
-Toolchain/FQBN: `firmware/README.md`.
-
-### [ ] 4. Fusão cadeira + IMU e classificação
-
-Combinar a distribuição de pressão (assento/encosto, presença, assimetria
-E/D) com o desvio do IMU; definir posturas-alvo, limiares e temporização
-(histerese, sem alertas em transições). Log serial CSV para ajustar
-limiares com dados reais.
-Capturas seguem `docs/protocolo-captura.md` (tag `0` = transição; posturas
-`1`–`9` em `analysis/tags.json`, incluindo pernas cruzadas, que não
-alertam).
-Regra de fusão implementada (`docs/decisao-fusao-imu-fsr.md`, `Fusion.h`);
-falta validar com uma pessoa nova.
-**Pronto quando:** as posturas desse protocolo são classificadas corretamente
-em sessões gravadas.
-
-### [ ] 5. Integração, montagem e validação
-
-Botão físico de calibração na unidade da cadeira, testar a bateria da
-cadeira (mesmo circuito do corpo), validar o corte por bateria baixa do
-corpo na bancada (tensão no multímetro, corrente em System OFF, wake pelo
-USB; ver `firmware/README.md`). Reajustar o limiar do IMU (10°/3 s pareceu
-leniente) já no invólucro, medindo no `analysis/live_posture.py` onde cai uma
-postura "levemente ruim". Validação final com sessões de uso para o
-relatório.
-**Pronto quando:** sistema completo funciona sem USB durante uma sessão
-sentada.
-
 ## Backlog
 
 ### Firmware — enlace ESB e energia
@@ -83,23 +52,3 @@ só o flag de alerta; LED vermelho continua espelhando o motor; padrão numa
 tabela de constantes fácil de ajustar. Testar intensidade (`MOTOR_DUTY`) junto.
 **Pronto quando:** padrão definido, implementado e testado no corpo
 (com e sem enlace).
-
-### Arquitetura do sistema
-
-#### [ ] Decidir: app companheiro / dashboard / registro de dados, ou totalmente autônomo?
-
-**Contexto:** hoje o sistema é autônomo — a unidade da cadeira (cérebro) funde
-os FSRs com o IMU recebido do corpo (via ESB) e devolve o alerta; o corpo
-aciona o motor de vibração, sem nenhuma interface externa.
-
-**A decidir:**
-- [ ] Standalone puro **ou** algum complemento: app de celular, dashboard web,
-      ou só registro de dados (ex.: log em flash / serial para análise).
-- [ ] Se houver app/celular: o elo com o telefone seria **BLE**, convivendo com o ESB corpo↔cadeira (cérebro).
-- [ ] Impacto em escopo/prazo do TCC, consumo de bateria e firmware.
-- [ ] Registrar a decisão no `CLAUDE.md`.
-
-#### [ ] Melhorar a recepção do beacon BLE
-
-No notebook MediaTek, testar scan passivo (`or_patterns`) com BlueZ experimental;
-a recepção atual é best effort. Beacon e painel sem fio já implementados.
