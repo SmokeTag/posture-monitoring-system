@@ -1,0 +1,110 @@
+% =====================================================================
+%  Relatório Final — TCC
+%  Sistema Inteligente de Monitoramento Postural
+%
+%  Arquivo principal; cada capítulo vive em final/NN_<nome>.tex.
+%  Introdução e Revisão partem da versão entregue (INTRODUÇÃO_TCC.pdf /
+%  relatorio_parcial.tex) e foram atualizadas para o sistema final.
+%
+%  Compilar (rodar 2x p/ referências e sumário):
+%     pdflatex relatorio_final.tex
+%  Figuras: figures/ ou ../analysis/archive/figures/ (scripts em analysis/).
+% =====================================================================
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{mathptmx}     % Times New Roman (fonte recomendada — ABNT NBR 14724)
+\usepackage[top=3cm,bottom=2cm,left=3cm,right=2cm]{geometry} % margens ABNT NBR 14724
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{gensymb}      % \degree e \ohm em modo texto/mat
+\AtBeginDocument{\renewcommand{\ohm}{\ensuremath{\Omega}}} % glifo do gensymb some com mathptmx
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,shapes.geometric,calc}
+\usepackage{xurl}        % quebra URLs longas nas referências
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{setspace}     % entrelinhas 1,5 (ABNT NBR 14724)
+\usepackage{indentfirst}  % indenta o 1º parágrafo de cada seção (padrão PT-BR/ABNT)
+
+\graphicspath{{figures/}{../analysis/archive/figures/}}
+\onehalfspacing                 % entrelinhas 1,5 (ABNT NBR 14724)
+\setlength{\parindent}{1.25cm}  % recuo de primeira linha (ABNT)
+\setlength{\parskip}{0pt}
+\setlength{\emergencystretch}{3em} % evita linhas estourando a margem
+
+% --- Legendas no padrão ABNT: "Figura N – Título" / "Tabela N – Título" ---
+\captionsetup{labelsep=endash}
+% Linha de "Fonte" (fonte menor), colocada ABAIXO da figura/tabela.
+\newcommand{\fonte}[1]{\par\vspace{2pt}{\footnotesize Fonte: #1}}
+% Marcador de pendência visível no PDF (remover antes da entrega).
+\newcommand{\pendente}[1]{\textcolor{red}{\textbf{[PENDENTE: #1]}}}
+
+% --- Dados da capa (completar) ---
+\newcommand{\instituicao}{\pendente{Instituição / Curso}}
+\newcommand{\orientador}{\pendente{Nome do(a) orientador(a)}}
+\newcommand{\cidade}{\pendente{Cidade}}
+
+\begin{document}
+
+% =====================================================================
+%  Capa / folha de rosto
+% =====================================================================
+\begin{titlepage}
+  \centering
+  {\large\instituicao\par}
+  \vspace{4cm}
+  {\large André Thomas Monteiro\par}
+  \vspace{3cm}
+  {\LARGE\textbf{Sistema Inteligente de Monitoramento Postural}\par}
+  \vspace{0.5cm}
+  {\large Cadeira instrumentada com sensores de força e unidade vestível
+  inercial para alerta de postura inadequada em tempo real\par}
+  \vspace{2cm}
+  \hfill\begin{minipage}{0.55\linewidth}
+    \singlespacing
+    Trabalho de Conclusão de Curso apresentado como requisito parcial para a
+    obtenção do título de \pendente{grau}.\\[0.5em]
+    Orientador(a): \orientador
+  \end{minipage}
+  \vfill
+  {\cidade\\ 2026\par}
+\end{titlepage}
+
+% =====================================================================
+%  Resumo / Abstract
+% =====================================================================
+\section*{Resumo}
+\input{final/00_resumo}
+
+\clearpage
+\tableofcontents
+\clearpage
+\listoffigures
+\listoftables
+\clearpage
+
+% =====================================================================
+\input{final/01_introducao}
+\input{final/02_revisao}
+\input{final/03_metodologia}
+\input{final/04_resultados}
+\input{final/05_discussao}
+\input{final/06_conclusao}
+
+% =====================================================================
+\clearpage
+\section*{Referências}
+\addcontentsline{toc}{section}{Referências}
+\input{final/referencias}
+
+\end{document}
