@@ -27,14 +27,59 @@ usuário). Movimento, deslocamento do colar e vibração podem alterar a
 medida. A aplicação adquire e transmite a orientação a 20\,Hz; leituras
 inerciais inválidas inibem o alerta postural.
 
-O motor tipo moeda, de 2{,}5--4\,V e até 90\,mA, recebe alimentação de
-3{,}3\,V. O pino D10 comanda, por PWM e resistor de 1\,k\ohm, a base de um
-NPN BC337: emissor no GND e coletor no negativo do motor. Um diodo em
-paralelo, com cátodo no positivo, protege contra o transiente indutivo;
-um capacitor de 33\,nF auxilia a supressão de ruído. O alerta produz pulsos
-de 700\,ms ligados e 300\,ms desligados. Durante a atuação, transmite-se
+A Figura~\ref{fig:met-esquema-colar} apresenta o circuito do colar. O motor
+de vibração tipo moeda (2{,}5--4\,V, até 90\,mA) exige mais corrente do que
+um pino lógico fornece; por isso, o pino D10 comanda por PWM, através de
+1\,k\ohm, um transistor BC337 que chaveia o terminal negativo do motor. O
+diodo D1 conduz a corrente indutiva no desligamento e o capacitor de 33\,nF
+atenua o ruído do motor. O alerta produz pulsos de 700\,ms ligados e
+300\,ms desligados. Durante a atuação, transmite-se
 a última orientação válida obtida sem vibração, por até 1{,}5\,s, mantendo
 a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
+
+\begin{figure}[H]
+ \centering
+ \caption{Esquema elétrico do colar.}
+ \begin{SingleSpace}
+ \begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
+   pin/.style={font=\scriptsize,inner sep=2pt}]
+  % XIAO do colar
+  \draw[thick] (0,0) rectangle (3.8,4.0);
+  \node[align=center,font=\footnotesize\bfseries] at (1.9,3.5) {XIAO nRF52840\\[-1pt] Sense};
+  \draw[rounded corners=2pt] (0.45,1.45) rectangle (3.35,2.35);
+  \node[align=center,font=\scriptsize] at (1.9,1.9) {IMU LSM6DS3TR-C\\(I\textsuperscript{2}C interno)};
+  \node[align=center,font=\scriptsize] at (1.9,.6) {carregador\\LiPo / USB-C};
+  \node[pin,anchor=west] at (0,2.7) {BAT+};
+  \node[pin,anchor=west] at (0,1.0) {BAT$-$};
+  \node[pin,anchor=east] at (3.8,2.9) {3V3};
+  \node[pin,anchor=east] at (3.8,1.1) {D10};
+  \node[pin,anchor=east] at (3.8,.4) {GND};
+  % bateria
+  \draw (0,2.7) -- (-.9,2.7) to[battery1] (-.9,1.0) -- (0,1.0);
+  \node[align=right,anchor=east,font=\scriptsize] at (-1.3,1.85) {LiPo 1S\\3{,}7\,V};
+  % driver
+  \node[npn,anchor=B] (Q) at (6.6,1.1) {};
+  \node[font=\scriptsize,anchor=west] at (Q.text) {BC337};
+  \draw (3.8,1.1) to[R,l={1\,k$\Omega$},-] (Q.B);
+  \draw (Q.E) node[ground]{};
+  % motor com diodo e capacitor em paralelo
+  \coordinate (mb) at (Q.C |- 0,2.6);
+  \coordinate (mt) at (Q.C |- 0,4.2);
+  \draw (Q.C) -- (mb) to[Telmech=M] (mt);
+  \draw ($(mt)+(1.2,0)$) to[D*,l=D1] ($(mb)+(1.2,0)$);
+  \draw ($(mt)+(2.5,0)$) to[C,l=33\,nF] ($(mb)+(2.5,0)$);
+  \draw (mb) -- ++(2.5,0);
+  \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(2.5,0);
+  \fill (mt) circle (1.4pt) ($(mt)+(1.2,0)$) circle (1.4pt)
+        (mb) circle (1.4pt) ($(mb)+(1.2,0)$) circle (1.4pt);
+  \node[font=\scriptsize,anchor=south] at (5.6,4.2) {3{,}3\,V};
+  \node[font=\scriptsize,anchor=east] at ($(mb)!.5!(mt)+(-.45,0)$) {motor};
+  \draw (3.8,.4) -- (4.4,.4) node[ground]{};
+ \end{circuitikz}
+ \end{SingleSpace}
+ \fonte{Elaborado pelos autores (2026)}
+ \label{fig:met-esquema-colar}
+\end{figure}
 
 \begin{figure}[H]
  \centering
@@ -68,8 +113,9 @@ a verificação da IMU. A Figura~\ref{fig:met-fluxo-colar} sintetiza o programa.
  \label{fig:met-fluxo-colar}
 \end{figure}
 
-A alimentação usa LiPo de uma célula, 3{,}7\,V e 1800\,mAh, conectada aos
-terminais de bateria do XIAO, com carga por USB. Sem USB, três leituras
+A alimentação usa uma LiPo de uma célula (3{,}7\,V) nos terminais de
+bateria do XIAO, cujo carregador integrado permite a recarga por USB-C; o
+invólucro comporta uma célula de 1800\,mAh. Sem USB, três leituras
 abaixo de 3{,}30\,V levam a \textit{System OFF}; a partida exige pelo menos
 3{,}40\,V. A bateria é medida a cada 2\,s, após 200\,ms sem motor, evitando
 quedas transitórias. Um watchdog de 4\,s reinicia o programa se houver
@@ -113,10 +159,12 @@ conversão em força absoluta calibrada na espuma.
  \label{fig:met-layout}
 \end{figure}
 
-O multiplexador CD74HC4067 seleciona os canais C8--C15 para a entrada
-A0 \cite{ti_cd74hc4067}. Há um único pull-down de 3{,}3\,k\ohm{} em SIG,
-compartilhado entre os canais. O caminho é 3{,}3\,V--FSR--multiplexador--SIG--
-resistor--GND. Incluindo a resistência de condução $R_{\mathrm{on}}$,
+A Figura~\ref{fig:met-esquema-cadeira} apresenta o circuito da cadeira. O
+multiplexador CD74HC4067 \cite{ti_cd74hc4067}, endereçado pelos pinos D10,
+D3, D2 e D1, liga um FSR por vez ao pino SIG, onde um único resistor de
+3{,}3\,k\ohm{} para o GND, compartilhado pelos oito canais, forma o divisor
+lido em A0. Incluindo a resistência de condução $R_{\mathrm{on}}$ do
+multiplexador,
 \begin{equation}
  V_{\mathrm{SIG}}=V_{\mathrm{DD}}
  \frac{R_{\mathrm{fixo}}}{R_{\mathrm{fixo}}+R_{\mathrm{FSR}}+R_{\mathrm{on}}}.
@@ -132,9 +180,67 @@ O ADC tem resolução de 12 bits. A cada 50\,ms varrem-se os oito canais:
 após cada seleção, aguardam-se 50\,$\mu$s, descarta-se a primeira conversão
 e conserva-se a seguinte. O rádio é atendido entre canais para não atrasar
 o ACK; a Figura~\ref{fig:met-fluxo-cadeira} representa esse escalonamento.
-O botão de calibração conecta D9 ao GND, com pull-up interno e debounce
-de 25\,ms. A cadeira utiliza a mesma topologia LiPo/USB do colar, mas seu
-programa não implementa o monitor de corte nem o watchdog do vestível.
+O botão de calibração (D9) usa pull-up interno e debounce de 25\,ms. A
+alimentação repete a do colar, mas o programa da cadeira não implementa o
+monitor de corte nem o watchdog do vestível.
+
+\begin{figure}[H]
+ \centering
+ \caption{Esquema elétrico da cadeira.}
+ \begin{SingleSpace}
+ \begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
+   pin/.style={font=\scriptsize,inner sep=2pt}]
+  % multiplexador
+  \draw[thick] (0,0) rectangle (5.4,2.9);
+  \node[align=center,font=\footnotesize\bfseries] at (2.7,1.65) {CD74HC4067};
+  \node[align=center,font=\scriptsize] at (2.7,1.2) {multiplexador 16:1};
+  \foreach \i in {0,...,7} {
+    \pgfmathtruncatemacro{\c}{\i+8}
+    \coordinate (c\i) at (.55+.62*\i,2.9);
+    \node[pin,anchor=north,font=\tiny] at (c\i) {C\c};
+    \draw (c\i) to[R,resistors/scale=.65] ++(0,1.5) coordinate (t\i);
+  }
+  \node[font=\scriptsize,anchor=south] at ($(t3)!.5!(t4)+(0,.05)$) {8\,$\times$ FSR402};
+  \draw (t0) -- (t7) -- ++(.9,0) coordinate (rail);
+  \foreach \i in {0,...,6} \fill (t\i) circle (1.3pt);
+  \node[pin,anchor=west] at (0,2.0) {VCC};
+  \node[pin,anchor=west] at (0,.5) {EN};
+  \node[pin,anchor=west] at (0,.15) {GND};
+  \draw (0,2.0) -- (-.6,2.0) |- (t0);
+   \draw (0,.5) -- (-.6,.5) -- (-.6,-.4) node[ground]{};
+  \draw (0,.15) -- (-.6,.15);
+  \fill (-.6,.15) circle (1.3pt);
+  \foreach \n/\y in {S0/2.4,S1/1.95,S2/1.5,S3/1.05,SIG/.4}
+    \node[pin,anchor=east] at (5.4,\y) {\n};
+  % XIAO da cadeira
+  \draw[thick] (8.9,-.8) rectangle (12.3,3.3);
+  \node[align=center,font=\footnotesize\bfseries] at (10.85,2.55) {XIAO nRF52840\\[-1pt] Sense};
+  \node[align=center,font=\scriptsize] at (10.9,.5) {carregador\\LiPo / USB-C};
+  \foreach \n/\m/\y in {S0/D10/2.4,S1/D3/1.95,S2/D2/1.5,S3/D1/1.05} {
+    \node[pin,anchor=west] at (8.9,\y) {\m};
+    \draw (5.4,\y) -- (8.9,\y);
+  }
+  \node[pin,anchor=west] at (8.9,.4) {A0};
+  \draw (5.4,.4) -- (8.9,.4);
+  \fill (6.4,.4) circle (1.4pt);
+  \draw (6.4,.4) to[R,l_={3{,}3\,k$\Omega$}] (6.4,-1.2) node[ground]{};
+  \node[pin,anchor=north] at (9.3,3.3) {3V3};
+  \draw (9.3,3.3) |- (rail);
+  \node[font=\scriptsize,anchor=south] at (7.6,4.4) {3{,}3\,V};
+  % botao e bateria
+  \node[pin,anchor=east] at (12.3,2.2) {D9};
+  \draw (12.3,2.2) -- (12.9,2.2) to[push button,l=calibrar] (12.9,.6) node[ground]{};
+  \node[pin,anchor=south] at (9.6,-.8) {GND};
+  \draw (9.6,-.8) -- (9.6,-1.2) node[ground]{};
+  \node[pin,anchor=south] at (10.6,-.8) {BAT+};
+  \node[pin,anchor=south] at (11.8,-.8) {BAT$-$};
+  \draw (10.6,-.8) -- (10.6,-1.4) to[battery1] (11.8,-1.4) -- (11.8,-.8);
+  \node[font=\scriptsize,anchor=north] at (11.2,-1.75) {LiPo 1S, 3{,}7\,V};
+ \end{circuitikz}
+ \end{SingleSpace}
+ \fonte{Elaborado pelos autores (2026)}
+ \label{fig:met-esquema-cadeira}
+\end{figure}
 
 \begin{figure}[H]
  \centering
