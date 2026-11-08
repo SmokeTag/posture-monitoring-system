@@ -56,9 +56,62 @@ def channels(xs: list[F.Inputs]) -> pd.DataFrame:
         rear, lr = seat_indices(x)
         mask = x.valid & x.run.rows.settled.to_numpy()
         rows.append(pd.DataFrame({"subject": x.run.subject, "tag": x.run.rows.tag[mask],
+                                  "pitch": x.run.rows.pitch[mask],
+                                  "roll": x.run.rows.roll[mask],
                                   "dp": x.dp[mask], "dr": x.dr[mask],
                                   "rear": rear[mask], "lr": lr[mask]}))
     return pd.concat(rows, ignore_index=True)
+
+
+def dispersion_figure(d: pd.DataFrame):
+    """Same stable rows as the channel plots; pooled sample means and sample SD.
+
+    Every valid, settled sample is drawn (no class-dependent subsampling).
+    The bars describe the pooled dispersion, not uncertainty of the mean or
+    anatomical ranges. Both panels use the final collar's axis convention.
+    """
+    colors = ["#555555", "#d62728", "#e07a13", "#9467bd", "#1f77b4",
+              "#159fae", "#22883d", "#8c564b", "#ca5799"]
+    markers = ["o", "v", "s", "D", "<", ">", "^", "P", "X"]
+    fig, axs = plt.subplots(1, 2, figsize=(6.2, 3.8))
+    fig.subplots_adjust(left=.11, right=.985, top=.87, bottom=.40, wspace=.32)
+    handles = []
+    for ax, (xcol, ycol), title in zip(
+            axs, [("pitch", "roll"), ("dp", "dr")],
+            ["(a) Ângulos absolutos", "(b) Desvio calibrado"]):
+        for tag, color, marker in zip(range(1, 10), colors, markers):
+            g = d.loc[d.tag == tag, [xcol, ycol]].dropna()
+            ax.scatter(g[xcol], g[ycol], s=1.4, alpha=.09, color=color,
+                       edgecolors="none", rasterized=True)
+            mean, sd = g.mean(), g.std(ddof=1)
+            h = ax.errorbar(mean[xcol], mean[ycol], xerr=sd[xcol], yerr=sd[ycol],
+                            fmt=marker, color=color, ecolor=color, markersize=5,
+                            markeredgecolor="black", markeredgewidth=.45,
+                            elinewidth=1, capsize=2, zorder=5, label=TAGS[tag - 1])
+            if ax is axs[1]:
+                handles.append(h)
+        ax.set_title(title, fontsize=10, pad=8)
+        ax.set_xlabel("pitch (°)" if xcol == "pitch" else "Δpitch (°)", fontsize=9)
+        ax.set_ylabel("roll (°)" if ycol == "roll" else "Δroll (°)", fontsize=9)
+        ax.tick_params(labelsize=9)
+        ax.xaxis.set_major_formatter(DECIMAL)
+        ax.yaxis.set_major_formatter(DECIMAL)
+        ax.grid(alpha=.2)
+        ax.set_axisbelow(True)
+        ax.set_xlim(-38, 38)
+        ax.set_xticks([-30, 0, 30])
+    axs[0].set_ylim(10, 110)
+    axs[1].set_ylim(-58, 42)
+    axs[1].axhline(0, color=".4", lw=.65, ls=":")
+    axs[1].axvline(0, color=".4", lw=.65, ls=":")
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(.5, .10),
+               ncol=3, fontsize=9, frameon=False, columnspacing=1,
+               handletextpad=.4, handlelength=1.4)
+    fig.text(.5, .015, "Lateral: + direita; sagital: − para a frente. Marcadores: média ± 1σ.",
+             ha="center", fontsize=9)
+    save(fig, "dispersao_posturas")
+    print("\nposture dispersion: pooled stable samples, mean and sample SD (degrees):")
+    print(d.groupby("tag")[["pitch", "roll", "dp", "dr"]].agg(["mean", "std"]).round(2))
 
 
 def matrix(d: pd.DataFrame, value: str) -> np.ndarray:
@@ -114,10 +167,14 @@ def alert_figure(xs: list[F.Inputs]):
     segs = segs.assign(on=segs.frac * segs.n)
     g = segs.groupby(["tag", "subject"])[["on", "n"]].sum()
     values = (100 * g.on / g.n).unstack("subject").reindex(index=range(1, 10), columns=SUBJECTS)
-    fig, ax = plt.subplots(figsize=(9.3, 5.5), layout="constrained")
-    im = heatmap(ax, values.to_numpy(), "Fusão com parâmetros finais: tempo com alerta (%)",
-                 norm=plt.Normalize(0, 100), fmt=lambda v: f"{v:.0f}")
-    fig.colorbar(im, ax=ax, shrink=.85, label="Tempo com alerta (%)")
+    # Size for a 16 cm text block: keep labels readable in the short report.
+    with plt.rc_context({"font.size": 9}):
+        fig, ax = plt.subplots(figsize=(6.2, 3.7), layout="constrained")
+        im = heatmap(ax, values.to_numpy(), "",
+                     norm=plt.Normalize(0, 100), fmt=lambda v: f"{v:.0f}")
+        for label in ax.texts:
+            label.set_fontsize(9)
+        fig.colorbar(im, ax=ax, shrink=.85, label="Tempo com alerta (%)")
     save(fig, "alerta_sujeitos")
 
 
@@ -226,7 +283,9 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     xs = [F.inputs(r) for r in C.runs(pattern="2026-10-21_*_run*.csv")]
     F.C_TAGS.update(xs[0].run.tags)
-    channel_figures(channels(xs))
+    d = channels(xs)
+    channel_figures(d)
+    dispersion_figure(d)
     alert_figure(xs)
     ablation_figure(xs)
     validation_figures()
