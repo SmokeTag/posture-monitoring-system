@@ -57,6 +57,7 @@ python3 -m venv .venv
   leave-one-subject-out search: `.venv/bin/python analysis/fusion.py [--quick]`;
   `--fixture` rewrites the C++ cross-check (`firmware/test/fixtures/`).
   Findings (PT-BR): [`../docs/decisao-fusao-imu-fsr.md`](../docs/decisao-fusao-imu-fsr.md).
+- `report_figures.py` — generates the final report’s `report/figures/res_*.png` (PT-BR, 200 dpi) and prints capture/validation summaries: `python analysis/report_figures.py`.
 - `test_fusion.py` — loader and rule tests (incl. replay ≡ logged firmware alert).
 - `chair_map.py` — the spot names, the press-to-map logic and
   `chair_map.json` (channel ↔ spot; written by `live_posture.py --fsr-placement`). How-to (PT-BR):

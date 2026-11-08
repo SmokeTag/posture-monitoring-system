@@ -1,0 +1,71 @@
+% Resumo (ABNT NBR 6028: 150–500 palavras, parágrafo único) e Abstract.
+\noindent
+Os distúrbios osteomusculares relacionados ao trabalho atingem a maior parte dos
+trabalhadores de escritório e estão associados a posturas inadequadas mantidas
+por longos períodos. Este trabalho apresenta um sistema autônomo que detecta
+postura sentada prejudicial e alerta o usuário em tempo real por vibração. O
+sistema combina uma cadeira de escritório instrumentada com oito sensores de
+força resistivos (FSR402), quatro no assento e quatro no encosto, e uma unidade
+vestível com unidade de medição inercial (IMU), posicionada logo abaixo do
+pescoço. Ambas usam o microcontrolador nRF52840 e se comunicam pelo protocolo
+Enhanced ShockBurst a 20\,Hz; a cadeira funde as duas fontes, decide o alerta e
+o devolve à unidade vestível, que aciona um motor de vibração. A caracterização
+em bancada mostrou que a recolocação do sensor desloca a referência de postura
+ereta em até cerca de 22\degree{} e que os FSR402 se prestam a indicar contato e
+pressão relativa, não força calibrada, o que levou à calibração individual por
+botão e à normalização das leituras pela linha de base do usuário. A regra de
+alerta usa o desvio angular em relação à referência e, pelos sensores do
+assento, distingue reclinar com apoio de escorregar o quadril e detecta a
+cadeira vazia. Em capturas rotuladas com oito participantes, avaliadas deixando
+cada participante fora do ajuste dos parâmetros, o sistema alertou em 58 de 62
+segmentos de postura prejudicial e em 92\,\% do tempo dessas posturas, com
+alerta em 3\,\% do tempo em postura ereta ou reclinada, contra 29\,\% da regra
+baseada apenas no IMU. A validação em hardware com motor ativo confirmou o
+funcionamento integrado e revelou interferência da vibração na leitura
+inercial, posteriormente corrigida em firmware e verificada apenas por
+reprodução dos dados. Em demonstração pública com
+dezenas de pessoas, a postura prejudicial foi detectada em praticamente todos
+os casos observados. Os resultados indicam a viabilidade técnica da fusão de
+pressão no assento e orientação do tronco para detecção postural, com
+limitações quanto ao tamanho da amostra, à projeção isolada da cabeça e ao
+consumo de energia, ainda não medido.
+
+\vspace{0.8em}
+\noindent\textbf{Palavras-chave:} Monitoramento postural; Ergonomia; Distúrbios
+osteomusculares relacionados ao trabalho; Sensores de força resistivos;
+Unidade de medição inercial; Fusão de sensores.
+
+\clearpage
+\section*{Abstract}
+\noindent
+Work-related musculoskeletal disorders affect most office workers and are
+associated with poor postures held for long periods. This work presents an
+autonomous system that detects harmful sitting posture and alerts the user in
+real time through vibration. It combines an office chair instrumented with
+eight force-sensing resistors (FSR402), four on the seat and four on the
+backrest, and a wearable unit with an inertial measurement unit (IMU) placed
+just below the neck. Both run on nRF52840 microcontrollers and communicate over
+Enhanced ShockBurst at 20\,Hz; the chair fuses both sources, decides the alert
+and sends it back to the wearable, which drives a vibration motor. Bench
+characterization showed that re-mounting the sensor shifts the upright
+reference by up to about 22\degree{} and that the FSR402 is suited to contact
+and relative pressure rather than calibrated force, which led to a per-user,
+button-triggered calibration and to normalizing the readings by the user's
+baseline. The alert rule uses the angular deviation from the reference and,
+through the seat sensors, tells supported reclining from a forward slide of the
+hips and detects an empty chair. On labeled captures with eight participants,
+evaluated leaving each participant out of parameter tuning, the system alerted
+in 58 of 62 harmful-posture segments and during 92\,\% of their time, while
+alerting during 3\,\% of upright or reclined time, against 29\,\% for the
+IMU-only rule. Hardware validation with the motor active confirmed end-to-end
+operation and revealed vibration interference on the inertial reading, later
+fixed in firmware and so far checked only by replaying the data. In a public demonstration with dozens of people, harmful
+posture was detected in practically every observed case. The results indicate
+the technical feasibility of fusing seat pressure and trunk orientation for
+posture detection, with limitations regarding sample size, isolated head
+protraction and the still unmeasured power consumption.
+
+\vspace{0.8em}
+\noindent\textbf{Keywords:} Posture monitoring; Ergonomics; Work-related
+musculoskeletal disorders; Force-sensing resistors; Inertial measurement unit;
+Sensor fusion.

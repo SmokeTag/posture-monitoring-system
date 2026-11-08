@@ -1,0 +1,63 @@
+\section{Conclusão}
+\label{sec:conclusao}
+
+Este trabalho investigou como um sistema inteligente pode monitorar a postura
+de quem trabalha sentado e devolver, em tempo real, um aviso que leve à
+autocorreção. Para isso, desenvolveu-se um protótipo completo e autônomo:
+uma unidade vestível com IMU, posicionada logo abaixo do pescoço, e uma
+cadeira de escritório com oito sensores de força resistivos, ligadas por um
+enlace sem fio de baixa latência. A cadeira combina as duas fontes de
+informação, decide quando a postura é prejudicial e envia o alerta, que a
+unidade vestível converte em vibração.
+
+Os resultados permitem três conclusões principais. Primeiro, a referência de
+postura ereta varia entre pessoas e entre colocações do sensor em magnitude
+comparável ao próprio desvio a detectar; por isso, a calibração individual
+por botão, que define o ereto de cada usuário como origem, é condição para o
+funcionamento, e não um refinamento. Segundo, sensores de força de baixo
+custo, inadequados como medidores de força, mostraram-se suficientes como
+indicadores de contato e de pressão relativa, desde que comparados com a
+linha de base do próprio usuário. Terceiro, a fusão dessas leituras com a
+orientação do tronco resolveu as falhas mais frequentes da abordagem baseada
+apenas no IMU: deixou de alertar quando o usuário reclina com o quadril
+apoiado ou se levanta da cadeira, e passou a detectar o escorregamento do
+quadril mesmo com pouca inclinação do tronco. Nas capturas com oito
+participantes, avaliadas deixando cada um de fora do ajuste, o sistema alertou
+em 58 de 62 segmentos de postura prejudicial, com alerta em $3\,\%$ do tempo
+em postura ereta ou reclinada; com pernas cruzadas, para as quais a regra não
+prevê alerta, a fração subiu para $28\,\%$. Na demonstração pública, a
+postura prejudicial foi detectada em praticamente todos os casos observados.
+
+Esses resultados indicam a viabilidade técnica de detectar posturas
+prejudiciais com a combinação proposta, mas não demonstram efeito sobre a
+saúde. O conjunto de dados é pequeno, as posturas foram instruídas, e
+permanecem limitações conhecidas: o movimento isolado da cabeça, as pernas cruzadas, a fixação do
+colar ao longo da sessão, a interação entre vibração e sensor e o consumo de
+energia.
+
+\subsection{Trabalhos futuros}
+\label{sec:trabalhos-futuros}
+
+\begin{itemize}[nosep]
+  \item \textbf{Validação ampliada:} novas sessões com mais participantes,
+        posturas naturais e sutis, ordem embaralhada e uso prolongado em
+        trabalho real, com o motor ativo e a correção da interferência do
+        atuador já embarcada.
+  \item \textbf{Padrão de vibração:} substituir os pulsos contínuos por um
+        padrão com pausas crescentes, reduzindo incômodo e habituação, e
+        avaliar a aceitação pelos usuários.
+  \item \textbf{Energia:} medir corrente e autonomia de cada unidade; reduzir
+        as retransmissões do enlace, desligar o rádio entre envios e baixar a
+        taxa para $5$--$10\,Hz$, compatível com a dinâmica da postura.
+  \item \textbf{Robustez da referência:} compensar a deriva lenta do colar
+        quando o padrão dos FSR coincide com a linha de base, e aprimorar a
+        fixação do invólucro.
+  \item \textbf{Cabeça e pescoço:} investigar outra posição para o sensor ou
+        um segundo IMU para detectar a projeção da cabeça à frente.
+  \item \textbf{Assento:} avaliar mais pontos de pressão no assento para
+        tratar pernas cruzadas e reduzir a dependência da espuma e do
+        posicionamento de cada cadeira.
+  \item \textbf{Efeito sobre o usuário:} estudo longitudinal que meça mudança
+        de hábito postural e sintomas osteomusculares, por exemplo com o
+        questionário nórdico, antes e depois do uso.
+\end{itemize}

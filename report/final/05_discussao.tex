@@ -1,0 +1,189 @@
+\section{Discussão}
+\label{sec:discussao}
+
+Este capítulo interpreta os resultados do Capítulo~\ref{sec:resultados} à luz
+dos objetivos específicos, discute o papel de cada canal de sensoriamento na
+decisão de alerta e consolida as limitações que restringem o alcance das
+conclusões.
+
+\subsection{Atendimento aos objetivos específicos}
+\label{sec:dis-objetivos}
+
+\paragraph{OE1 --- Variações anatômicas dos usuários.}
+As variações entre pessoas apareceram em todos os níveis do sistema. Na
+bancada, a simples retirada e recolocação do sensor deslocou a referência de
+ereto em cerca de $8{,}0\degree{}$ (\textit{pitch}) e $21{,}6\degree{}$
+(\textit{roll}), valores da mesma ordem do desvio que se deseja detectar. Nas
+capturas integradas, a mesma instrução produziu amplitudes muito diferentes:
+a inclinação à esquerda variou de $-6{,}2\degree{}$ (Felipe) a
+$-27{,}1\degree{}$ (Rafael), e a cabeça à frente ficou entre $-4{,}6\degree{}$
+e $-7{,}5\degree{}$ em três participantes, contra desvios bem maiores nos
+demais. Na cadeira, alguns canais inferiores do encosto permaneceram próximos
+de zero mesmo em ereto, conforme a estatura e o modo de sentar. A resposta de
+projeto a essas variações foi dupla: a calibração individual da referência
+angular (desvio, e não ângulo absoluto) e a normalização das leituras do
+assento pela linha de base capturada na mesma janela. Com isso, a postura
+ereta de cada pessoa passa a ser a origem do espaço de decisão, e o mesmo
+limiar de $10\degree{}$ serviu a todos os participantes, com as exceções
+discutidas na Seção~\ref{sec:dis-limitacoes}. O objetivo foi atendido no
+sentido de \emph{caracterizar} as variações e \emph{acomodá-las} no projeto;
+não se construiu um modelo antropométrico.
+
+\paragraph{OE2 --- Sistema integrado com sensores.}
+O sistema foi construído e operado como um todo: unidade vestível com IMU e
+motor, cadeira com oito FSR402 multiplexados, enlace ESB a $20\,Hz$ com a
+decisão devolvida na confirmação, alimentação por bateria nas duas unidades e
+regra de fusão executada na cadeira. A regra embarcada é a mesma avaliada em
+Python, verificada amostra a amostra pelo teste \texttt{test\_fusion}, o que
+dá rastreabilidade entre análise e firmware. Nos ensaios de bancada e nas
+sessões de validação não houve perda de pacotes no ESB. Em contrapartida, as
+retransmissões aumentaram depois que a decisão passou a viajar no ACK, e o
+consumo de energia não foi medido.
+
+\paragraph{OE3 --- Comunicação com o usuário.}
+O alerta háptico funcionou: na validação guiada, o participante percebeu a
+vibração e sua interrupção ao voltar ao ereto, e o sistema foi operado por
+dezenas de visitantes na feira. A validação com o primeiro sujeito novo
+revelou, porém, uma interação não prevista entre atuador e sensor: a vibração
+sacode o acelerômetro em cerca de $\pm10\degree{}$, uma amostra abaixo do
+limiar de limpeza desligava o alerta e o portão de $3\,s$ recomeçava. Em vez
+de um aviso sustentado, o usuário recebia pulsos esparsos. A correção
+(retransmitir a última leitura obtida com o motor desligado) foi verificada
+por reprodução dos dados, mas \emph{não} por uma nova sessão controlada em
+hardware. Além da vibração, o LED de estado e o painel \texttt{mostra.py}
+completam a comunicação; o painel, contudo, é um recurso de demonstração, e o
+sistema permanece autônomo sem ele. O padrão de vibração atual (pulsos
+de $700\,ms$ a cada segundo, sem pausa, enquanto durar o alerta) foi
+considerado incômodo pelo autor durante os testes, o que remete ao problema de habituação e aceitação discutido na
+literatura (Seção~\ref{sec:revisao}).
+
+\paragraph{OE4 --- Eficiência do sistema.}
+Tomando como critério a \emph{detecção} da postura prejudicial, a fusão,
+avaliada deixando cada sujeito de fora (LOSO), alertou em 58 de 62 segmentos
+prejudiciais e em $92\,\%$ do tempo prejudicial, com alerta em apenas $3\,\%$
+do tempo em ereto ou reclinado. A regra só-IMU, que não foi ajustada a esses
+dados, ficou em 55/62 segmentos, $84\,\%$ do tempo prejudicial e $29\,\%$ de
+falso alarme em ereto/reclinado. A validação em hardware confirmou o
+comportamento na rodada guiada ($100\,\%$ nas posturas 2--6 e $0\,\%$ nas
+demais) e expôs, no sujeito novo, os três problemas descritos na
+Seção~\ref{sec:res-hardware}. A feira acrescenta evidência qualitativa de
+funcionamento com muitas pessoas. Esses números indicam viabilidade técnica
+do detector; não medem a eficácia em mudar hábitos ou prevenir DORT, que
+exigiria estudo longitudinal.
+
+\subsection{O que cada canal acrescenta}
+\label{sec:dis-fusao}
+
+A hipótese que motivou o trabalho --- combinar a pressão na cadeira com a
+orientação do tronco --- foi sustentada pelos dados, mas por um mecanismo
+mais específico do que o previsto na entrega parcial. Ali, esperava-se que os
+FSR separassem o par curvar-para-frente/cabeça-baixa, que o IMU confundia.
+Nas capturas integradas, esse par não se mostrou o problema central para a
+\emph{detecção}: ambas as posturas são prejudiciais, e o alerta não depende de
+distingui-las. O ganho da fusão veio de três situações em que o ângulo do
+tronco, sozinho, induz a decisão errada:
+\begin{itemize}[nosep]
+  \item \textbf{Reclinar com o quadril apoiado} produz desvio sagital semelhante
+        ao de escorregar. Os FSR traseiros do assento mostram que o apoio foi
+        mantido; o falso alarme no reclinado caiu de $78\,\%$ para $5\,\%$ do
+        tempo. Na ablação, esse foi o maior incremento de pontuação.
+  \item \textbf{Escorregar com pouca inclinação do tronco} passa despercebido
+        pelo IMU, mas zera o assento traseiro; o escorregado passou de $72\,\%$
+        para $100\,\%$ do tempo alertado.
+  \item \textbf{Cadeira vazia}: com a pessoa em pé usando o colar, a regra
+        só-IMU alertou em $71\,s$ de $176\,s$; a fusão, em nenhum instante.
+\end{itemize}
+
+A confirmação lateral pelo assento teve efeito menor e ambíguo: recuperou uma
+inclinação pequena (Felipe), mas também gerou o falso alarme com pernas
+cruzadas de Rafael e não confirmou a inclinação à direita de Vinicius e de
+Lucas, em que a carga se deslocou no sentido oposto. Os resultados de bancada
+anteciparam o modo correto de usar os FSR402: como indicadores de contato e
+de pressão \emph{relativa}, comparados com a linha de base do próprio usuário,
+e não como medidores de força. A regra final segue exatamente esse caminho
+(somas de grupos do assento divididas pela linha de base), e a razão traseira
+em ereto permaneceu entre $0{,}96$ e $1{,}09$ ao longo de sessões de até
+$24$ minutos, longe dos limiares de $0{,}3$ e $0{,}7$, apesar do
+\textit{creep} de $7$--$12\,\%$ medido em bancada.
+
+\subsection{Detecção versus classificação}
+\label{sec:dis-deteccao}
+
+O sistema produz, junto com o alerta, um motivo (\texttt{SLUMP},
+\texttt{IMU\_DEV}, \texttt{LEAN}) e o painel exibe um nome de postura. Os
+erros de \emph{nome} observados na feira ocorreram em movimentos combinados ---
+por exemplo, inclinar de lado e curvar ao mesmo tempo ---, situação para a
+qual não há uma classe única correta. O mesmo fenômeno aparece nos dados
+rotulados: Ryan permaneceu escorregado durante uma inclinação lateral e
+Vinicius escorregou ao cruzar as pernas; nos dois casos o alerta foi
+fisicamente justificado, embora a etiqueta não o previsse. Como a finalidade
+do sistema é provocar a correção, e não diagnosticar a postura, avaliar pela
+detecção é o critério adequado; a classificação é informação complementar
+para o usuário e para a análise.
+
+\subsection{Posicionamento em relação aos trabalhos relacionados}
+\label{sec:dis-relacionados}
+
+Os trabalhos com cadeiras instrumentadas resumidos na
+Tabela~\ref{tab:rev-comparativo} buscam, em sua maioria, \emph{classificar}
+posturas a partir de modelos treinados em outras pessoas, e relatam queda de
+acerto quando o usuário não participou do treinamento --- de 96\,\% para
+79\,\% em Tan, Slivovsky e Pentland (2001). Este trabalho segue caminho
+diferente: em vez de um modelo geral, usa a postura ereta do próprio usuário
+como referência e decide apenas se há desvio prejudicial. A avaliação LOSO
+deste trabalho mede justamente a transferência a uma pessoa não usada no
+ajuste dos parâmetros, e a perda observada (de $0{,}935$ para $0{,}901$ na
+pontuação, com o mesmo número de segmentos prejudiciais detectados) foi
+pequena. Os números, porém, não são comparáveis aos da tabela: as métricas,
+as posturas e o tamanho das amostras diferem.
+
+A revisão de Kappattanavar et al. (2021) não encontrou estudo que combinasse
+pressão na cadeira com IMU vestível; o caso mais próximo, Zemp et al. (2016),
+usa o módulo inercial no encosto, para medir a cadeira e não o usuário. Os
+resultados da Seção~\ref{sec:dis-fusao} mostram por que a combinação importa:
+os casos que mais pesaram na decisão --- reclinar apoiado e escorregar ---
+são ambíguos para cada canal isolado e se resolvem quando os dois são
+observados juntos. Em relação aos vestíveis com retorno vibratório, como o
+avaliado por Kuo et al. (2021), a cadeira acrescenta contexto (presença,
+apoio do quadril) que o sensor no corpo não tem; em relação ao BackWatch
+(FERREIRA; SOUZA; CUBAS, 2025), que usa distância ao encosto com limiar fixo
+e alerta visual, o sistema proposto acrescenta calibração individual,
+orientação do tronco medida no corpo e alerta háptico. Por outro lado, a
+literatura sobre biofeedback (Seção~\ref{sec:rev-feedback}) indica que o
+efeito de curto prazo sobre a postura não garante benefício duradouro, o que
+reforça que a eficácia clínica permanece fora do alcance deste trabalho.
+
+\subsection{Limitações}
+\label{sec:dis-limitacoes}
+
+\begin{itemize}[nosep]
+  \item \textbf{Amostra pequena e homogênea.} Oito participantes nas capturas e
+        um único sujeito novo na validação em hardware. Não há estatística
+        inferencial; os percentuais descrevem este conjunto.
+  \item \textbf{Parâmetros ajustados nos mesmos dados.} A avaliação LOSO
+        reduz, mas não elimina, o otimismo; a pontuação caiu de $0{,}935$ para
+        $0{,}901$ e o falso alarme com pernas cruzadas subiu de $11\,\%$ para
+        $28\,\%$ do tempo.
+  \item \textbf{Posturas instruídas e mantidas.} As posturas foram executadas
+        sob instrução, por cerca de $15\,s$, majoritariamente em ordem fixa e
+        sem a série sutil prevista no protocolo. Não houve sessão de trabalho
+        real prolongada.
+  \item \textbf{Cabeça à frente.} Com o sensor no alto das costas, o movimento
+        localizado do pescoço não foi detectado em três de sete participantes;
+        os FSR não ajudam, pois as costas continuam apoiadas.
+  \item \textbf{Fixação do colar.} A deriva da referência durante a sessão
+        (Felipe, cerca de $+10\degree{}$; Lucas, cerca de $3{,}5\degree{}$)
+        produziu falsos alarmes e perdas que nenhuma regra instantânea corrige.
+  \item \textbf{Correção do motor não validada em hardware.} Os dois arquivos
+        de validação são anteriores à retenção da leitura sem vibração.
+  \item \textbf{Pernas cruzadas não tratadas.} Com quatro FSR no assento, o
+        sinal não teve padrão comum entre pessoas; a regra deliberadamente não
+        alerta nessa postura.
+  \item \textbf{Uma cadeira, um colar.} Os limiares de contagem (vazio, linha
+        de base mínima) dependem da espuma, da disposição dos sensores e do
+        resistor do divisor desta cadeira.
+  \item \textbf{Energia e latência não medidas.} Corrente, autonomia e o atraso
+        entre o início físico da postura e a vibração não foram quantificados.
+  \item \textbf{Feira sem registro.} O desempenho observado na feira é relato
+        qualitativo e não entra nos números do trabalho.
+\end{itemize}
