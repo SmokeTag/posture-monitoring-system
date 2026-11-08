@@ -1,0 +1,46 @@
+\chapter{Conclusões e Trabalhos Futuros}\label{cap:conclusao}
+
+Este trabalho desenvolveu um sistema embarcado e autônomo que detecta posturas
+sentadas prejudiciais e alerta o usuário por vibração. O colar mede a
+orientação da parte superior das costas; a cadeira mede a distribuição do peso
+com oito sensores de força, funde as duas informações, decide o alerta e o
+devolve ao colar por um enlace sem fio, sem depender de computador,
+aplicativo ou nuvem.
+
+Em relação aos objetivos específicos: a variação da referência de postura
+ereta entre pessoas e entre colocações do sensor mostrou-se da mesma ordem do
+desvio a detectar, o que tornou a calibração individual por botão uma
+condição de funcionamento (OE1). O colar e a cadeira foram construídos,
+alimentados por bateria e integrados por um enlace sem perda de pacotes nos
+ensaios realizados (OE2). O alerta por vibração foi percebido pelos usuários e
+cessou com a correção da postura (OE3). Na avaliação com oito participantes,
+deixando cada um fora do ajuste dos parâmetros, o sistema alertou em 58 de 62
+segmentos de postura prejudicial, com alerta em 3\,\% do tempo em postura
+ereta ou reclinada; com pernas cruzadas, que a regra não pretende sinalizar,
+essa fração chegou a 28\,\% (OE4). A principal contribuição é a fusão dos dois
+canais: os sensores da cadeira, inadequados como medidores de força, bastaram
+como indicadores de contato e permitiram deixar de alertar ao reclinar com o
+quadril apoiado ou ao levantar-se, e passar a detectar o escorregamento do
+quadril.
+
+Os resultados indicam a viabilidade técnica da abordagem, mas não demonstram
+efeito sobre a saúde. A amostra é pequena, as posturas foram instruídas, e
+permanecem limitações conhecidas: a projeção isolada da cabeça, as pernas
+cruzadas, a fixação do colar ao longo do uso, a interação entre a vibração e o
+sensor e o consumo de energia, que não foi medido.
+
+Como trabalhos futuros, propõem-se:
+\begin{itemize}
+  \item validar o sistema com mais participantes, posturas naturais e uso
+        prolongado em trabalho real, já com a correção da interferência do
+        motor embarcada;
+  \item adotar um padrão de vibração com pausas, menos incômodo, e avaliar a
+        aceitação pelos usuários;
+  \item medir corrente e autonomia, reduzir as retransmissões do enlace e a
+        taxa de amostragem para 5--10\,Hz;
+  \item compensar a deriva lenta da referência e aprimorar a fixação do colar;
+  \item estudar outra posição do sensor, ou um segundo sensor, para a
+        projeção da cabeça;
+  \item realizar um estudo longitudinal sobre mudança de hábito e sintomas
+        osteomusculares \cite{kuorinka1987}.
+\end{itemize}
