@@ -24,7 +24,7 @@ O sistema combina as informações obtidas pelo colar no alto da coluna, com as 
 
 O colar contém uma placa XIAO nRF52840 Sense com IMU LSM6DS3TR-C
 \cite{seeed_xiao,nordic_nrf52840,st_lsm6ds3trc}, posicionada nas costas,
-abaixo do pescoço, como mostrado na Figura 2.
+abaixo do pescoço, como mostra a Figura~\ref{fig:met-foto-colar}.
 
 \begin{figure}[H]
  \centering
@@ -33,7 +33,7 @@ abaixo do pescoço, como mostrado na Figura 2.
  \raisebox{-0.0pt}{\includegraphics[width=190pt,height=260.3469pt]{Colar (pescoço).jpeg}}
  \end{SingleSpace}
  \fonte{Fotografado pelos autores (2026)}
- \label{fig:met-esquema-colar}
+ \label{fig:met-foto-colar}
 \end{figure}
 
 Mede-se a orientação local, não a curvatura de toda a
@@ -186,8 +186,16 @@ beacon BLE e exibe desvio, contato e alerta, sem participar da decisão.
 \end{figure}
 
 \section{Painel}
-\label{sec:met-cadeira}
+\label{sec:met-painel}
 
-O painel foi desenvolvido em ambiente Python de programação e retorna as informações relevantes ao usuário como: posição do que o colar identifica da portura, contato dos sensores de força da cadeira, tempo de amostra, qualidade da postura ao longo tempo, entre outros. Ele se comunica com o sistema tanto por conexão sem fio beacon BLE quando conectado via bluetooth ao microcontrolador XIAO alocado na cadeira.
+O painel foi desenvolvido em Python e apresenta ao usuário a postura
+identificada pelo colar, o contato dos sensores de força da cadeira, o tempo
+de uso e a qualidade da postura ao longo do tempo, entre outras informações.
+Ele recebe os dados da XIAO da cadeira pela conexão USB ou, sem fio, pelo
+beacon BLE que essa placa transmite; neste caso, apenas escuta, sem
+estabelecer conexão nem enviar comandos.
 
-A função principal do painel é monitorar e ajudar o usuário a encontrar a postura ideal usando a amostra em tempo real que o sensor XIAO do colar entrega e identificar após o tempo de rico que o usuário está em uma posição perigosa, qual posição é essa e como ele deve retornar a zona segura criada pela calibração.
+A função principal do painel é ajudar o usuário a encontrar a postura ideal:
+com as amostras do colar em tempo real, ele indica quando, após o tempo de
+espera, o usuário está em uma postura prejudicial, qual é essa postura e como
+retornar à zona segura definida pela calibração.
