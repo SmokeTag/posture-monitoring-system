@@ -12,35 +12,34 @@ Define-se, assim, o problema de pesquisa: \emph{como um sistema embarcado de
 baixo custo pode detectar, em tempo real, posturas sentadas prejudiciais e
 avisar o usuário para que ele se corrija?} Dois fatores dificultam a
 detecção: a ``postura correta'' varia de pessoa para pessoa, e um único tipo
-de sensor não distingue situações semelhantes --- reclinar no encosto
+de sensor não distingue situações, reclinar no encosto
 (aceitável) e escorregar o quadril para a frente (prejudicial) inclinam o
 tronco no mesmo sentido.
 
 A proposta combina a distribuição do peso sobre a cadeira, medida por
 sensores de força no assento e no encosto, com a orientação da parte superior
-das costas, medida por uma unidade de medição inercial (IMU) em um colar; a
-cadeira funde as duas informações e, se a postura for prejudicial por tempo
+das costas, medida por uma unidade de medição inercial (IMU) em um colar; o sistema funde as duas informações e, se a postura for prejudicial por tempo
 suficiente, o colar vibra. Justifica-se o trabalho pelo monitoramento
 individual e contínuo com componentes acessíveis, sem câmeras, aplicativo ou
 nuvem.
 
 \section{Objetivos}
 
-O objetivo geral é \textbf{desenvolver um sistema embarcado, composto por uma
+O objetivo geral é desenvolver um sistema embarcado, composto por uma
 cadeira de escritório instrumentada e um colar com sensor inercial, capaz de
 detectar posturas sentadas prejudiciais e alertar o usuário em tempo real por
-vibração}. Os objetivos específicos são:
+vibração. Os objetivos específicos são:
 
 \begin{itemize}
   \setlength{\itemsep}{0pt}
   \setlength{\parsep}{0pt}
-  \item \textbf{(OE1)} caracterizar a variação da postura de referência entre
+  \item Caracterizar a variação da postura de referência entre
         usuários e entre colocações do sensor, e propor uma calibração
         individual que a compense;
-  \item \textbf{(OE2)} construir e integrar o colar e a cadeira instrumentada,
+  \item Construir e integrar o colar e a cadeira instrumentada,
         com comunicação sem fio entre eles;
-  \item \textbf{(OE3)} implementar o alerta ao usuário por vibração, com
+  \item Implementar o alerta ao usuário por vibração, com
         sinalização de estado;
-  \item \textbf{(OE4)} avaliar a capacidade de detecção do sistema com
+  \item Avaliar a capacidade de detecção do sistema com
         múltiplos participantes.
 \end{itemize}

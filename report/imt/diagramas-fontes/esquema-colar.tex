@@ -1,0 +1,46 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
+   pin/.style={font=\scriptsize,inner sep=2pt}]
+  % XIAO do colar
+  \draw[thick] (0,0) rectangle (3.8,4.0);
+  \node[align=center,font=\footnotesize\bfseries] at (1.9,3.5) {XIAO nRF52840\\[-1pt] Sense};
+  \draw[rounded corners=2pt] (0.45,1.45) rectangle (3.35,2.35);
+  \node[align=center,font=\scriptsize] at (1.9,1.9) {IMU LSM6DS3TR-C\\(I\textsuperscript{2}C interno)};
+  \node[align=center,font=\scriptsize] at (1.9,.6) {carregador\\LiPo / USB-C};
+  \node[pin,anchor=west] at (0,2.7) {BAT+};
+  \node[pin,anchor=west] at (0,1.0) {BAT$-$};
+  \node[pin,anchor=east] at (3.8,2.9) {3V3};
+  \node[pin,anchor=east] at (3.8,1.1) {D10};
+  \node[pin,anchor=east] at (3.8,.4) {GND};
+  % bateria
+  \draw (0,2.7) to[spst,l_=S1] (-1.5,2.7) -- (-2.1,2.7) to[battery1] (-2.1,1.0) -- (0,1.0);
+  \node[align=right,anchor=east,font=\scriptsize] at (-2.5,1.85) {LiPo 1S\\3{,}7\,V};
+  % driver
+  \node[npn,anchor=B] (Q) at (6.6,1.1) {};
+  \node[font=\scriptsize,anchor=west] at (Q.text) {BC337};
+  \draw (3.8,1.1) to[R,l={1\,k$\Omega$},-] (Q.B);
+  \draw (Q.E) node[ground]{};
+  % motor com diodo e capacitor em paralelo
+  \coordinate (mb) at (Q.C |- 0,2.6);
+  \coordinate (mt) at (Q.C |- 0,4.2);
+  \draw (Q.C) -- (mb) to[Telmech=M] (mt);
+  \draw ($(mb)+(1.2,0)$) to[D*,l_=1N4148] ($(mt)+(1.2,0)$); % cátodo no 3V3
+  \draw ($(mt)+(3.1,0)$) to[C,l=33\,nF] ($(mb)+(3.1,0)$);
+  \draw (mb) -- ++(3.1,0);
+  \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(3.1,0);
+  \fill (mt) circle (1.4pt) ($(mt)+(1.2,0)$) circle (1.4pt)
+        (mb) circle (1.4pt) ($(mb)+(1.2,0)$) circle (1.4pt);
+  \node[font=\scriptsize,anchor=south] at (5.6,4.2) {3{,}3\,V};
+  \node[font=\scriptsize,anchor=east] at ($(mb)!.5!(mt)+(-.45,0)$) {motor};
+  \draw (3.8,.4) -- (4.4,.4) node[ground]{};
+ \end{circuitikz}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}

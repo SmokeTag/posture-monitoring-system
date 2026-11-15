@@ -1,0 +1,29 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{tikzpicture}[
+  b/.style={draw,rounded corners,align=center,font=\footnotesize,
+   text width=3.4cm,minimum height=.8cm,inner sep=3pt},
+  a/.style={-{Latex[length=1.7mm]},thick},
+  n/.style={font=\footnotesize,align=center,fill=white,inner sep=2pt}]
+  \node[b] (imu) at (0,0) {Acelerômetro\\LSM6DS3TR-C};
+  \node[b] (body) at (4.65,0) {XIAO do colar\\aquisição e atuação};
+  \node[b] (motor) at (9.3,0) {BC337 + motor\\retorno vibratório};
+  \node[b] (fsr) at (0,-2.3) {8 FSR402\\+ CD74HC4067};
+  \node[b] (chair) at (4.65,-2.3) {XIAO da cadeira\\calibração e fusão};
+  \node[b] (pc) at (9.3,-2.3) {Painel \texttt{mostra.py}\\USB / beacon BLE};
+  \draw[a] (imu) -- node[n,above] {I\textsuperscript{2}C} (body);
+  \draw[a] (body) -- node[n,above] {PWM} (motor);
+  \draw[a] (fsr) -- node[n,above] {ADC} (chair);
+  \draw[a] (body.south west) -- node[n,left] {ESB: ângulos\\20\,Hz} (chair.north west);
+  \draw[a] (chair.north east) -- node[n,right] {ACK: alerta\\e referência} (body.south east);
+  \draw[a] (chair) -- (pc);
+ \end{tikzpicture}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}

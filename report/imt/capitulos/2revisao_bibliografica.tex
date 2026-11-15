@@ -1,5 +1,7 @@
 \chapter{Revisão Bibliográfica}\label{cap:fund_teorica}
 
+\section{Resumo}
+
 \section{Postura sentada e avaliação postural}
 \label{sec:rev-ergonomia}
 
@@ -7,10 +9,10 @@ Os DORT afetam músculos, tendões, articulações e nervos. Entre seus fatores 
 risco estão a postura inadequada, a permanência prolongada em posição estática
 e a ausência de pausas, agravados por fatores psicossociais
 \cite{mohammadian2025}. O risco postural costuma ser avaliado por métodos
-observacionais: o RULA \cite{mcatamney1993} pontua faixas de \textbf{ângulo de
-inclinação do tronco e do pescoço} --- o pescoço é penalizado em faixas de
-10\degree{} de flexão ---, e a norma ISO 11226 \cite{iso11226} combina o ângulo
-com o \textbf{tempo} de manutenção da postura. Ângulo do tronco e persistência
+observacionais: o RULA \cite{mcatamney1993} pontua faixas de ângulo de
+inclinação do tronco e do pescoço, o pescoço é penalizado em faixas de
+10\degree{} de flexão, e a norma ISO 11226 \cite{iso11226} combina o ângulo
+com o tempo de manutenção da postura. Ângulo do tronco e persistência
 no tempo fundamentam, neste trabalho, a inclinação medida por IMU e a espera
 antes do alerta; os limiares do sistema, porém, são desvios em relação à
 postura de referência de cada usuário, e não ângulos absolutos de norma.
@@ -18,8 +20,7 @@ postura de referência de cada usuário, e não ângulos absolutos de norma.
 \section{Sensores para monitoramento postural}
 \label{sec:rev-sensores}
 
-\textbf{Resistores sensíveis à força (FSR).} O FSR é um filme polimérico cuja
-resistência cai à medida que a força aplicada aumenta. O FSR402 tem área ativa
+O FSR (\emph{Force Sensing Resistor}) é um filme polimérico cuja resistência cai à medida que a força aplicada aumenta. O FSR402 tem área ativa
 de 12{,}7\,mm de diâmetro, faixa de cerca de 0{,}2 a 20\,N, curva
 força--resistência fortemente não linear, repetibilidade de $\pm$6\,\% entre
 peças e deriva sob carga constante (\emph{creep}) inferior a 5\,\% por década
@@ -60,18 +61,11 @@ trabalhadores, o retorno sobre a postura lombar não diferiu do grupo controle
 persiste, e o efeito em longo prazo não pode ser presumido a partir de testes
 curtos.
 
-O BackWatch \cite{ferreira2025}, pôster da FEBRACE 2025, mede com dois
-sensores ultrassônicos no encosto o afastamento do usuário e alerta por display
-LCD acima de um limiar fixo; é montado na cadeira, e não vestível. Na revisão
-sistemática de \citeonline{kappattanavar2021}, 13 dos 14 estudos usavam
-sensores de pressão e nenhum os combinava a um IMU no corpo; os autores
-recomendaram incorporar IMUs para capturar o movimento da coluna.
-
-O sistema proposto ocupa essa lacuna em quatro aspectos: \textbf{funde} a
+O sistema proposto ocupa essa lacuna em quatro aspectos: funde a
 distribuição de peso na cadeira com a orientação do tronco superior, que não
 toca a cadeira, de modo que cada canal cobre casos que o outro confunde
 (reclinar inclina o tronco sem ser prejudicial; escorregar descarrega o apoio
-traseiro do assento com pouca inclinação); fornece \textbf{retorno háptico} em
-tempo real no corpo; usa \textbf{calibração por usuário}, em vez de limiares
+traseiro do assento com pouca inclinação); fornece retorno háptico em
+tempo real no corpo; usa calibração por usuário, em vez de limiares
 absolutos ou modelos treinados em outras pessoas; e faz todo o
-\textbf{processamento embarcado}, sem aplicativo nem nuvem.
+processamento embarcado, sem aplicativo nem nuvem.

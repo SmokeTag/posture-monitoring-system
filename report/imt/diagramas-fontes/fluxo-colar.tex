@@ -1,0 +1,34 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{tikzpicture}[
+  b/.style={draw,rounded corners,align=center,font=\footnotesize,
+    text width=3.55cm,minimum height=.78cm,inner sep=3pt},
+  a/.style={-{Latex[length=1.7mm]},thick},
+  n/.style={font=\footnotesize,fill=white,inner sep=1pt}]
+  \node[b] (imu) at (0,0) {Ler IMU a 20\,Hz;\\reter leitura sem vibração};
+  \node[b] (tx) at (4.65,0) {Enviar orientação;\\verificar ACK recebido};
+  \node[b] (link) at (4.65,-1.8) {ACK de controle válido\\há menos de 1\,s?};
+  \node[b] (local) at (0,-1.8) {Regra local, se calibrado:\\desvio $>10\degree{}$ por 3\,s};
+  \node[b] (ack) at (9.3,-1.8) {Aplicar alerta do ACK\\se a IMU estiver válida};
+  \node[b] (motor) at (4.65,-3.3) {Controlar motor\\e LED de estado};
+  \node[b] (bat) at (4.65,-4.8) {Checar bateria;\\alimentar watchdog};
+  \node[b] (off) at (9.3,-4.8) {Bateria baixa sem USB:\\motor e rádio OFF; desligar};
+  \draw[a] (imu) -- (tx);
+  \draw[a] (tx) -- (link);
+  \draw[a] (link) -- node[n,above] {não} (local);
+  \draw[a] (link) -- node[n,above] {sim} (ack);
+  \draw[a] (local.south) |- (motor.west);
+  \draw[a] (ack.south) |- (motor.east);
+  \draw[a] (motor) -- (bat);
+  \draw[a] (bat) -- node[n,above] {corte} (off);
+  \draw[a] (bat.west) -- node[n,above] {continuar} (-2.45,-4.8) |- (imu.west);
+ \end{tikzpicture}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}

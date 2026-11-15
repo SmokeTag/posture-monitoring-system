@@ -1,0 +1,38 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{tikzpicture}[y=1.12cm,
+  q/.style={draw,align=center,font=\footnotesize,text width=5.3cm,
+    minimum height=.65cm,inner sep=3pt},
+  r/.style={draw,rounded corners,align=center,font=\footnotesize,
+    text width=4.45cm,minimum height=.65cm,inner sep=3pt},
+  a/.style={-{Latex[length=1.7mm]},thick},
+  n/.style={font=\footnotesize,fill=white,inner sep=1pt}]
+  \node[q] (invalid) at (0,0) {IMU inválida?};
+  \node[q] (empty) at (0,-1.05) {$S<2000$ contagens?};
+  \node[q] (slump) at (0,-2.1) {$\rho<0{,}3$?};
+  \node[q] (dev) at (0,-3.15) {$d_{\mathrm{ef}}>10\degree{}$?};
+  \node[q] (lean) at (0,-4.2) {Base lateral válida, $|\Delta p|\geq5\degree{}$\\e $h\geq0{,}08$?};
+  \node[q] (ok) at (0,-5.35) {\texttt{RECLINE\_OK} se reclinado e $d>10\degree{}$;\\\texttt{OK} nos demais casos};
+  \node[r] (ri) at (7.2,0) {\texttt{INVALID}: zerar portão};
+  \node[r] (re) at (7.2,-1.05) {\texttt{EMPTY}: zerar portão};
+  \node[r] (rs) at (7.2,-2.1) {\texttt{SLUMP}: condição ruim};
+  \node[r] (rd) at (7.2,-3.15) {\texttt{IMU\_DEV}: condição ruim};
+  \node[r] (rl) at (7.2,-4.2) {\texttt{LEAN}: condição ruim};
+  \node[r] (gate) at (7.2,-5.35) {Portão: ruim por 3\,s dispara;\\sem condição ruim e $d_{\mathrm{ef}}<7\degree{}$ limpa};
+  \foreach \x/\y in {invalid/empty,empty/slump,slump/dev,dev/lean,lean/ok}
+    \draw[a] (\x) -- node[n,right] {não} (\y);
+  \foreach \x/\y in {invalid/ri,empty/re,slump/rs,dev/rd,lean/rl}
+    \draw[a] (\x) -- node[n,above] {sim} (\y);
+  \draw[a] (ok) -- (gate);
+  \draw[a] (rs.east) -- ++(.5,0) |- (gate.east);
+  \draw (rd.east) -- ++(.5,0); \draw (rl.east) -- ++(.5,0);
+ \end{tikzpicture}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}
