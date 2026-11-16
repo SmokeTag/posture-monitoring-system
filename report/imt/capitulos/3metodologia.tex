@@ -108,6 +108,10 @@ $\sqrt{R_{\min}R_{\max}}$ na faixa de contato, como compromisso entre
 resolução e corrente; o efeito fixo de $R_{\mathrm{on}}$ é incorporado à
 calibração. Os oito canais são lidos a 20\,Hz, com ADC de 12 bits.
 O botão D9 solicita a calibração. A alimentação repete o circuito do colar.
+A Figura~\ref{fig:met-sensores} detalha a ligação elétrica dos sensores: o
+acelerômetro do colar, no barramento I\textsuperscript{2}C interno da placa,
+e o circuito equivalente de um canal FSR da cadeira, que origina a
+Equação~\ref{eq:met-divisor}.
 
 \begin{figure}[H]
  \centering
@@ -117,6 +121,14 @@ O botão D9 solicita a calibração. A alimentação repete o circuito do colar.
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-esquema-cadeira}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \caption{Diagrama elétrico dos sensores.}
+ \includegraphics[width=\linewidth]{met-sensores.pdf}
+ \fonte{Elaborado pelos autores (2026)}
+ \label{fig:met-sensores}
 \end{figure}
 
 \section{Integração}
@@ -152,6 +164,17 @@ retransmissão \cite{nordic_esb,tmrh20_nrftonrf}. O colar transmite os
 ângulos e a cadeira responde no próprio ACK; assim, a decisão da amostra $N$
 retorna no ACK de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra
 inercial à última referência recebida; sem referência, não alerta.
+A Figura~\ref{fig:met-funcionamento} resume a lógica geral de
+funcionamento: as etapas de um uso, da calibração ao fim, e o ciclo de
+monitoramento executado a cada amostra.
+
+\begin{figure}[H]
+ \centering
+ \caption{Lógica geral de funcionamento do sistema.}
+ \includegraphics[width=\linewidth]{met-funcionamento.pdf}
+ \fonte{Elaborado pelos autores (2026)}
+ \label{fig:met-funcionamento}
+\end{figure}
 
 A calibração individual é acionada com o usuário ereto, sentado ao fundo.
 Em 20 amostras válidas (cerca de 1\,s), capturam-se as médias angulares

@@ -1,4 +1,4 @@
-Fontes editaveis dos cinco diagramas.
+Fontes editaveis dos sete diagramas.
 O main.tex usa somente os PDFs vetoriais em figures/, sem carregar TikZ/CircuitikZ.
 
 Para editar um diagrama no Overleaf: selecione seu .tex como Main document, compile e baixe o PDF. Envie-o para figures/met-NOME.pdf e volte o Main document para main.tex.

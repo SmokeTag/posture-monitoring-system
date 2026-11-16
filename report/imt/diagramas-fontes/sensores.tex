@@ -1,0 +1,42 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
+   pin/.style={font=\scriptsize,inner sep=2pt}]
+  % (a) IMU do colar: barramento I2C interno da placa
+  \draw[thick] (0,0) rectangle (2.6,3.4);
+  \node[align=center,font=\footnotesize\bfseries] at (1.3,2.8) {nRF52840};
+  \node[align=center,font=\scriptsize] at (1.3,2.3) {XIAO do colar};
+  \draw[thick] (4.4,0) rectangle (7.0,3.4);
+  \node[align=center,font=\footnotesize\bfseries] at (5.7,2.8) {LSM6DS3TR-C};
+  \node[align=center,font=\scriptsize] at (5.7,2.3) {acelerômetro\\(endereço 0x6A)};
+  \draw (2.6,1.5) -- node[above,font=\scriptsize] {SDA} (4.4,1.5);
+  \draw (2.6,0.9) -- node[below,font=\scriptsize] {SCL} (4.4,0.9);
+  \draw (5.0,3.4) -- ++(0,.6) node[above,font=\scriptsize] {3{,}3\,V};
+  \draw (6.4,0) -- ++(0,-.4) node[ground]{};
+  \node[font=\scriptsize,align=center] at (3.5,-.9) {barramento I\textsuperscript{2}C interno da placa};
+  \node[font=\footnotesize\bfseries] at (3.5,-1.7) {(a) Colar};
+
+  % (b) Um canal FSR da cadeira (circuito equivalente)
+  \begin{scope}[xshift=9.6cm]
+  \draw (0,4.4) node[above,font=\scriptsize] {3{,}3\,V} -- (0,4.0)
+        to[R,l={FSR402: $R_{\mathrm{FSR}}$}] (0,2.4)
+        to[R,l={mux: $R_{\mathrm{on}}\approx100\,\Omega$}] (0,0.8)
+        coordinate (sig);
+  \draw (sig) to[R,l={$R_{\mathrm{fixo}}=3{,}3\,$k$\Omega$}] (0,-0.8) node[ground]{};
+  \fill (sig) circle (1.4pt);
+  \draw (sig) -- (1.6,0.8) node[right,font=\scriptsize,align=left]
+        {SIG $\rightarrow$ A0\\ADC 12 bits};
+  \node[font=\scriptsize,align=left,anchor=west] at (3.4,2.4)
+        {Canal C8--C15 escolhido\\por S0--S3 (D10, D3, D2, D1);\\um canal por vez, 20\,Hz};
+  \node[font=\footnotesize\bfseries] at (2.6,-1.7) {(b) Cadeira: um canal FSR};
+  \end{scope}
+ \end{circuitikz}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}

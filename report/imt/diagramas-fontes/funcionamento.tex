@@ -1,0 +1,49 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{tikzpicture}[
+  b/.style={draw,rounded corners,align=flush center,font=\footnotesize,
+    text width=3.3cm,minimum height=1.05cm,inner sep=3pt,execute at begin node={\hyphenpenalty=10000 }},
+  e/.style={draw,rounded corners,align=flush center,font=\footnotesize,
+    text width=3.3cm,minimum height=1.05cm,inner sep=3pt,fill=black!6},
+  a/.style={-{Latex[length=1.7mm]},thick},
+  d/.style={-{Latex[length=1.7mm]},thick,dashed},
+  n/.style={font=\scriptsize,align=center,fill=white,inner sep=1.5pt},
+  t/.style={font=\footnotesize\bfseries,anchor=west}]
+  % etapas de um uso
+  \node[t] at (-1.75,1.1) {Etapas de um uso};
+  \node[e] (lig) at (0,0) {Ligar colar e cadeira;\\enlace ESB estabelecido};
+  \node[e] (cal) at (4.3,0) {Calibrar: usuário ereto\\aperta o botão; 20\\amostras de $p_0$, $r_0$, $b_i$};
+  \node[e] (mon) at (8.6,0) {Monitorar a 20\,Hz\\(ciclo abaixo)};
+  \node[e] (fim) at (12.9,0) {Fim do uso: assento\\vazio por 10\,s apaga\\a referência};
+  \draw[a] (lig) -- (cal);
+  \draw[a] (cal) -- node[n,above=2pt] {aceita} (mon);
+  \draw[a] (mon) -- (fim);
+  \draw[a] (fim.south) -- ++(0,-.45) -| node[n,pos=.25] {próximo usuário} (cal.south);
+
+  % ciclo de monitoramento
+  \node[t] at (-1.75,-2.25) {Ciclo de monitoramento (20\,Hz)};
+  \node[b] (imu) at (0,-3.4) {Colar: lê o\\acelerômetro e\\calcula $p$ e $r$};
+  \node[b] (fsr) at (4.3,-3.4) {Cadeira: receber $p$, $r$\\e ler os 8 FSR};
+  \node[b] (fus) at (8.6,-3.4) {Fusão: desvio do\\tronco e distribuição\\de carga no assento};
+  \node[b] (gat) at (12.9,-3.4) {Portão temporal:\\condição ruim por 3\,s\\liga o alerta};
+  \node[b] (ack) at (12.9,-5.4) {Alerta enviado ao\\colar no ACK};
+  \node[b] (mot) at (8.6,-5.4) {Colar: motor vibra\\enquanto houver alerta};
+  \node[b] (pan) at (4.3,-5.4) {Painel (opcional):\\estado por USB/BLE};
+  \draw[a] (imu) -- node[n,above] {ESB} (fsr);
+  \draw[a] (fsr) -- (fus);
+  \draw[a] (fus) -- (gat);
+  \draw[a] (gat) -- (ack);
+  \draw[a] (ack) -- (mot);
+  \draw[d] (fsr) -- (pan);
+  \node[b,dashed] (fb) at (0,-5.4) {Sem ACK por 1\,s, o\\colar aplica a regra\\própria: $d>10\degree{}$\\por 3\,s};
+  \draw[d] (imu) -- (fb);
+ \end{tikzpicture}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}
