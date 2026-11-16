@@ -23,6 +23,9 @@ OUT = C.ROOT / "report" / "figures"
 SUBJECTS = ["Andre-Monteiro", "Felipe-godoi", "Gustavo-Socce", "Rafael-Herleng",
             "Ryan-Akira", "Thiago-Fita", "Thiago-M", "Vinicius-Beleti"]
 NAMES = ["André", "Felipe", "Gustavo", "Rafael", "Ryan", "T. Fita", "T. M.", "Vinicius"]
+# IMT report: anonymized labels, same order as SUBJECTS.
+PARTICIPANTS = [f"Participante {i}" for i in range(1, len(SUBJECTS) + 1)]
+IMT_OUT = C.ROOT / "report" / "imt" / "figures"
 TAGS = ["1 Ereto", "2 Curvado à frente", "3 Cabeça à frente", "4 Escorregado",
         "5 Inclinado à esquerda", "6 Inclinado à direita", "7 Reclinado",
         "8 Perna E sobre D", "9 Perna D sobre E"]
@@ -32,11 +35,11 @@ plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10,
 DECIMAL = FuncFormatter(lambda v, _: f"{v:g}".replace(".", ","))
 
 
-def save(fig: plt.Figure, name: str) -> None:
-    fig.savefig(OUT / f"res_{name}.png", bbox_inches="tight", facecolor="white",
+def save(fig: plt.Figure, name: str, out=OUT) -> None:
+    fig.savefig(out / f"res_{name}.png", bbox_inches="tight", facecolor="white",
                 metadata={"Software": "analysis/report_figures.py"})
     plt.close(fig)
-    print(f"figure: report/figures/res_{name}.png", flush=True)
+    print(f"figure: {(out / f'res_{name}.png').relative_to(C.ROOT)}", flush=True)
 
 
 def seat_indices(x: F.Inputs) -> tuple[np.ndarray, np.ndarray]:
@@ -119,12 +122,12 @@ def matrix(d: pd.DataFrame, value: str) -> np.ndarray:
             .reindex(index=range(1, 10), columns=SUBJECTS).to_numpy())
 
 
-def heatmap(ax, values, title, *, norm, fmt, cmap="Greys", rows=True):
+def heatmap(ax, values, title, *, norm, fmt, cmap="Greys", rows=True, names=NAMES):
     cm = plt.get_cmap(cmap).copy()
     cm.set_bad("#e8e8e8")
     im = ax.imshow(np.ma.masked_invalid(values), cmap=cm, norm=norm, aspect="auto")
     ax.set_title(title, fontsize=11, pad=12)
-    ax.set_xticks(range(8), NAMES, rotation=45, ha="right")
+    ax.set_xticks(range(8), names, rotation=45, ha="right")
     ax.set_yticks(range(9), TAGS if rows else [""] * 9)
     ax.tick_params(length=0)
     for i in range(9):
@@ -162,7 +165,7 @@ def channel_figures(d: pd.DataFrame):
     save(fig, "assento_posturas")
 
 
-def alert_figure(xs: list[F.Inputs]):
+def alert_figure(xs: list[F.Inputs], names=NAMES, out=OUT):
     segs = F.evaluate(xs, F.FUSION)
     segs = segs.assign(on=segs.frac * segs.n)
     g = segs.groupby(["tag", "subject"])[["on", "n"]].sum()
@@ -171,11 +174,11 @@ def alert_figure(xs: list[F.Inputs]):
     with plt.rc_context({"font.size": 9}):
         fig, ax = plt.subplots(figsize=(6.2, 3.7), layout="constrained")
         im = heatmap(ax, values.to_numpy(), "",
-                     norm=plt.Normalize(0, 100), fmt=lambda v: f"{v:.0f}")
+                     norm=plt.Normalize(0, 100), fmt=lambda v: f"{v:.0f}", names=names)
         for label in ax.texts:
             label.set_fontsize(9)
         fig.colorbar(im, ax=ax, shrink=.85, label="Tempo com alerta (%)")
-    save(fig, "alerta_sujeitos")
+    save(fig, "alerta_sujeitos", out)
 
 
 def ablation_figure(xs: list[F.Inputs]):
@@ -287,6 +290,7 @@ def main():
     channel_figures(d)
     dispersion_figure(d)
     alert_figure(xs)
+    alert_figure(xs, PARTICIPANTS, IMT_OUT)
     ablation_figure(xs)
     validation_figures()
     inventory(xs)
