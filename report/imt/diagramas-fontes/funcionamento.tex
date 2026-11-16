@@ -17,7 +17,7 @@
   \node[e] (lig) at (0,0) {Ligar colar e cadeira;\\enlace ESB estabelecido};
   \node[e] (cal) at (4.3,0) {Calibrar: usuário ereto\\aperta o botão; 20\\amostras de $p_0$, $r_0$, $b_i$};
   \node[e] (mon) at (8.6,0) {Monitorar a 20\,Hz\\(ciclo abaixo)};
-  \node[e] (fim) at (12.9,0) {Fim do uso: assento\\vazio por 10\,s apaga\\a referência};
+  \node[e] (fim) at (12.9,0) {Fim do uso: sem USB,\\assento vazio por 10\,s\\apaga a referência};
   \draw[a] (lig) -- (cal);
   \draw[a] (cal) -- node[n,above=2pt] {aceita} (mon);
   \draw[a] (mon) -- (fim);
