@@ -39,7 +39,7 @@ abaixo do pescoço, como mostra a Figura~\ref{fig:met-foto-colar}.
 Mede-se a orientação local, não a curvatura de toda a
 coluna. Utiliza-se apenas o acelerômetro, com giroscópio desligado.
 Das componentes $a_x$, $a_y$ e $a_z$, calculam-se \textit{pitch} ($p$)
-e \textit{roll} ($r$), em graus:
+e \textit{roll} ($r$), em graus, pela Equação~\ref{eq:met-angulos}:
 \begin{equation}
  p=\frac{180}{\pi}\operatorname{atan2}\!\left(-a_x,\sqrt{a_y^2+a_z^2}\right),
  \qquad r=\frac{180}{\pi}\operatorname{atan2}(a_y,a_z).
@@ -96,7 +96,8 @@ absoluta na espuma.
 O circuito da Figura~\ref{fig:met-esquema-cadeira} usa o multiplexador
 CD74HC4067 \cite{ti_cd74hc4067} para ligar cada FSR ao resistor
 compartilhado de 3{,}3\,k\ohm{} em SIG. Incluindo a resistência de
-condução $R_{\mathrm{on}}$, a tensão lida em A0 é
+condução $R_{\mathrm{on}}$, a tensão lida em A0 é dada pela
+Equação~\ref{eq:met-divisor}:
 \begin{equation}
  V_{\mathrm{SIG}}=V_{\mathrm{DD}}
  \frac{R_{\mathrm{fixo}}}{R_{\mathrm{fixo}}+R_{\mathrm{FSR}}+R_{\mathrm{on}}}.
@@ -146,7 +147,8 @@ A referência é volátil e deve ser refeita após reinício ou recolocação.
 
 Na fusão, $FE$, $FD$, $TE$ e $TD$ indicam frente/trás e esquerda/direita do
 assento. O encosto é registrado e exibido, mas não decide o alerta, pois
-pode ficar sem carga mesmo no ereto. Para leituras $f_i$, definem-se
+pode ficar sem carga mesmo no ereto. Para leituras $f_i$, definem-se os
+indicadores da Equação~\ref{eq:met-indicadores}:
 \begin{equation}
  \begin{gathered}
  \Delta p=p-p_0,\quad \Delta r=r-r_0,\quad
@@ -188,14 +190,30 @@ beacon BLE e exibe desvio, contato e alerta, sem participar da decisão.
 \section{Painel}
 \label{sec:met-painel}
 
-O painel foi desenvolvido em Python e apresenta ao usuário a postura
-identificada pelo sistema, o contato dos sensores de força da cadeira, o tempo
-de uso e a qualidade da postura ao longo do tempo, entre outras informações.
-Ele recebe os dados da XIAO da cadeira pela conexão USB ou, sem fio, pelo
-beacon BLE que essa placa transmite; neste caso, apenas escuta, sem
-estabelecer conexão nem enviar comandos.
+O painel, desenvolvido em Python, permite acompanhar o sistema em um
+computador, sem participar da decisão do alerta. Ele recebe da XIAO da
+cadeira, a 20\,Hz, a mesma linha de estado que a placa calcula: ângulos do
+colar, leituras dos oito FSRs, resultado da fusão e alerta. A ligação usa a
+porta USB ou, sem fio, o beacon BLE que a cadeira transmite; neste caso, o
+computador apenas escuta, sem estabelecer conexão nem enviar comandos. Pelo
+cabo, a calibração também pode ser solicitada pelo teclado.
 
-A função principal do painel é ajudar o usuário a encontrar a postura ideal:
-com as amostras do colar em tempo real, ele indica quando, após o tempo de
-espera, o usuário está em uma postura prejudicial, qual é essa postura e como
-retornar à zona segura definida pela calibração.
+A Figura~\ref{fig:met-painel} apresenta a tela. A faixa superior resume o
+estado em texto e cor: postura boa (verde), atenção enquanto a postura ruim
+ainda não completou os 3\,s (laranja) e correção com o colar vibrando
+(vermelho), sempre com o nome da postura identificada pelo sistema. O quadro
+``Sua coluna'' posiciona o desvio em relação à zona boa, centrada na
+calibração, junto às regiões típicas das posturas registradas; ``Sua
+cadeira'' mostra a carga relativa de cada FSR no assento e no encosto e a
+divisão do peso entre esquerda e direita. Abaixo, aparecem o tempo sentado,
+a fração do tempo em postura boa, o número de alertas e a linha do tempo dos
+últimos 2\,min. Cada uso começa na calibração e termina após 10\,s de
+assento vazio, quando a referência é apagada para o próximo usuário.
+
+\begin{figure}[H]
+ \centering
+ \caption{Tela do painel com o usuário em postura boa.}
+ \includegraphics[width=.85\linewidth]{met-painel.png}
+ \fonte{Elaborado pelos autores (2026)}
+ \label{fig:met-painel}
+\end{figure}
