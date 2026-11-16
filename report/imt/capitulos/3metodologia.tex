@@ -122,12 +122,19 @@ O botão D9 solicita a calibração. A alimentação repete o circuito do colar.
 \section{Integração}
 \label{sec:met-integracao}
 
-A Figura~\ref{fig:met-arquitetura} reúne os blocos. O enlace Nordic
-Enhanced ShockBurst (ESB), pela biblioteca \texttt{nrf\_to\_nrf}, usa
-confirmação (ACK) e retransmissão
-\cite{nordic_esb,tmrh20_nrftonrf}. A decisão da amostra $N$ retorna no ACK
-de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra inercial
-à última referência recebida; sem referência, não alerta.
+A Figura~\ref{fig:met-arquitetura} apresenta o diagrama de blocos do
+sistema, composto por duas unidades autônomas e uma interface de
+acompanhamento. No colar, a XIAO lê o acelerômetro LSM6DS3TR-C por
+I\textsuperscript{2}C, calcula os ângulos de inclinação do tronco e aciona,
+por PWM, o motor vibratório através do transistor BC337
+(Seção~\ref{sec:met-colar}). Na cadeira, a segunda XIAO lê pelo ADC os oito
+FSR402, selecionados um a um pelo multiplexador CD74HC4067
+(Seção~\ref{sec:met-cadeira}). A XIAO da cadeira concentra a decisão: recebe
+os ângulos do colar a 20\,Hz, realiza a calibração, combina a postura do
+tronco com a distribuição de pressão no assento e devolve ao colar o estado
+de alerta e a referência calibrada. O painel \texttt{mostra.py}
+(Seção~\ref{sec:met-painel}) recebe o estado da cadeira por USB ou beacon
+BLE apenas para acompanhamento, sem participar da decisão.
 
 \begin{figure}[H]
  \centering
@@ -138,6 +145,13 @@ de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra inercial
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-arquitetura}
 \end{figure}
+
+A comunicação entre as unidades usa o enlace Nordic Enhanced ShockBurst
+(ESB), pela biblioteca \texttt{nrf\_to\_nrf}, com confirmação (ACK) e
+retransmissão \cite{nordic_esb,tmrh20_nrftonrf}. O colar transmite os
+ângulos e a cadeira responde no próprio ACK; assim, a decisão da amostra $N$
+retorna no ACK de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra
+inercial à última referência recebida; sem referência, não alerta.
 
 A calibração individual é acionada com o usuário ereto, sentado ao fundo.
 Em 20 amostras válidas (cerca de 1\,s), capturam-se as médias angulares
