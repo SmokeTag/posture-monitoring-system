@@ -3,11 +3,7 @@
 \section{Protocolos de teste}
 \label{sec:res-protocolos}
 
-Em junho de 2026, caracterizaram-se o IMU, com um participante e sem o
-colar final, e três FSR402, com cargas sobre balança. Avaliaram-se posturas,
-recolocações do IMU, carga/descarga e acomodação dos FSRs.
-
-Em 21/10/2026, nove sessões com oito participantes registraram o sistema
+Nove sessões com oito participantes registraram o sistema
 com motor mudo. As posturas instruídas foram: (1) ereto, (2) curvado à
 frente, (3) cabeça à frente com tronco apoiado, (4) escorregado,
 (5--6) inclinado à esquerda/direita, (7) reclinado e (8--9) perna
@@ -18,10 +14,10 @@ Os rótulos são instruções do operador, sem medida anatômica independente.
 
 Compararam-se as regras por reprodução temporal (\textit{replay}). No LOSO
 (\textit{leave-one-subject-out}), ajustam-se os parâmetros com sete sujeitos
-e avalia-se o omitido; as sessões de André ficam juntas. A pontuação
+e avalia-se o omitido. A pontuação
 balanceada é a média entre tempo alertado nos segmentos prejudiciais e
 não alertado nos aceitáveis, incluindo pernas cruzadas, com igual peso por
-segmento em cada grupo. Em 22/10, duas sessões em hardware usaram motor
+segmento em cada grupo. Duas sessões em hardware usaram motor
 ativo, com participante conhecido e sujeito novo.
 
 \section{Caracterização em bancada}
@@ -109,7 +105,7 @@ como falso pelo rótulo. Na ablação cumulativa, o maior ganho veio do
 tratamento da reclinação apoiada; a confirmação lateral também acrescentou
 falsos alarmes com pernas cruzadas.
 
-\section{Validação em hardware e mostra}
+\section{Validação em \textit{hardware}  e mostra}
 \label{sec:res-hardware}
 
 Na rodada guiada de André, participante do desenvolvimento, o alerta
@@ -122,10 +118,10 @@ alertaram em 100\,\% do tempo estabilizado; inclinar à direita não
 alertou. À esquerda, o alerta ocupou 9{,}2\,\%: a vibração perturbou o
 IMU em cerca de $\pm10\degree{}$, interrompendo o alerta e reiniciando
 os 3\,s. A correção reteve a última orientação sem motor durante a
-vibração e elevou o alerta a 100\,\% no replay, sem nova sessão controlada
-em hardware para confirmá-la.
+vibração e elevou o alerta a 100\,\% no \textit{replay}, sem nova sessão controlada
+em \textit{hardware} para confirmá-la.
 
-Na mostra Eureka, em novembro, mais de 150 visitantes de biotipos
+Na mostra do evento Eureka, mais de 150 visitantes de biotipos
 variados usaram o sistema com calibração individual e retorno vibratório;
 a postura prejudicial foi detectada em praticamente todos os casos
 observados, e os erros limitaram-se ao nome exibido para movimentos

@@ -1,0 +1,7 @@
+Fontes editaveis dos cinco diagramas.
+O main.tex usa somente os PDFs vetoriais em figures/, sem carregar TikZ/CircuitikZ.
+
+Para editar um diagrama no Overleaf: selecione seu .tex como Main document, compile e baixe o PDF. Envie-o para figures/met-NOME.pdf e volte o Main document para main.tex.
+Os arquivos de diagrama usam diagramas-fontes/preambulo.tex e devem ser compilados com a raiz do projeto no caminho de busca.
+Com Tectonic local: tectonic -Z search-path=. diagramas-fontes/NOME.tex
+Se o tamanho do desenho mudar, atualize width, height e raisebox no capitulo 3.

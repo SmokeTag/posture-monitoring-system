@@ -1,0 +1,60 @@
+\input{diagramas-fontes/preambulo}
+\begin{document}
+\begin{SingleSpace}
+\begin{preview}
+\sbox{\diagramabox}{%
+\begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
+   pin/.style={font=\scriptsize,inner sep=2pt}]
+  % multiplexador
+  \draw[thick] (0,0) rectangle (5.4,2.9);
+  \node[align=center,font=\footnotesize\bfseries] at (2.7,1.65) {CD74HC4067};
+  \node[align=center,font=\scriptsize] at (2.7,1.2) {multiplexador 16:1};
+  \foreach \i in {0,...,7} {
+    \pgfmathtruncatemacro{\c}{\i+8}
+    \coordinate (c\i) at (.55+.62*\i,2.9);
+    \node[pin,anchor=north,font=\tiny] at (c\i) {C\c};
+    \draw (c\i) to[R,resistors/scale=.65] ++(0,1.5) coordinate (t\i);
+  }
+  \node[font=\scriptsize,anchor=south] at ($(t3)!.5!(t4)+(0,.05)$) {8\,$\times$ FSR402};
+  \draw (t0) -- (t7) -- ++(.9,0) coordinate (rail);
+  \foreach \i in {0,...,6} \fill (t\i) circle (1.3pt);
+  \node[pin,anchor=west] at (0,2.0) {VCC};
+  \node[pin,anchor=west] at (0,.5) {EN};
+  \node[pin,anchor=west] at (0,.15) {GND};
+  \draw (0,2.0) -- (-.6,2.0) |- (t0);
+   \draw (0,.5) -- (-.6,.5) -- (-.6,-.4) node[ground]{};
+  \draw (0,.15) -- (-.6,.15);
+  \fill (-.6,.15) circle (1.3pt);
+  \foreach \n/\y in {S0/2.4,S1/1.95,S2/1.5,S3/1.05,SIG/.4}
+    \node[pin,anchor=east] at (5.4,\y) {\n};
+  % XIAO da cadeira
+  \draw[thick] (8.9,-.8) rectangle (12.3,3.3);
+  \node[align=center,font=\footnotesize\bfseries] at (10.85,2.55) {XIAO nRF52840\\[-1pt] Sense};
+  \node[align=center,font=\scriptsize] at (10.9,.5) {carregador\\LiPo / USB-C};
+  \foreach \n/\m/\y in {S0/D10/2.4,S1/D3/1.95,S2/D2/1.5,S3/D1/1.05} {
+    \node[pin,anchor=west] at (8.9,\y) {\m};
+    \draw (5.4,\y) -- (8.9,\y);
+  }
+  \node[pin,anchor=west] at (8.9,.4) {A0};
+  \draw (5.4,.4) -- (8.9,.4);
+  \fill (6.4,.4) circle (1.4pt);
+  \draw (6.4,.4) to[R,l_={3{,}3\,k$\Omega$}] (6.4,-1.2) node[ground]{};
+  \node[pin,anchor=north] at (9.3,3.3) {3V3};
+  \draw (9.3,3.3) |- (rail);
+  \node[font=\scriptsize,anchor=south] at (7.6,4.4) {3{,}3\,V};
+  % botao e bateria
+  \node[pin,anchor=east] at (12.3,2.2) {D9};
+  \draw (12.3,2.2) -- (12.9,2.2) to[push button,l=calibrar] (12.9,.6) node[ground]{};
+  \node[pin,anchor=south] at (9.6,-.8) {GND};
+  \draw (9.6,-.8) -- (9.6,-1.2) node[ground]{};
+  \node[pin,anchor=south] at (10.6,-.8) {BAT+};
+  \node[pin,anchor=south] at (11.8,-.8) {BAT$-$};
+  \draw (10.6,-.8) to[spst,l_=S1] (10.6,-2.2) to[battery1] (11.8,-2.2) -- (11.8,-.8);
+  \node[font=\scriptsize,anchor=north] at (11.2,-2.55) {LiPo 1S, 3{,}7\,V};
+ \end{circuitikz}%
+}
+\typeout{DIAGRAM-SIZE: \the\wd\diagramabox; \the\ht\diagramabox; \the\dp\diagramabox}
+\usebox{\diagramabox}
+\end{preview}
+\end{SingleSpace}
+\end{document}

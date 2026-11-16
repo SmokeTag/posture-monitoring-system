@@ -1,15 +1,42 @@
 \chapter{Metodologia}\label{cap:metodologia}
 
-O sistema combina a orientação do alto das costas, medida pelo colar,
-com o contato na cadeira. Esta decide o alerta e o devolve ao colar,
-que vibra. O processamento independe do computador.
+O sistema combina as informações obtidas pelo colar no alto da coluna, com as obtidas pelos oito sensores de força na cadeira para alertar o usuário que estiver em postura incorreta (Figura~\ref{fig:sistema}).
+
+\begin{figure}[H]
+    \centering
+    \caption{Fotografia do sistema.}
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth,height=260.3469pt]{WhatsApp Image 2026-11-15 at 11.15.11.jpeg}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth,height=260.3469pt]{Colar (solo).jpeg}
+    \end{minipage}
+
+    \fonte{Fotografado pelos autores (2026)}
+    \label{fig:sistema}
+\end{figure}
 
 \section{Colar}
 \label{sec:met-colar}
 
 O colar contém uma placa XIAO nRF52840 Sense com IMU LSM6DS3TR-C
 \cite{seeed_xiao,nordic_nrf52840,st_lsm6ds3trc}, posicionada nas costas,
-abaixo do pescoço. Mede-se a orientação local, não a curvatura de toda a
+abaixo do pescoço, como mostra a Figura~\ref{fig:met-foto-colar}.
+
+\begin{figure}[H]
+ \centering
+ \caption{Fotografia da posição do colar.}
+ \begin{SingleSpace}
+ \raisebox{-0.0pt}{\includegraphics[width=190pt,height=260.3469pt]{Colar (pescoço).jpeg}}
+ \end{SingleSpace}
+ \fonte{Fotografado pelos autores (2026)}
+ \label{fig:met-foto-colar}
+\end{figure}
+
+Mede-se a orientação local, não a curvatura de toda a
 coluna. Utiliza-se apenas o acelerômetro, com giroscópio desligado.
 Das componentes $a_x$, $a_y$ e $a_z$, calculam-se \textit{pitch} ($p$)
 e \textit{roll} ($r$), em graus:
@@ -36,41 +63,7 @@ sintetiza a aquisição e o controle.
  \centering
  \caption{Esquema elétrico do colar.}
  \begin{SingleSpace}
- \begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
-   pin/.style={font=\scriptsize,inner sep=2pt}]
-  % XIAO do colar
-  \draw[thick] (0,0) rectangle (3.8,4.0);
-  \node[align=center,font=\footnotesize\bfseries] at (1.9,3.5) {XIAO nRF52840\\[-1pt] Sense};
-  \draw[rounded corners=2pt] (0.45,1.45) rectangle (3.35,2.35);
-  \node[align=center,font=\scriptsize] at (1.9,1.9) {IMU LSM6DS3TR-C\\(I\textsuperscript{2}C interno)};
-  \node[align=center,font=\scriptsize] at (1.9,.6) {carregador\\LiPo / USB-C};
-  \node[pin,anchor=west] at (0,2.7) {BAT+};
-  \node[pin,anchor=west] at (0,1.0) {BAT$-$};
-  \node[pin,anchor=east] at (3.8,2.9) {3V3};
-  \node[pin,anchor=east] at (3.8,1.1) {D10};
-  \node[pin,anchor=east] at (3.8,.4) {GND};
-  % bateria
-  \draw (0,2.7) to[spst,l_=S1] (-1.5,2.7) -- (-2.1,2.7) to[battery1] (-2.1,1.0) -- (0,1.0);
-  \node[align=right,anchor=east,font=\scriptsize] at (-2.5,1.85) {LiPo 1S\\3{,}7\,V};
-  % driver
-  \node[npn,anchor=B] (Q) at (6.6,1.1) {};
-  \node[font=\scriptsize,anchor=west] at (Q.text) {BC337};
-  \draw (3.8,1.1) to[R,l={1\,k$\Omega$},-] (Q.B);
-  \draw (Q.E) node[ground]{};
-  % motor com diodo e capacitor em paralelo
-  \coordinate (mb) at (Q.C |- 0,2.6);
-  \coordinate (mt) at (Q.C |- 0,4.2);
-  \draw (Q.C) -- (mb) to[Telmech=M] (mt);
-  \draw ($(mb)+(1.2,0)$) to[D*,l_=1N4148] ($(mt)+(1.2,0)$); % cátodo no 3V3
-  \draw ($(mt)+(3.1,0)$) to[C,l=33\,nF] ($(mb)+(3.1,0)$);
-  \draw (mb) -- ++(3.1,0);
-  \draw (3.8,2.9) -- (4.4,2.9) |- (mt) -- ++(3.1,0);
-  \fill (mt) circle (1.4pt) ($(mt)+(1.2,0)$) circle (1.4pt)
-        (mb) circle (1.4pt) ($(mb)+(1.2,0)$) circle (1.4pt);
-  \node[font=\scriptsize,anchor=south] at (5.6,4.2) {3{,}3\,V};
-  \node[font=\scriptsize,anchor=east] at ($(mb)!.5!(mt)+(-.45,0)$) {motor};
-  \draw (3.8,.4) -- (4.4,.4) node[ground]{};
- \end{circuitikz}
+ \raisebox{-0.0pt}{\includegraphics[width=448.00436pt,height=142.3469pt]{met-esquema-colar.pdf}}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-esquema-colar}
@@ -80,29 +73,7 @@ sintetiza a aquisição e o controle.
  \centering
  \caption{Fluxo de aquisição, controle e proteção do colar.}
  \begin{SingleSpace}
- \begin{tikzpicture}[
-  b/.style={draw,rounded corners,align=center,font=\footnotesize,
-    text width=3.55cm,minimum height=.78cm,inner sep=3pt},
-  a/.style={-{Latex[length=1.7mm]},thick},
-  n/.style={font=\footnotesize,fill=white,inner sep=1pt}]
-  \node[b] (imu) at (0,0) {Ler IMU a 20\,Hz;\\reter leitura sem vibração};
-  \node[b] (tx) at (4.65,0) {Enviar orientação;\\verificar ACK recebido};
-  \node[b] (link) at (4.65,-1.8) {ACK de controle válido\\há menos de 1\,s?};
-  \node[b] (local) at (0,-1.8) {Regra local, se calibrado:\\desvio $>10\degree{}$ por 3\,s};
-  \node[b] (ack) at (9.3,-1.8) {Aplicar alerta do ACK\\se a IMU estiver válida};
-  \node[b] (motor) at (4.65,-3.3) {Controlar motor\\e LED de estado};
-  \node[b] (bat) at (4.65,-4.8) {Checar bateria;\\alimentar watchdog};
-  \node[b] (off) at (9.3,-4.8) {Bateria baixa sem USB:\\motor e rádio OFF; desligar};
-  \draw[a] (imu) -- (tx);
-  \draw[a] (tx) -- (link);
-  \draw[a] (link) -- node[n,above] {não} (local);
-  \draw[a] (link) -- node[n,above] {sim} (ack);
-  \draw[a] (local.south) |- (motor.west);
-  \draw[a] (ack.south) |- (motor.east);
-  \draw[a] (motor) -- (bat);
-  \draw[a] (bat) -- node[n,above] {corte} (off);
-  \draw[a] (bat.west) -- node[n,above] {continuar} (-2.45,-4.8) |- (imu.west);
- \end{tikzpicture}
+ \raisebox{-0.0pt}{\includegraphics[width=388.42339pt,height=175.91806pt]{met-fluxo-colar.pdf}}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-fluxo-colar}
@@ -141,55 +112,7 @@ O botão D9 solicita a calibração. A alimentação repete o circuito do colar.
  \centering
  \caption{Esquema elétrico da cadeira.}
  \begin{SingleSpace}
- \begin{circuitikz}[font=\footnotesize, european resistors, line width=.6pt,
-   pin/.style={font=\scriptsize,inner sep=2pt}]
-  % multiplexador
-  \draw[thick] (0,0) rectangle (5.4,2.9);
-  \node[align=center,font=\footnotesize\bfseries] at (2.7,1.65) {CD74HC4067};
-  \node[align=center,font=\scriptsize] at (2.7,1.2) {multiplexador 16:1};
-  \foreach \i in {0,...,7} {
-    \pgfmathtruncatemacro{\c}{\i+8}
-    \coordinate (c\i) at (.55+.62*\i,2.9);
-    \node[pin,anchor=north,font=\tiny] at (c\i) {C\c};
-    \draw (c\i) to[R,resistors/scale=.65] ++(0,1.5) coordinate (t\i);
-  }
-  \node[font=\scriptsize,anchor=south] at ($(t3)!.5!(t4)+(0,.05)$) {8\,$\times$ FSR402};
-  \draw (t0) -- (t7) -- ++(.9,0) coordinate (rail);
-  \foreach \i in {0,...,6} \fill (t\i) circle (1.3pt);
-  \node[pin,anchor=west] at (0,2.0) {VCC};
-  \node[pin,anchor=west] at (0,.5) {EN};
-  \node[pin,anchor=west] at (0,.15) {GND};
-  \draw (0,2.0) -- (-.6,2.0) |- (t0);
-   \draw (0,.5) -- (-.6,.5) -- (-.6,-.4) node[ground]{};
-  \draw (0,.15) -- (-.6,.15);
-  \fill (-.6,.15) circle (1.3pt);
-  \foreach \n/\y in {S0/2.4,S1/1.95,S2/1.5,S3/1.05,SIG/.4}
-    \node[pin,anchor=east] at (5.4,\y) {\n};
-  % XIAO da cadeira
-  \draw[thick] (8.9,-.8) rectangle (12.3,3.3);
-  \node[align=center,font=\footnotesize\bfseries] at (10.85,2.55) {XIAO nRF52840\\[-1pt] Sense};
-  \node[align=center,font=\scriptsize] at (10.9,.5) {carregador\\LiPo / USB-C};
-  \foreach \n/\m/\y in {S0/D10/2.4,S1/D3/1.95,S2/D2/1.5,S3/D1/1.05} {
-    \node[pin,anchor=west] at (8.9,\y) {\m};
-    \draw (5.4,\y) -- (8.9,\y);
-  }
-  \node[pin,anchor=west] at (8.9,.4) {A0};
-  \draw (5.4,.4) -- (8.9,.4);
-  \fill (6.4,.4) circle (1.4pt);
-  \draw (6.4,.4) to[R,l_={3{,}3\,k$\Omega$}] (6.4,-1.2) node[ground]{};
-  \node[pin,anchor=north] at (9.3,3.3) {3V3};
-  \draw (9.3,3.3) |- (rail);
-  \node[font=\scriptsize,anchor=south] at (7.6,4.4) {3{,}3\,V};
-  % botao e bateria
-  \node[pin,anchor=east] at (12.3,2.2) {D9};
-  \draw (12.3,2.2) -- (12.9,2.2) to[push button,l=calibrar] (12.9,.6) node[ground]{};
-  \node[pin,anchor=south] at (9.6,-.8) {GND};
-  \draw (9.6,-.8) -- (9.6,-1.2) node[ground]{};
-  \node[pin,anchor=south] at (10.6,-.8) {BAT+};
-  \node[pin,anchor=south] at (11.8,-.8) {BAT$-$};
-  \draw (10.6,-.8) to[spst,l_=S1] (10.6,-2.2) to[battery1] (11.8,-2.2) -- (11.8,-.8);
-  \node[font=\scriptsize,anchor=north] at (11.2,-2.55) {LiPo 1S, 3{,}7\,V};
- \end{circuitikz}
+ \raisebox{-0.0pt}{\includegraphics[width=436.23093pt,height=230.01868pt]{met-esquema-cadeira.pdf}}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-esquema-cadeira}
@@ -209,24 +132,7 @@ de $N+1$. Após 1\,s sem ACK válido, o colar aplica a regra inercial
  \centering
  \caption{Arquitetura autônoma e interfaces de acompanhamento.}
  \begin{SingleSpace}
- \begin{tikzpicture}[
-  b/.style={draw,rounded corners,align=center,font=\footnotesize,
-   text width=3.4cm,minimum height=.8cm,inner sep=3pt},
-  a/.style={-{Latex[length=1.7mm]},thick},
-  n/.style={font=\footnotesize,align=center,fill=white,inner sep=2pt}]
-  \node[b] (imu) at (0,0) {Acelerômetro\\LSM6DS3TR-C};
-  \node[b] (body) at (4.65,0) {XIAO do colar\\aquisição e atuação};
-  \node[b] (motor) at (9.3,0) {BC337 + motor\\retorno vibratório};
-  \node[b] (fsr) at (0,-2.3) {8 FSR402\\+ CD74HC4067};
-  \node[b] (chair) at (4.65,-2.3) {XIAO da cadeira\\calibração e fusão};
-  \node[b] (pc) at (9.3,-2.3) {Painel \texttt{mostra.py}\\USB / beacon BLE};
-  \draw[a] (imu) -- node[n,above] {I\textsuperscript{2}C} (body);
-  \draw[a] (body) -- node[n,above] {PWM} (motor);
-  \draw[a] (fsr) -- node[n,above] {ADC} (chair);
-  \draw[a] (body.south west) -- node[n,left] {ESB: ângulos\\20\,Hz} (chair.north west);
-  \draw[a] (chair.north east) -- node[n,right] {ACK: alerta\\e referência} (body.south east);
-  \draw[a] (chair) -- (pc);
- \end{tikzpicture}
+ \raisebox{-0.0pt}{\includegraphics[width=367.74976pt,height=92.78621pt]{met-arquitetura.pdf}}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-arquitetura}
@@ -273,34 +179,23 @@ beacon BLE e exibe desvio, contato e alerta, sem participar da decisão.
  \centering
  \caption{Prioridade da regra de fusão e encaminhamento ao portão temporal.}
  \begin{SingleSpace}
- \begin{tikzpicture}[y=1.12cm,
-  q/.style={draw,align=center,font=\footnotesize,text width=5.3cm,
-    minimum height=.65cm,inner sep=3pt},
-  r/.style={draw,rounded corners,align=center,font=\footnotesize,
-    text width=4.45cm,minimum height=.65cm,inner sep=3pt},
-  a/.style={-{Latex[length=1.7mm]},thick},
-  n/.style={font=\footnotesize,fill=white,inner sep=1pt}]
-  \node[q] (invalid) at (0,0) {IMU inválida?};
-  \node[q] (empty) at (0,-1.05) {$S<2000$ contagens?};
-  \node[q] (slump) at (0,-2.1) {$\rho<0{,}3$?};
-  \node[q] (dev) at (0,-3.15) {$d_{\mathrm{ef}}>10\degree{}$?};
-  \node[q] (lean) at (0,-4.2) {Base lateral válida, $|\Delta p|\geq5\degree{}$\\e $h\geq0{,}08$?};
-  \node[q] (ok) at (0,-5.35) {\texttt{RECLINE\_OK} se reclinado e $d>10\degree{}$;\\\texttt{OK} nos demais casos};
-  \node[r] (ri) at (7.2,0) {\texttt{INVALID}: zerar portão};
-  \node[r] (re) at (7.2,-1.05) {\texttt{EMPTY}: zerar portão};
-  \node[r] (rs) at (7.2,-2.1) {\texttt{SLUMP}: condição ruim};
-  \node[r] (rd) at (7.2,-3.15) {\texttt{IMU\_DEV}: condição ruim};
-  \node[r] (rl) at (7.2,-4.2) {\texttt{LEAN}: condição ruim};
-  \node[r] (gate) at (7.2,-5.35) {Portão: ruim por 3\,s dispara;\\sem condição ruim e $d_{\mathrm{ef}}<7\degree{}$ limpa};
-  \foreach \x/\y in {invalid/empty,empty/slump,slump/dev,dev/lean,lean/ok}
-    \draw[a] (\x) -- node[n,right] {não} (\y);
-  \foreach \x/\y in {invalid/ri,empty/re,slump/rs,dev/rd,lean/rl}
-    \draw[a] (\x) -- node[n,above] {sim} (\y);
-  \draw[a] (ok) -- (gate);
-  \draw[a] (rs.east) -- ++(.5,0) |- (gate.east);
-  \draw (rd.east) -- ++(.5,0); \draw (rl.east) -- ++(.5,0);
- \end{tikzpicture}
+ \raisebox{-0.0pt}{\includegraphics[width=364.59319pt,height=199.60779pt]{met-fusao.pdf}}
  \end{SingleSpace}
  \fonte{Elaborado pelos autores (2026)}
  \label{fig:met-fusao}
 \end{figure}
+
+\section{Painel}
+\label{sec:met-painel}
+
+O painel foi desenvolvido em Python e apresenta ao usuário a postura
+identificada pelo sistema, o contato dos sensores de força da cadeira, o tempo
+de uso e a qualidade da postura ao longo do tempo, entre outras informações.
+Ele recebe os dados da XIAO da cadeira pela conexão USB ou, sem fio, pelo
+beacon BLE que essa placa transmite; neste caso, apenas escuta, sem
+estabelecer conexão nem enviar comandos.
+
+A função principal do painel é ajudar o usuário a encontrar a postura ideal:
+com as amostras do colar em tempo real, ele indica quando, após o tempo de
+espera, o usuário está em uma postura prejudicial, qual é essa postura e como
+retornar à zona segura definida pela calibração.
